@@ -4,91 +4,29 @@
 #include "IVirtualStream.h"
 #include "DebugInterface.h"
 
-// loaded headers
-LEVELINFO			g_levInfo;
-MAPINFO				g_mapInfo;
-
-regiondata_t*		g_regionDataDescs = NULL;	// region model/texture data descriptors
-regionpages_t*		g_regionPages = NULL;		// region texpage usage table
-RegionModels_t*		g_regionModels = NULL;		// cached region models
-REGIONINFO*			g_regionInfos = NULL;		// region data info
-ushort*				g_regionOffsets = NULL;		// region offset table
-
-int					g_numRegionDatas = 0;
-int					g_numRegionOffsets = 0;
-
-CELL_OBJECT*		g_straddlers = NULL;		// cells that placed between regions (transition area)
-
-//-------------------------------------------------------------
-// parses LUMP_MAP and it's straddler objects
-//-------------------------------------------------------------
-void LoadMapLump(IVirtualStream* pFile)
-{
-	int l_ofs = pFile->Tell();
-
-	pFile->Read(&g_mapInfo, 1, sizeof(MAPINFO));
-
-	Msg("Level dimensions[%d %d], tile size: %d\n", g_mapInfo.width, g_mapInfo.height, g_mapInfo.tileSize);
-	Msg("numRegions: %d\n", g_mapInfo.numRegions);
-	Msg("visTableWidth: %d\n", g_mapInfo.visTableWidth);
-
-	Msg("numAllObjects : %d\n", g_mapInfo.numAllObjects);
-	Msg("NumStraddlers: %d\n", g_mapInfo.numStraddlers);
-
-	g_straddlers = new CELL_OBJECT[g_mapInfo.numStraddlers];
-	
-	// straddler objects are placed where region transition comes
-	// FIXME: HOW to use them in regions?
-	for(int i = 0; i < g_mapInfo.numStraddlers; i++)
-	{
-		PACKED_CELL_OBJECT object;
-		
-		pFile->Read(&object, 1, sizeof(PACKED_CELL_OBJECT));
-
-		UnpackCellObject(object, g_straddlers[i]);
-	}
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
-}
-
 //----------------------------------------------------------------------------------------
 
 void LoadRegionData(IVirtualStream* pFile, RegionModels_t* models, regiondata_t* data, regionpages_t* pages )
 {
 	int modelsCountOffset = g_levInfo.spooldata_offset + 2048 * (data->modelsOffset + data->modelsSize-1);
+
 	int modelsOffset = g_levInfo.spooldata_offset + 2048 * data->modelsOffset;
+
 	int texturesOffset = g_levInfo.spooldata_offset + 2048 * data->textureOffset;
 
 	pFile->Seek(texturesOffset, VS_SEEK_SET);
 
-	// fetch textures
+	// try load textures
 	for(int i = 0; pages->pageIndexes[i] != REGTEXPAGE_EMPTY; i++)
 	{
-		int pageIdx = pages->pageIndexes[i];
-
-		/*
-		// if already has data
-		if(g_pageDatas[pageIdx].data)
-		{
-			pFile->Seek(TEXPAGE_4BIT_SIZE, VS_SEEK_CUR);
-
-			if(pFile->Tell() % 2048)
-				pFile->Seek(2048 - (pFile->Tell() % 2048),VS_SEEK_CUR);
-
-			continue;
-		}*/
-
 		// load texture pages
-		LoadTexturePageData(pFile, &g_pageDatas[pageIdx], pageIdx);
+		LoadTexturePageData(pFile, &g_pageDatas[pages->pageIndexes[i]], pages->pageIndexes[i]);
 
 		if(pFile->Tell() % 2048)
 			pFile->Seek(2048 - (pFile->Tell() % 2048),VS_SEEK_CUR);
 	}
 
-	if(!models) // don't read models
-		return;
-
-	// fetch models
+	// we try to load models
 	pFile->Seek(modelsCountOffset, VS_SEEK_SET);
 
 	ushort numModels;
@@ -115,7 +53,7 @@ void LoadRegionData(IVirtualStream* pFile, RegionModels_t* models, regiondata_t*
 
 			int idx = model_indexes[i];
 
-			if( needModels )
+			if(needModels)
 			{
 				ModelRef_t ref;
 				ref.index = idx;
@@ -124,108 +62,17 @@ void LoadRegionData(IVirtualStream* pFile, RegionModels_t* models, regiondata_t*
 				
 				models->modelRefs.append(ref);
 			}
+
+			// replace model globally
+			if(g_models[idx].model)
+			{
+				ASSERT(g_models[idx].swap); // assume that empty models are used only for swapping
+
+				g_models[idx].model = NULL;
+			}
+
+			g_models[idx].model = (MODEL*)data;
+				
 		}
-	}
-
-	delete [] model_indexes;
-}
-
-//-------------------------------------------------------------
-// parses LUMP_SPOOLINFO, and also loads region data
-//-------------------------------------------------------------
-void LoadSpoolInfoLump(IVirtualStream* pFile)
-{
-	int l_ofs = pFile->Tell();
-
-	int unk;
-	pFile->Read(&unk, 1, sizeof(int));
-
-	Msg("unk = %d\n", unk);
-
-	int numSomething; // i think it's always 32
-	pFile->Read(&numSomething, 1, sizeof(int));
-
-	Msg("numSomething = %d\n", numSomething);
-	pFile->Seek(numSomething, VS_SEEK_CUR);
-	
-	pFile->Read(&g_numRegionDatas, 1, sizeof(int));
-
-	Msg("numRegionDatas = %d\n", g_numRegionDatas);
-	g_regionModels = new RegionModels_t[g_numRegionDatas];
-
-	g_regionDataDescs = new regiondata_t[g_numRegionDatas];
-	g_regionPages = new regionpages_t[g_numRegionDatas];
-
-	// read local geometry and texture pages
-	pFile->Read(g_regionDataDescs, g_numRegionDatas, sizeof(regiondata_t));
-	pFile->Read(g_regionPages, g_numRegionDatas, sizeof(regionpages_t));
-
-	// something decompled, 48 bytes
-	struct V17Data
-	{
-		int a[4];
-		int b[4];
-		int c[4];
-	};
-
-	V17Data unknStruct;
-
-	pFile->Read(&unknStruct, 1, sizeof(unknStruct));
-
-	Msg("unk a = [%d %d %d %d]\n", unknStruct.a[0], unknStruct.a[1], unknStruct.a[2], unknStruct.a[3]);
-	Msg("unk b = [%d %d %d %d]\n", unknStruct.b[0], unknStruct.b[1], unknStruct.b[2], unknStruct.b[3]);
-	Msg("unk c = [%d %d %d %d]\n", unknStruct.c[0]+2047 & -2048, unknStruct.c[1]+2047 & -2048, unknStruct.c[2]+2047 & -2048, unknStruct.c[3]+2047 & -2048);
-
-	pFile->Read(&g_numRegionOffsets, 1, sizeof(int));
-	Msg("numRegionOffsets: %d\n", g_numRegionOffsets);
-
-	g_regionOffsets = new ushort[g_numRegionOffsets];
-	pFile->Read(g_regionOffsets, g_numRegionOffsets, sizeof(short));
-
-	int regionsInfoSize;
-	pFile->Read(&regionsInfoSize, 1, sizeof(int));
-	int numRegionInfos = regionsInfoSize/sizeof(REGIONINFO);
-
-	Msg("Region info count %d (size=%d bytes)\n", numRegionInfos, regionsInfoSize);
-
-	g_regionInfos = (REGIONINFO*)malloc(regionsInfoSize);
-	pFile->Read(g_regionInfos, 1, regionsInfoSize);
-
-	// seek back
-	pFile->Seek(l_ofs, VS_SEEK_SET);
-}
-
-void FreeSpoolData()
-{
-	if(g_straddlers)
-		delete [] g_straddlers;
-	g_straddlers = NULL;
-
-	if(g_regionInfos)
-		free(g_regionInfos);
-	g_regionInfos = NULL;
-
-	if(g_regionOffsets)
-		delete [] g_regionOffsets;
-	g_regionOffsets = NULL;
-
-	if(g_regionPages)
-		delete [] g_regionPages;
-	g_regionPages = NULL;
-
-	if(g_regionDataDescs)
-		delete [] g_regionDataDescs;
-	g_regionDataDescs = NULL;
-
-	if(g_regionModels)
-	{
-		for(int i = 0; i < g_regionModels[i].modelRefs.numElem(); i++)
-		{
-			for(int j = 0; j < g_regionModels[i].modelRefs.numElem(); j++)
-				free(g_regionModels[i].modelRefs[j].model);
-		}
-
-		delete [] g_regionModels;
-		g_regionModels = NULL;
 	}
 }

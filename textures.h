@@ -5,7 +5,6 @@
 #define TEXTURES_H
 
 #include "level.h"
-#include "math/vector.h"
 
 // forward
 class IVirtualStream;
@@ -29,23 +28,16 @@ struct texdata_t
 
 //---------------------------------------------------------------------------------------------------------------------------------
 
-TVec4D<ubyte>	bgr5a1_ToRGBA8(ushort color);
-
-//---------------------------------------------------------------------------------------------------------------------------------
-
 // unpacks compressed texture
-int				UnpackTexture(ubyte* pSrc, ubyte* pDst);
+int		UnpackTexture(ubyte* pSrc, ubyte* pDst);
 
 // loads texture (you must specify offset in virtual stream before)
-void			LoadTexturePageData(IVirtualStream* pFile, texdata_t* out, int pageIndex);
+int		LoadTexturePageData(IVirtualStream* pFile, texdata_t* out, int pageIndex);
 
 // loads global textures (pre-loading stage)
-void			LoadGlobalTextures(IVirtualStream* pFile);
+void	LoadGlobalTextures(IVirtualStream* pFile);
 
 // loads texture atlas information (details per page)
-void			LoadTextureInfoLump(IVirtualStream* pFile);
-
-// searches for texture detail
-TEXTUREDETAIL*	FindTextureDetail(const char* name);
+void	LoadTextureInfoLump(IVirtualStream* pFile);
 
 #endif // TEXTURES_H

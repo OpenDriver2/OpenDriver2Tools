@@ -5,10 +5,6 @@
 
 struct RegionModels_t;
 
-void LoadMapLump(IVirtualStream* pFile);
 void LoadRegionData(IVirtualStream* pFile, RegionModels_t* models, regiondata_t* data, regionpages_t* pages );
-void LoadSpoolInfoLump(IVirtualStream* pFile);
-
-void FreeSpoolData();
 
 #endif // REGIONS_H
