@@ -8,92 +8,18 @@
 ConVar g_export_carmodels("carmodels", "0");
 ConVar g_export_models("models", "0");
 ConVar g_export_world("world", "0");
+ConVar g_export_textures("textures", "0");
 
-ConVar g_format("format", "2");
+#include "ImageLoader.h"
+
 
 //---------------------------------------------------------------------------------------------------------------------------------
 
-LEVELINFO			g_levInfo;
-MAPINFO				g_mapInfo;
-
-TEXPAGEINFO*		g_texPageInfos = NULL;
-
-int					g_numTexPages = 0;
-int					g_numTexDetails = 0;
-
-texdata_t*			g_pageDatas = NULL;
-TexPage_t*			g_texPages = NULL;
-
-DkList<ModelRef_t>	g_models;
-
-DkList<EqString>	g_model_names;
-DkList<EqString>	g_texture_names;
 EqString			g_levname_moddir;
 EqString			g_levname_texdir;
 
-char*				g_textureNamesData = NULL;
-
-//-------------------------------------------------------------
-// load model names
-//-------------------------------------------------------------
-void LoadModelNamesLump(IVirtualStream* pFile, int size)
-{
-	int l_ofs = pFile->Tell();
-
-	char* modelnames = new char[size];
-
-	pFile->Read(modelnames, size, 1);
-
-	int len = strlen(modelnames);
-	int sz = 0;
-
-	do
-	{
-		char* str = modelnames+sz;
-
-		len = strlen(str);
-
-		g_model_names.append(str);
-
-		//if(len)
-		//	Msg("model name: %s\n", str);
-
-		sz += len + 1; 
-	}while(sz < size);
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
-}
-
-//-------------------------------------------------------------
-// load texture names, same as model names
-//-------------------------------------------------------------
-void LoadTextureNamesLump(IVirtualStream* pFile, int size)
-{
-	int l_ofs = pFile->Tell();
-
-	g_textureNamesData = new char[size];
-
-	pFile->Read(g_textureNamesData, size, 1);
-
-	int len = strlen(g_textureNamesData);
-	int sz = 0;
-
-	do
-	{
-		char* str = g_textureNamesData+sz;
-
-		len = strlen(str);
-
-		g_texture_names.append(str);
-
-		//if(len)
-		//	Msg("texture name: %s\n", str);
-
-		sz += len + 1; 
-	}while(sz < size);
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
-}
+const float			texelSize = 1.0f/256.0f;
+const float			halfTexelSize = texelSize*0.5f;
 
 //-------------------------------------------------------------
 // writes Wavefront OBJ into stream
@@ -102,7 +28,8 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 							bool debugInfo = true,
 							const Matrix4x4& translation = identity4(),
 							int* first_v = NULL,
-							int* first_t = NULL)
+							int* first_t = NULL,
+							RegionModels_t* regModels = NULL)
 {
 	if(!model)
 	{
@@ -125,7 +52,7 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 	{
 		pStream->Print("#vertex data ref model: %d (count = %d)\r\n", model->vertex_ref, model->numverts);
 
-		vertex_ref = g_models[model->vertex_ref].model;
+		vertex_ref = FindModelByIndex(model->vertex_ref, regModels);
 
 		if(!vertex_ref)
 		{
@@ -201,10 +128,10 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 
 			if((dec_face.flags & FACE_TEXTURED) || (dec_face.flags & FACE_TEXTURED2))
 			{
-				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[0][0]) / 255.0f, (255.0f-float(dec_face.texcoord[0][1])) / 255.0f);
-				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[1][0]) / 255.0f, (255.0f-float(dec_face.texcoord[1][1])) / 255.0f);
-				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[2][0]) / 255.0f, (255.0f-float(dec_face.texcoord[2][1])) / 255.0f);
-				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[3][0]) / 255.0f, (255.0f-float(dec_face.texcoord[3][1])) / 255.0f);
+				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[0][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.texcoord[0][1])) / 256.0f+halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[1][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.texcoord[1][1])) / 256.0f+halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[2][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.texcoord[2][1])) / 256.0f+halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[3][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.texcoord[3][1])) / 256.0f+halfTexelSize);
 
 				pStream->Print("f %d/%d %d/%d %d/%d %d/%d\r\n", 
 						vertex_index[0]+1+numVerts, numVertCoords+4,
@@ -243,9 +170,9 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 
 			if((dec_face.flags & FACE_TEXTURED) || (dec_face.flags & FACE_TEXTURED2))
 			{
-				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[0][0]) / 255, (255.0f-float(dec_face.texcoord[0][1])) / 255);
-				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[1][0]) / 255, (255.0f-float(dec_face.texcoord[1][1])) / 255);
-				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[2][0]) / 255, (255.0f-float(dec_face.texcoord[2][1])) / 255);
+				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[0][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.texcoord[0][1])) / 256.0f+halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[1][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.texcoord[1][1])) / 256.0f+halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[2][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.texcoord[2][1])) / 256.0f+halfTexelSize);
 
 				pStream->Print("f %d/%d %d/%d %d/%d\r\n", 
 						vertex_index[0]+1+numVerts, numVertCoords+3,
@@ -285,7 +212,9 @@ void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, bo
 	{
 		Msg("----------\nModel %s (%d)\n", model_name, model_index);
 
-		WriteMODELToObjStream(mdlFile, model, model_index, true);
+		mdlFile->Print("mtllib MODELPAGES.mtl\r\n");
+
+		WriteMODELToObjStream( mdlFile, model, model_index, true );
 
 		// success
 		GetFileSystem()->Close(mdlFile);
@@ -295,253 +224,77 @@ void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, bo
 //-------------------------------------------------------------
 // exports car model. Car models are typical MODEL structures
 //-------------------------------------------------------------
-void ExportCarModel(IVirtualStream* pFile, int offset, int index, const char* name_suffix)
+void ExportCarModel(MODEL* model, int size, int index, const char* name_suffix)
 {
-	if(offset == -1)
-		return;
-
-	pFile->Seek(offset, VS_SEEK_CUR);
-
-	int modelSize;
-	pFile->Read(&modelSize, sizeof(int), 1);
-
-	Msg("model %d %s size: %d\n", index, name_suffix, modelSize);
-
-	char* data = (char*)malloc(modelSize);
-
-	// read car model data
-	pFile->Read(data, modelSize, 1);
-
 	EqString model_name(varargs("%s/CARMODEL_%d_%s", g_levname_moddir.c_str(), index, name_suffix));
 
 	// export model
-	ExportDMODELToOBJ((MODEL*)data, model_name.c_str(), index, true);
+	ExportDMODELToOBJ(model, model_name.c_str(), index, true);
 			
 	// save original dmodel2
 	IFile* dFile = GetFileSystem()->Open(varargs("%s.dmodel",  model_name.c_str()), "wb", SP_ROOT);
 	if(dFile)
 	{
-		dFile->Write(data, modelSize, 1);
+		dFile->Write(model, size, 1);
 		GetFileSystem()->Close(dFile);
 	}
-				
-	free(data);
 }
 
-//-------------------------------------------------------------
-// parses model lumps and exports models to OBJ
-//-------------------------------------------------------------
-void LoadCarModelsLump(IVirtualStream* pFile, int ofs, int size)
+void ExportTexturePage(int nPage)
 {
+	//
+	// This is where texture is converted from paletted BGR5A1 to BGRA8
+	// Also saving to LEVEL_texture/PAGE_*
+	//
 
-	int l_ofs = pFile->Tell();
+	texdata_t* page = &g_pageDatas[nPage];
 
-	int modelCount;
-	pFile->Read(&modelCount, sizeof(int), 1);
+	if(!page->data)
+		return;		// NO DATA
 
-	Msg("	all car models count: %d\n", modelCount);
+	CImage img;
+	uint* color_data = (uint*)img.Create(FORMAT_RGBA8, 256,256,1,1);
 
-	// read entries
-	carmodelentry_t model_entries[MAX_CAR_MODELS];
-	pFile->Read(&model_entries, sizeof(carmodelentry_t), MAX_CAR_MODELS);
+	memset(color_data, 0, img.GetSliceSize());
 
-	// position
-	int r_ofs = pFile->Tell();
+	int clut = max(page->numPalettes, g_texPages[nPage].numDetails);
 
-	int pad; // really padding?
-	pFile->Read(&pad, sizeof(int), 1);
-
-	if(g_export_carmodels.GetBool())
+	for(int i = 0; i < g_texPages[nPage].numDetails; i++, clut++)
 	{
-		// export car models
-		for(int i = 0; i < MAX_CAR_MODELS; i++)
+		int ox = g_texPages[nPage].details[i].x;
+		int oy = g_texPages[nPage].details[i].y;
+		int w = g_texPages[nPage].details[i].w;
+		int h = g_texPages[nPage].details[i].h;
+
+		char* name = g_textureNamesData + g_texPages[nPage].details[i].texNameOffset;
+		
+		/*
+		Msg("Texture detail %d (%s) [%d %d %d %d]\n", i,name,
+														g_texPages[nPage].details[i].x,
+														g_texPages[nPage].details[i].y,
+														g_texPages[nPage].details[i].w,
+														g_texPages[nPage].details[i].h);
+		*/
+		for(int y = oy; y < oy+h; y++)
 		{
-			// read models offsets
-			Msg("----\n%d clean model offset: %d\n", i, model_entries[i].cleanOffset);
-			Msg("%d damaged model offset: %d\n", i, model_entries[i].damagedOffset);
-			Msg("%d lowpoly model offset: %d\n", i, model_entries[i].lowOffset);
-
-			pFile->Seek(r_ofs, VS_SEEK_SET);
-			ExportCarModel(pFile, model_entries[i].cleanOffset, i, "clean");
-
-			// TODO: only export faces
-			//pFile->Seek(r_ofs, VS_SEEK_SET);
-			//ExportCarModel(pFile, model_entries[i].damagedOffset, i, "dam");
-
-			pFile->Seek(r_ofs, VS_SEEK_SET);
-			ExportCarModel(pFile, model_entries[i].lowOffset, i, "low");
-		}
-	}
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
-}
-
-//-------------------------------------------------------------
-// parses model lumps and exports models to OBJ
-//-------------------------------------------------------------
-void LoadModelsLump(IVirtualStream* pFile)
-{
-	int l_ofs = pFile->Tell();
-
-	int modelCount;
-	pFile->Read(&modelCount, sizeof(int), 1);
-
-	MsgInfo("	model count: %d\n", modelCount);
-
-	for(int i = 0; i < modelCount; i++)
-	{
-		int modelSize;
-
-		pFile->Read(&modelSize, sizeof(int), 1);
-
-		if(modelSize > 0)
-		{
-			char* data = (char*)malloc(modelSize);
-
-			pFile->Read(data, modelSize, 1);
-
-			ModelRef_t ref;
-			ref.index = i;
-			ref.model = (MODEL*)data;
-			ref.size = modelSize;
-			ref.swap = false;
-
-			g_models.append(ref);
-		}
-		else
-		{
-			ModelRef_t ref;
-			ref.index = i;
-			ref.model = NULL;
-			ref.size = modelSize;
-			ref.swap = true;
-
-			g_models.append(ref);
-		}
-	}
-
-	if(g_export_models.GetBool())
-	{
-		for(int i = 0; i < g_models.numElem(); i++)
-		{
-			if(!g_models[i].model)
-				continue;
-
-			EqString modelFileName = varargs("%s/ZMOD_%d", g_levname_moddir.c_str(), i);
-
-			if(g_model_names[i].GetLength())
-				modelFileName = varargs("%s/%d_%s", g_levname_moddir.c_str(), i, g_model_names[i]);
-
-			// export model
-			ExportDMODELToOBJ(g_models[i].model, modelFileName.c_str(), i);
-			
-			// save original dmodel2
-			IFile* dFile = GetFileSystem()->Open(varargs("%s.dmodel", modelFileName.c_str()), "wb", SP_ROOT);
-			if(dFile)
+			for(int x = ox; x < ox+w; x++)
 			{
-				dFile->Write(g_models[i].model, g_models[i].size, 1);
-				GetFileSystem()->Close(dFile);
+				ubyte clindex = page->data[y*256 + x];
+
+				TVec4D<ubyte> color = bgr5a1_ToRGBA8( page->clut[i].colors[clindex] );
+
+				color_data[y*256 + x] = *(uint*)(&color);
 			}
 		}
 	}
-	 
-	pFile->Seek(l_ofs, VS_SEEK_SET);
+
+	Msg("Writing texture %s/PAGE_%d.tga\n", g_levname_texdir.c_str(), nPage);
+
+	img.SaveTGA(varargs("%s/PAGE_%d.tga", g_levname_texdir.c_str(), nPage));
 }
 
-//-------------------------------------------------------------
-// parses LUMP_MAP and it's straddler objects
-//-------------------------------------------------------------
-void LoadMapLump(IVirtualStream* pFile)
+void ExportRegions()
 {
-	int l_ofs = pFile->Tell();
-
-	pFile->Read(&g_mapInfo, 1, sizeof(MAPINFO));
-
-	Msg("Level dimensions[%d %d], tile size: %d\n", g_mapInfo.width, g_mapInfo.height, g_mapInfo.tileSize);
-	Msg("numRegions: %d\n", g_mapInfo.numRegions);
-	Msg("visTableWidth: %d\n", g_mapInfo.visTableWidth);
-
-	Msg("numAllObjects : %d\n", g_mapInfo.numAllObjects);
-	Msg("NumStraddlers: %d\n", g_mapInfo.numStraddlers);
-	
-	for(int i = 0; i < g_mapInfo.numStraddlers; i++)
-	{
-		PACKED_CELL_OBJECT object;
-		
-		pFile->Read(&object, 1, sizeof(PACKED_CELL_OBJECT));
-
-		CELL_OBJECT cell;
-		UnpackCellObject(object, cell);
-
-		// HOW to load them into regions?
-	}
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
-}
-
-//-------------------------------------------------------------
-// parses LUMP_SPOOLINFO, and also loads region data
-//-------------------------------------------------------------
-void LoadSpoolInfoLump(IVirtualStream* pFile)
-{
-	int l_ofs = pFile->Tell();
-
-	int unk;
-	pFile->Read(&unk, 1, sizeof(int));
-
-	Msg("unk = %d\n", unk);
-
-	int numSomething; // i think it's always 32
-	pFile->Read(&numSomething, 1, sizeof(int));
-
-	Msg("numSomething = %d\n", numSomething);
-	pFile->Seek(numSomething, VS_SEEK_CUR);
-	
-	int numBundles;
-	pFile->Read(&numBundles, 1, sizeof(int));
-
-	Msg("numBundles = %d\n", numBundles);
-	RegionModels_t* regionModels = new RegionModels_t[numBundles];
-
-	regiondata_t* loc_geom = new regiondata_t[numBundles];
-	regionpages_t* loc_pages = new regionpages_t[numBundles];
-
-	// read local geometry and texture pages
-	pFile->Read(loc_geom, numBundles, sizeof(regiondata_t));
-	pFile->Read(loc_pages, numBundles, sizeof(regionpages_t));
-
-	// something decompled, 48 bytes
-	struct V17Data
-	{
-		int a[4];
-		int b[4];
-		int c[4];
-	};
-
-	V17Data unknStruct;
-
-	pFile->Read(&unknStruct, 1, sizeof(unknStruct));
-
-	Msg("unk a = [%d %d %d %d]\n", unknStruct.a[0], unknStruct.a[1], unknStruct.a[2], unknStruct.a[3]);
-	Msg("unk b = [%d %d %d %d]\n", unknStruct.b[0], unknStruct.b[1], unknStruct.b[2], unknStruct.b[3]);
-	Msg("unk c = [%d %d %d %d]\n", unknStruct.c[0]+2047 & -2048, unknStruct.c[1]+2047 & -2048, unknStruct.c[2]+2047 & -2048, unknStruct.c[3]+2047 & -2048);
-
-	int numRegionOffsets;
-	pFile->Read(&numRegionOffsets, 1, sizeof(int));
-	Msg("numRegionOffsets: %d\n", numRegionOffsets);
-
-	ushort* regionOffsets = new ushort[numRegionOffsets];
-	pFile->Read(regionOffsets, numRegionOffsets, sizeof(short));
-
-	int regionsInfoSize;
-	pFile->Read(&regionsInfoSize, 1, sizeof(int));
-	int numRegionInfos = regionsInfoSize/sizeof(REGIONINFO);
-
-	Msg("Region info count %d (size=%d bytes)\n", numRegionInfos, regionsInfoSize);
-
-	REGIONINFO* regionInfos = (REGIONINFO*)malloc(regionsInfoSize);
-	pFile->Read(regionInfos, 1, regionsInfoSize);
-
 	int counter = 0;
 	
 	int dim_x = g_mapInfo.width / g_mapInfo.visTableWidth;
@@ -550,10 +303,10 @@ void LoadSpoolInfoLump(IVirtualStream* pFile)
 	Msg("World size:\n [%dx%d] vis cells\n [%dx%d] regions\n", g_mapInfo.width, g_mapInfo.height, dim_x, dim_y);
 
 	// print region map to console
-	for(int i = 0; i < numRegionOffsets; i++, counter++)
+	for(int i = 0; i < g_numRegionOffsets; i++, counter++)
 	{
 		// Debug information: Print the map to the console.
-		Msg(regionOffsets[i] == REGION_EMPTY ? "." : "O");
+		Msg(g_regionOffsets[i] == REGION_EMPTY ? "." : "O");
 		if(counter == dim_x)
 		{
 			Msg("\n");
@@ -568,13 +321,10 @@ void LoadSpoolInfoLump(IVirtualStream* pFile)
 	IFile* objFile = NULL;
 	IFile* levModelFile = NULL;
 
-	if(g_export_world.GetBool())
-	{
-		objFile = GetFileSystem()->Open("POS_REGIONOBJECTS_MAP.obj", "wb", SP_ROOT);
-		levModelFile = GetFileSystem()->Open("LEVELMODEL.obj", "wb", SP_ROOT);
+	objFile = GetFileSystem()->Open(varargs("%s_CELLPOS_MAP.obj", g_levname.c_str()), "wb", SP_ROOT);
+	levModelFile = GetFileSystem()->Open(varargs("%s_LEVELMODEL.obj", g_levname.c_str()), "wb", SP_ROOT);
 
-		levModelFile->Print("mtllib LEVELMODEL.mtl\r\n");
-	}
+	levModelFile->Print("mtllib %s_LEVELMODEL.mtl\r\n", g_levname.c_str());
 
 	int lobj_first_v = 0;
 	int lobj_first_t = 0;
@@ -587,7 +337,7 @@ void LoadSpoolInfoLump(IVirtualStream* pFile)
 		{
 			int sPosIdx = y*dim_x + x;
 
-			if(regionOffsets[sPosIdx] == REGION_EMPTY)
+			if(g_regionOffsets[sPosIdx] == REGION_EMPTY)
 				continue;
 
 			// determine region position
@@ -595,9 +345,9 @@ void LoadSpoolInfoLump(IVirtualStream* pFile)
 			int region_pos_z = y * 65536;
 
 			// region at offset
-			REGIONINFO* regInfo = (REGIONINFO*)((ubyte*)regionInfos + regionOffsets[sPosIdx]);
+			REGIONINFO* regInfo = (REGIONINFO*)((ubyte*)g_regionInfos + g_regionOffsets[sPosIdx]);
 
-			Msg("---------\nregion %d %d (offset: %d)\n", x, y, regionOffsets[sPosIdx]);
+			Msg("---------\nregion %d %d (offset: %d)\n", x, y, g_regionOffsets[sPosIdx]);
 			Msg("offset: %d\n",regInfo->offset);
 			Msg("unk1: %d\n",regInfo->unk1);
 			Msg("unk2: %d\n",regInfo->unk2);
@@ -617,13 +367,13 @@ void LoadSpoolInfoLump(IVirtualStream* pFile)
 			int numVisBytes;
 			int numHeightFieldPoints;
 
-			pFile->Seek(visDataOffset, VS_SEEK_SET);
-			pFile->Read(&numVisBytes, 1, sizeof(int));
+			g_levStream->Seek(visDataOffset, VS_SEEK_SET);
+			g_levStream->Read(&numVisBytes, 1, sizeof(int));
 			
 			// TODO: Read and decode vis bytes, possible model count found here or computed by cell visibility
 
-			pFile->Seek(modelsOffset, VS_SEEK_SET);
-			pFile->Read(&numHeightFieldPoints, 1, sizeof(int));
+			g_levStream->Seek(modelsOffset, VS_SEEK_SET);
+			g_levStream->Read(&numHeightFieldPoints, 1, sizeof(int));
 
 			Msg("numVisBytes = %d\n", numVisBytes);
 			Msg("numHeightFieldPoints = %d\n", numHeightFieldPoints);
@@ -632,27 +382,27 @@ void LoadSpoolInfoLump(IVirtualStream* pFile)
 			Msg("cell objects ofs: %d\n", cellsOffset);
 			Msg("models ofs: %d\n", modelsOffset);
 
+			RegionModels_t* regModels = NULL;
+
 			// if region data is available, load models and textures
 			if(regInfo->dataIndex != REGDATA_EMPTY)
 			{
-				LoadRegionData(pFile, &regionModels[regInfo->dataIndex], &loc_geom[regInfo->dataIndex], &loc_pages[regInfo->dataIndex]);
+				LoadRegionData(g_levStream, &g_regionModels[regInfo->dataIndex], &g_regionDataDescs[regInfo->dataIndex], &g_regionPages[regInfo->dataIndex]);
+				regModels = &g_regionModels[regInfo->dataIndex];
 			}
 
 			// seek to cells
-			pFile->Seek(cellsOffset, VS_SEEK_SET);
+			g_levStream->Seek(cellsOffset, VS_SEEK_SET);
 
 			int cell_count = 0;
 
-			if(objFile)
-			{
-				objFile->Print("#--------\r\n# region %d %d (ofs=%d)\r\n", x, y, cellsOffset);
-				objFile->Print("g cell_%d\r\n", sPosIdx);
-			}
+			objFile->Print("#--------\r\n# region %d %d (ofs=%d)\r\n", x, y, cellsOffset);
+			objFile->Print("g cell_%d\r\n", sPosIdx);
 
 			PACKED_CELL_OBJECT object;
 			do
 			{
-				pFile->Read(&object, 1, sizeof(PACKED_CELL_OBJECT));
+				g_levStream->Read(&object, 1, sizeof(PACKED_CELL_OBJECT));
 				
 				// bad hack, need to parse visibility data for it
 				if(	(0x4544 == object.pos_x && 0x2153 == object.addidx_pos_y) ||
@@ -670,22 +420,19 @@ void LoadSpoolInfoLump(IVirtualStream* pFile)
 					objFile->Print("v %g %g %g\r\n", (region_pos_x+cell.x)*-0.00015f, cell.y*-0.00015f, (region_pos_z+cell.z)*0.00015f);
 				}
 
-				if(levModelFile)
-				{
-					if(cell.modelindex >= g_models.numElem())
-						break;
+				if(cell.modelindex >= g_levelModels.numElem())
+					break;
 
-					MODEL* model = g_models[cell.modelindex].model;
+				MODEL* model = FindModelByIndex(cell.modelindex, regModels);
 
-					if(!model)
-						break;
+				if(!model)
+					break;
 
-					// transform objects and save
-					Matrix4x4 transform = translate(Vector3D((region_pos_x+cell.x)*-0.00015f, cell.y*-0.00015f, (region_pos_z+cell.z)*0.00015f));
-					transform = transform * rotateY(cell.rotation / 64.0f*PI_F*2.0f) * scale(1.0f,1.0f,1.0f);
+				// transform objects and save
+				Matrix4x4 transform = translate(Vector3D((region_pos_x+cell.x)*-0.00015f, cell.y*-0.00015f, (region_pos_z+cell.z)*0.00015f));
+				transform = transform * rotateY(cell.rotation / 64.0f*PI_F*2.0f) * scale(1.0f,1.0f,1.0f);
 
-					WriteMODELToObjStream(levModelFile, model, cell.modelindex, false, transform, &lobj_first_v, &lobj_first_t);
-				}
+				WriteMODELToObjStream(levModelFile, model, cell.modelindex, false, transform, &lobj_first_v, &lobj_first_t, regModels);
 				
 				cell_count++;
 			}while(true);
@@ -701,250 +448,119 @@ void LoadSpoolInfoLump(IVirtualStream* pFile)
 		}
 	}
 
-	if(levModelFile)
-	{
-		GetFileSystem()->Close(objFile);
-		GetFileSystem()->Close(levModelFile);
-	}
+	GetFileSystem()->Close(objFile);
+	GetFileSystem()->Close(levModelFile);
 
 	int numCellsObjectsFile = g_mapInfo.numAllObjects - g_mapInfo.numStraddlers;
 
 	if(numCellObjectsRead != numCellsObjectsFile)
 		MsgError("numAllObjects mismath: in file: %d, read %d\n", numCellsObjectsFile, numCellObjectsRead);
-	
-	// free all
-	for(int i = 0; i < numBundles; i++)
-	{
-		for(int j = 0; j < regionModels[i].modelRefs.numElem(); j++)
-		{
-			int idx = regionModels[i].modelRefs[j].index;
-
-			if(g_models[idx].swap)
-				free(regionModels[i].modelRefs[j].model);
-		}
-	}
-
-	delete [] regionModels;
-	
-	delete [] loc_geom;
-	delete [] loc_pages;
-
-	free(regionInfos);
-	delete [] regionOffsets;
-
-	// seek back
-	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
-//---------------------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------
+// Exports level data
+//-------------------------------------------------------------
 
-void ReadLevelChunk(IVirtualStream* pFile)
+void ExportLevelData()
 {
-	int lump_count = 255; // Driver 2 difference: you not need to read lump count
+	Msg("-------------\nExporting level data\n-------------\n");
 
-	if(g_format.GetInt() == 1)
-		pFile->Read(&lump_count, sizeof(int), 1);	// uncomment to support driver 1 TODO: command line switch
-
-	LUMP lump;
-
-	Msg("FILE OFS: %d bytes\n", pFile->Tell());
-
-	for(int i = 0; i < lump_count; i++)
+	// export models
+	if(g_export_models.GetBool())
 	{
-		// read lump info
-		pFile->Read(&lump, sizeof(LUMP), 1);
+		Msg("exporting models\n");
 
-		// stop marker
-		if(lump.type == 255)
-			break;
-
-		switch(lump.type)
+		for(int i = 0; i < g_levelModels.numElem(); i++)
 		{
-			case LUMP_MODELS:
-				MsgWarning("LUMP_MODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadModelsLump(pFile);
-				break;
-			case LUMP_MAP:
-				MsgWarning("LUMP_MAP ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadMapLump(pFile);
-				break;
-			case LUMP_TEXTURENAMES:
-				MsgWarning("LUMP_TEXTURENAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadTextureNamesLump(pFile, lump.size);
-				break;
-			case LUMP_MODELNAMES:
-				MsgWarning("LUMP_MODELNAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadModelNamesLump(pFile, lump.size);
-				break;
-			case LUMP_SUBDIVISION:
-				MsgWarning("LUMP_SUBDIVISION ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				break;
-			case LUMP_LOWDETAILTABLE:
-				MsgWarning("LUMP_LOWDETAILTABLE ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				break;
-			case LUMP_MOTIONCAPTURE:
-				MsgWarning("LUMP_MOTIONCAPTURE ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				break;
-			case LUMP_OVERLAYMAP:
-				MsgWarning("LUMP_OVERLAYMAP ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				break;
-			case LUMP_PALLET:
-				MsgWarning("LUMP_PALLET ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				break;
-			case LUMP_SPOOLINFO:
-				MsgWarning("LUMP_SPOOLINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadSpoolInfoLump(pFile);
-				break;
-			case LUMP_STRAIGHTS2:
-				MsgWarning("LUMP_STRAIGHTS2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				break;
-			case LUMP_CURVES2:
-				MsgWarning("LUMP_CURVES2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				break;
-			case LUMP_JUNCTIONS2:
-				MsgWarning("LUMP_JUNCTIONS2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				break;
-			case LUMP_CHAIR:
-				MsgWarning("LUMP_CHAIR ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				break;
-			case LUMP_CAR_MODELS:
-				MsgWarning("LUMP_CAR_MODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadCarModelsLump(pFile, pFile->Tell(), lump.size);
-				break;
-			case LUMP_TEXTUREINFO:
-				MsgWarning("LUMP_TEXTUREINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadTextureInfoLump(pFile);
-				break;
-			default:
-				MsgInfo("LUMP type: %d (0x%X) ofs=%d size=%d\n", lump.type, lump.type, pFile->Tell(), lump.size);
+			if(!g_levelModels[i].model)
+				continue;
+
+			EqString modelFileName = varargs("%s/ZMOD_%d", g_levname_moddir.c_str(), i);
+
+			if(g_model_names[i].GetLength())
+				modelFileName = varargs("%s/%d_%s", g_levname_moddir.c_str(), i, g_model_names[i]);
+
+			// export model
+			ExportDMODELToOBJ(g_levelModels[i].model, modelFileName.c_str(), i);
+			
+			// save original dmodel2
+			IFile* dFile = GetFileSystem()->Open(varargs("%s.dmodel", modelFileName.c_str()), "wb", SP_ROOT);
+			if(dFile)
+			{
+				dFile->Write(g_levelModels[i].model, g_levelModels[i].size, 1);
+				GetFileSystem()->Close(dFile);
+			}
 		}
 
-		// skip lump
-		pFile->Seek(lump.size, VS_SEEK_CUR);
-
-		// position alignment
-        if((pFile->Tell()%4) != 0)
-			pFile->Seek(4-(pFile->Tell()%4),VS_SEEK_CUR);
-	}
-}
-
-//---------------------------------------------------------------------------------------------------------------------------------
-
-void LoadLevelFile(const char* filename)
-{
-	// try load driver2 lev file
-	IFile* pReadFile = GetFileSystem()->Open(filename, "r+b");
-
-	if(!pReadFile)
-		return;
-
-	CMemoryStream levStream;
-	levStream.Open(NULL, VS_OPEN_WRITE | VS_OPEN_READ, 0);
-
-	if(levStream.ReadFromFileStream(pReadFile))
-		GetFileSystem()->Close(pReadFile);
-
-	// seek to begin
-	levStream.Seek(0, VS_SEEK_SET);
-
-	Msg("-----------\nloading lev file '%s'\n", filename);
-
-	EqString fileName = filename;
-
-	g_levname_moddir = fileName.Path_Strip_Ext() + "_models";
-
-	g_levname_texdir = fileName.Path_Strip_Ext() + "_textures";
-
-	GetFileSystem()->MakeDir(g_levname_moddir.c_str(), SP_ROOT);
-	GetFileSystem()->MakeDir(g_levname_texdir.c_str(), SP_ROOT);
-
-	//-------------------------------------------------------------------
-
-	LUMP curLump;
-
-	levStream.Read(&curLump, sizeof(curLump), 1);
-
-	if(curLump.type != LUMP_LUMPDESC)
-	{
-		MsgError("Not a LEV file!\n");
-		return;
-	}
-
-	// read chunk offsets
-	levStream.Read(&g_levInfo, sizeof(dlevinfo_t), 1);
-
-	Msg("levdesc_offset = %d\n", g_levInfo.levdesc_offset);
-	Msg("levdesc_size = %d\n", g_levInfo.levdesc_size);
-
-	Msg("texdata_offset = %d\n", g_levInfo.texdata_offset);
-	Msg("texdata_size = %d\n", g_levInfo.texdata_size);
-
-	Msg("levdata_offset = %d\n", g_levInfo.levdata_offset);
-	Msg("levdata_size = %d\n", g_levInfo.levdata_size);
-
-	Msg("spooldata_offset = %d\n", g_levInfo.spooldata_offset);
-	Msg("spooldata_size = %d\n", g_levInfo.spooldata_size);
-
-	// read cells
-	
-	//-----------------------------------------------------
-	// seek to section 1 - lump data 1
-	levStream.Seek( g_levInfo.levdesc_offset, VS_SEEK_SET );
-
-	// read lump
-	levStream.Read( &curLump, sizeof(curLump), 1 );
-
-	if(curLump.type != LUMP_LEVELDESC)
-	{
-		MsgError("Not a LUMP_LEVELDESC!\n");
-	}
-
-	Msg("entering LUMP_LEVELDESC size = %d\n--------------\n", curLump.size);
-
-	// read sublumps
-	ReadLevelChunk( &levStream );
-
-	//-----------------------------------------------------
-	// seek to section 2 - read global textures
-	levStream.Seek( g_levInfo.texdata_offset, VS_SEEK_SET );
-
-	LoadGlobalTextures(&levStream);
-
-	//-----------------------------------------------------
-	// seek to section 3 - lump data 2
-	levStream.Seek( g_levInfo.levdata_offset, VS_SEEK_SET );
-
-	// read lump
-	levStream.Read(&curLump, sizeof(curLump), 1);
-
-	if(curLump.type != LUMP_LEVELDATA)
-	{
-		MsgError("Not a lump 0x24!\n");
-	}
-
-	Msg("entering LUMP_LEVELDATA size = %d\n--------------\n", curLump.size);
-
-	// read sublumps
-	ReadLevelChunk( &levStream );
-
-	// create material file
-	if(g_export_world.GetBool())
-	{
-		IFile* pMtlFile = GetFileSystem()->Open("LEVELMODEL.mtl", "wb", SP_ROOT);
+		// create material file
+		IFile* pMtlFile = GetFileSystem()->Open(varargs("%s/MODELPAGES.mtl", g_levname_moddir.c_str()), "wb", SP_ROOT);
 
 		if(pMtlFile)
 		{
 			for(int i = 0; i < g_numTexPages; i++)
 			{
 				pMtlFile->Print("newmtl page_%d\r\n", i);
-				pMtlFile->Print("map_Kd %s/PAGE_%d.tga\r\n", g_levname_texdir.c_str(), i);
+				pMtlFile->Print("map_Kd ../../%s/PAGE_%d.tga\r\n", g_levname_texdir.c_str(), i);
+			}
+
+			GetFileSystem()->Close(pMtlFile);
+		}
+	}
+
+	// export car models
+	if(g_export_carmodels.GetBool())
+	{
+		for(int i = 0; i < MAX_CAR_MODELS; i++)
+		{
+			ExportCarModel(g_carModels[i].cleanmodel, g_carModels[i].cleanSize, i, "clean");
+			ExportCarModel(g_carModels[i].lowmodel, g_carModels[i].lowSize, i, "low");
+			// TODO: export damaged model
+		}
+	}
+
+	// export world regions
+	if(g_export_world.GetBool())
+	{
+		Msg("exporting cell points and world model\n");
+		ExportRegions();
+	}
+
+	if(g_export_textures.GetBool())
+	{
+		// preload region data if needed
+		if(!g_export_world.GetBool())
+		{
+			Msg("preloading region datas (%d)\n", g_numRegionDatas);
+
+			for(int i = 0; i < g_numRegionDatas; i++)
+			{
+				LoadRegionData( g_levStream, NULL, &g_regionDataDescs[i], &g_regionPages[i] );
+			}
+		}
+
+		Msg("exporting texture data\n");
+		for(int i = 0; i < g_numTexPages; i++)
+		{
+			ExportTexturePage(i);
+		}
+
+		// create material file
+		IFile* pMtlFile = GetFileSystem()->Open(varargs("%s_LEVELMODEL.mtl", g_levname.c_str()), "wb", SP_ROOT);
+
+		if(pMtlFile)
+		{
+			for(int i = 0; i < g_numTexPages; i++)
+			{
+				pMtlFile->Print("newmtl page_%d\r\n", i);
+				pMtlFile->Print("map_Kd %s_textures/PAGE_%d.tga\r\n", g_levname.c_str(), i);
 			}
 
 			GetFileSystem()->Close(pMtlFile);
 		}
 
-		DumpFaceTypes();
 	}
+
+	Msg("Export done\n");
 }
 
 //-------------------------------------------------------------------------------------------------------------------------
@@ -958,9 +574,18 @@ DECLARE_CMD(lev, "Loads level, extracts model", 0)
 {
 	if(args && args->numElem())
 	{
-		EqString outname = CMD_ARGV(1);
+		EqString levName = CMD_ARGV(0);
 
-		LoadLevelFile( CMD_ARGV(0).GetData() );
+		g_levname_moddir = levName.Path_Strip_Ext() + "_models";
+		g_levname_texdir = levName.Path_Strip_Ext() + "_textures";
+
+		GetFileSystem()->MakeDir(g_levname_moddir.c_str(), SP_ROOT);
+		GetFileSystem()->MakeDir(g_levname_texdir.c_str(), SP_ROOT);
+
+		LoadLevelFile( levName.c_str() );
+		ExportLevelData();
+
+		FreeLevelData();
 	}
 	else
 		Usage();
