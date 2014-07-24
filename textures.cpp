@@ -7,12 +7,18 @@
 #include "core_base_header.h"
 #include "DebugInterface.h"
 
-#include "ImageLoader.h"
-
-ConVar g_export_textures("textures", "0");
-
 //-------------------------------------------------------------------------------
 
+
+TEXPAGEINFO*		g_texPageInfos = NULL;
+
+int					g_numTexPages = 0;
+int					g_numTexDetails = 0;
+
+texdata_t*			g_pageDatas = NULL;
+TexPage_t*			g_texPages = NULL;
+
+// legacy format converter
 TVec4D<ubyte> bgr5a1_ToRGBA8(ushort color)
 {
 	ubyte b = (color & 0x1F) * 8;
@@ -51,7 +57,7 @@ int UnpackTexture(ubyte* pSrc, ubyte* pDst)
 			for(int i = -1; i < count; i++)
 				*pDstData++ = *pSrcData++;
 		}
-	}while((pDstData-pDst) < TEXPAGE_COMPRESSED_SIZE);
+	}while((pDstData-pDst) < TEXPAGE_4BIT_SIZE);
 
 	return (pSrcData - pSrc);
 }
@@ -68,153 +74,93 @@ struct texturedata_t
 	ubyte		texels[128 * 256];	// 256×256 four-bit indices
 };
 
-int LoadTexturePageData(IVirtualStream* pFile, texdata_t* out, int nPage)
+void LoadCompressedTexture(IVirtualStream* pFile, texdata_t* out, ubyte* out4bitData)
 {
 	int rStart = pFile->Tell();
-
-	texturedata_t* data = new texturedata_t;
-	pFile->Read( data, 1, sizeof(texturedata_t) );
-
-	pFile->Seek( rStart, VS_SEEK_SET );
 
 	pFile->Read( &out->numPalettes, 1, sizeof(int) );
 
 	Msg("cluts: %d\n", out->numPalettes);
 
-	if( out->numPalettes == 0 )
+	// allocate palettes
+	out->clut = new TEXCLUT[out->numPalettes];
+
+	for(int i = 0; i < out->numPalettes; i++)
 	{
-		MsgInfo("non-palettized texture?\n");
-
-		// alloc page
-		out->size = TEXPAGE_COMPRESSED_SIZE;
-		out->data = new ubyte[TEXPAGE_COMPRESSED_SIZE];
-
-		pFile->Read(out->data, 1, TEXPAGE_COMPRESSED_SIZE);
-
-		return out->numPalettes;
-	}
-
-	if(out->numPalettes > 0)
-	{
-		out->clut = new TEXCLUT[out->numPalettes];
-
-		for(int i = 0; i < out->numPalettes; i++)
-		{
-			// read 16 palettes
-			pFile->Read(&out->clut[i].colors, 1, sizeof(ushort)*16);
-		}
+		// read 16 palettes
+		pFile->Read(&out->clut[i].colors, 1, sizeof(ushort)*16);
 	}
 
 	int imageStart = pFile->Tell();
 
 	// read compression data
-	ubyte* compressedData = new ubyte[TEXPAGE_COMPRESSED_SIZE + 28];
-	pFile->Read(compressedData, 1, TEXPAGE_COMPRESSED_SIZE + 28);
+	ubyte* compressedData = new ubyte[TEXPAGE_4BIT_SIZE + 28];
+	pFile->Read(compressedData, 1, TEXPAGE_4BIT_SIZE + 28);
 
-	// alloc page
-	out->size = TEXPAGE_COMPRESSED_SIZE;
-	out->data = new ubyte[out->size];
+	// unpack
+	out->size = UnpackTexture(compressedData, out4bitData);
 
-	// check for compression
-	if(!compressedData[0] && !compressedData[1] && !compressedData[2])
+	// seek to the right position
+	pFile->Seek(imageStart + out->size, VS_SEEK_SET);
+}
+
+void LoadTexturePageData(IVirtualStream* pFile, texdata_t* out, int nPage)
+{
+	int rStart = pFile->Tell();
+
+	Msg("PAGE %d (%s)\n", nPage, (g_texPageInfos[nPage].flags & PAGE_FLAG_PRELOAD) ? "preload" : "region_dyn");
+
+	ubyte* tex4bitData = new ubyte[TEXPAGE_4BIT_SIZE];
+
+	bool isCompressed = (g_texPageInfos[nPage].flags & PAGE_FLAG_PRELOAD);// | (g_texPageInfos[nPage].flags & PAGE_FLAG_GLOBAL2);
+
+	if( isCompressed )
 	{
-		Msg("non-compressed texture %d\n", g_texPageInfos[nPage].flags);
-
-		// copy
-		memcpy(out->data, data->texels, TEXPAGE_COMPRESSED_SIZE);
+		LoadCompressedTexture(pFile, out, tex4bitData);
 	}
 	else
 	{
-		Msg("compressed texture\n");
+		// non-compressed textures loads different way, with a fixed size
+		texturedata_t* texData = new texturedata_t;
+		pFile->Read( texData, 1, sizeof(texturedata_t) );
 
-		// Decompress the data. This requires padding as we don't know when the extraction finishes.
-		ubyte* tempDecomp = new ubyte[TEXPAGE_COMPRESSED_SIZE];
+		out->numPalettes = texData->numPalettes;
 
-		// unpack
-		out->size = UnpackTexture(compressedData, tempDecomp);
+		out->clut = new TEXCLUT[out->numPalettes];
+		memcpy(out->clut, texData->palettes, sizeof(TEXCLUT)*out->numPalettes);
 
-		// seek to the right position
-		pFile->Seek(imageStart + out->size, VS_SEEK_SET);
+		memcpy(tex4bitData, texData->texels, TEXPAGE_4BIT_SIZE);
 
-		// The compressed data was reversed. Revert to the correct order.
-		for(int i = 0; i < 128 * 256; i++)
-		{
-			out->data[128 * 256 - 1 - i] = tempDecomp[i];
-		}
-
-		delete [] tempDecomp;
+		// not need anymore
+		delete texData;
 	}
 
-	delete data;
+	// convert 4 bit indexed paletted to 8 bit indexed paletted
+	ubyte* indexed = new ubyte[TEXPAGE_SIZE];
 
-	Msg("read %d bytes (total is %d)\n", out->size, pFile->Tell()-rStart);
-
-	delete [] compressedData;
-
-	//
-	// This is where texture is converted from paletted BGR5A1 to BGRA8
-	// Also saving to LEVEL_texture/PAGE_*
-	//
-
-	if(g_export_textures.GetBool())
+	for(int y = 0; y < 256; y++)
 	{
-		// make indexed image
-		ubyte* indexed = new ubyte[TEXPAGE_SIZE];
-		for(int y = 0; y < 256; y++)
+		for(int x = 0; x < 256; x++)
 		{
-			for(int x = 0; x < 256; x++)
-			{
-				// The color index from the file.
-				ubyte colorIndex = out->data[y * 128 + x / 2];
-				if(0 != (x & 1))
-					colorIndex >>= 4;
+			// The color index from the file.
+			ubyte colorIndex = tex4bitData[y * 128 + x / 2];
 
-				colorIndex = colorIndex & 0xF;
+			if(isCompressed) // since compressed textures are flipped
+				colorIndex = tex4bitData[(TEXPAGE_4BIT_SIZE-1) - (y * 128 + x / 2)];
 
-				indexed[y * 256 + x] = colorIndex;
-			}
+			if(0 != (x & 1))
+				colorIndex >>= 4;
+
+			colorIndex = colorIndex & 0xF;
+
+			indexed[y * 256 + x] = colorIndex;
 		}
-
-		CImage img;
-		uint* color_data = (uint*)img.Create(FORMAT_RGBA8, 256,256,1,1);
-
-		int clut = max(out->numPalettes, g_texPages[nPage].numDetails);
-
-		for(int i = 0; i < g_texPages[nPage].numDetails; i++, clut++)
-		{
-			int ox = g_texPages[nPage].details[i].x;
-			int oy = g_texPages[nPage].details[i].y;
-			int w = g_texPages[nPage].details[i].w;
-			int h = g_texPages[nPage].details[i].h;
-
-			char* name = g_textureNamesData + g_texPages[nPage].details[i].texNameOffset;
-		
-			/*
-			Msg("Texture detail %d (%s) [%d %d %d %d]\n", i,name,
-															g_texPages[nPage].details[i].x,
-															g_texPages[nPage].details[i].y,
-															g_texPages[nPage].details[i].w,
-															g_texPages[nPage].details[i].h);
-			*/
-			for(int y = oy; y < oy+h; y++)
-			{
-				for(int x = ox; x < ox+w; x++)
-				{
-					ubyte clindex = indexed[y*256 + x];
-
-					TVec4D<ubyte> color = bgr5a1_ToRGBA8( out->clut[i].colors[clindex] );
-
-					color_data[y*256 + x] = *(uint*)(&color);
-				}
-			}
-		}
-
-		img.SaveTGA(varargs("%s/PAGE_%d.tga", g_levname_texdir.c_str(), nPage));
-	
-		delete [] indexed;
 	}
 
-	return out->numPalettes;
+	delete [] tex4bitData;
+
+	out->size = TEXPAGE_SIZE;
+	out->data = indexed;
 }
 
 //
@@ -223,7 +169,9 @@ int LoadTexturePageData(IVirtualStream* pFile, texdata_t* out, int nPage)
 void LoadGlobalTextures(IVirtualStream* pFile)
 {
 	Msg("loading global texture pages\n");
+
 	g_pageDatas = new texdata_t[g_numTexPages];
+	memset(g_pageDatas, 0, sizeof(texdata_t)*g_numTexPages);
 
 	int ofs = pFile->Tell();
 
@@ -231,14 +179,12 @@ void LoadGlobalTextures(IVirtualStream* pFile)
 
 	int numTex = 0;
 
-read_again:
+//read_again:
 
 	for(int i = 0; i < g_numTexPages; i++)
 	{
 		if(!((g_texPageInfos[i].flags & mode)))
 			continue;
-
-		Msg("--------\npage: %d flags=%p offset: %d (%d in file), unk=%d\n", i, g_texPageInfos[i].flags, g_texPageInfos[i].endoffset, pFile->Tell(), g_texPageInfos[i].unk1);
 
 		// read data
 		LoadTexturePageData(pFile, &g_pageDatas[i], i);
@@ -247,11 +193,13 @@ read_again:
 			pFile->Seek(2048 - (pFile->Tell() % 2048),VS_SEEK_CUR);
 	}
 
+	//if(g_texPageInfos[i].flags != PAGE_FLAG_PRELOAD)
+	//	mode = PAGE_FLAG_GLOBAL2;
 	
-	if(mode == PAGE_FLAG_PRELOAD)
-		mode = PAGE_FLAG_GLOBAL2;
-	else
-		return;
+	//if(mode == PAGE_FLAG_PRELOAD)
+	//	mode = PAGE_FLAG_GLOBAL2;
+	//else
+	//	return;
 	
 	//goto read_again;
 
@@ -292,29 +240,32 @@ void LoadTextureInfoLump(IVirtualStream* pFile)
 
 	for(int i = 0; i < numPages; i++) 
 	{
-		//Msg("page flags=%d offset=%d\n", g_texPageInfos[i].flags, g_texPageInfos[i].endoffset);
-
 		pFile->Read(&g_texPages[i].numDetails, sizeof(int), 1);
-
-		//Msg("Texture page %d detail count: %d\n", i, g_texPages[i].numDetails);
 
 		// read texture detail info
 		g_texPages[i].details = new TEXTUREDETAIL[g_texPages[i].numDetails];
 		pFile->Read(g_texPages[i].details, g_texPages[i].numDetails, sizeof(TEXTUREDETAIL));
-
-		/*
-		// dump textures
-		for(int j = 0; j < g_texPages[i].numDetails; j++)
-		{
-			char* name = g_textureNamesData + g_texPages[i].details[j].texNameOffset;
-			
-			Msg("Texture detail %d (%s) [%d %d %d %d]\n", j,name,
-															g_texPages[i].details[j].x,
-															g_texPages[i].details[j].y,
-															g_texPages[i].details[j].w,
-															g_texPages[i].details[j].h);
-		}*/
 	}
 
 	pFile->Seek(l_ofs, VS_SEEK_SET);
+}
+
+//----------------------------------------------------------------------------------------------------
+
+TEXTUREDETAIL* FindTextureDetail(const char* name)
+{
+	for(int i = 0; i < g_numTexPages; i++)
+	{
+		for(int j = 0; j < g_texPages[i].numDetails; j++)
+		{
+			char* pTexName = g_textureNamesData + g_texPages[i].details[j].texNameOffset;
+
+			if(!strcmp(pTexName, name))
+			{
+				return &g_texPages[i].details[j];
+			}
+		}
+	}
+
+	return NULL;
 }

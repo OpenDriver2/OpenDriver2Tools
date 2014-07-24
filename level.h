@@ -175,7 +175,7 @@ typedef struct regioninfo_t
 struct carmodelentry_t
 {
 	int cleanOffset;		// -1 if no model
-	int damagedOffset;
+	int damOffset;
 	int lowOffset;
 };
 
@@ -184,8 +184,8 @@ struct carmodelentry_t
 #define TEXPAGE_SIZE_X	(128)
 #define TEXPAGE_SIZE_Y	(256)
 
-#define TEXPAGE_COMPRESSED_SIZE (TEXPAGE_SIZE_X*TEXPAGE_SIZE_Y)
-#define TEXPAGE_SIZE			(TEXPAGE_SIZE_Y*TEXPAGE_SIZE_Y)
+#define TEXPAGE_4BIT_SIZE	(TEXPAGE_SIZE_X*TEXPAGE_SIZE_Y)
+#define TEXPAGE_SIZE		(TEXPAGE_SIZE_Y*TEXPAGE_SIZE_Y)
 
 typedef struct texturedetail_t
 {
@@ -219,5 +219,15 @@ typedef struct dclut_t
 }TEXCLUT;
 
 //------------------------------------------------------------------------------------------------------------
+
+// functions
+
+class IVirtualStream;
+
+void LoadModelNamesLump(IVirtualStream* pFile, int size);
+void LoadTextureNamesLump(IVirtualStream* pFile, int size);
+
+void LoadLevelFile(const char* filename);
+void FreeLevelData();
 
 #endif // LEVEL_H
