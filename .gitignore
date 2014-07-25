@@ -36,3 +36,10 @@ Icon
 .Trashes
 
 *.user
+*.tlog
+*.obj
+*.manifest
+*.lastbuildstate
+*.cache
+*.pdb
+*.log

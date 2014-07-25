@@ -71,6 +71,8 @@ extern RegionModels_t*		g_regionModels;		// cached region models
 extern REGIONINFO*			g_regionInfos;		// region data info
 extern ushort*				g_regionOffsets;	// region offset table
 
+extern CELL_OBJECT*			g_straddlers;
+
 extern int					g_numRegionDatas;
 extern int					g_numRegionOffsets;
 

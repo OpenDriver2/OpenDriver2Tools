@@ -17,6 +17,8 @@ ConVar g_export_textures("textures", "0");
 EqString			g_levname_moddir;
 EqString			g_levname_texdir;
 
+int					g_levSize = 0;
+
 const float			texelSize = 1.0f/256.0f;
 const float			halfTexelSize = texelSize*0.5f;
 
@@ -41,7 +43,7 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 		pStream->Print("#vert count %d\r\n", model->numverts);
 
 	
-
+	pStream->Print("g lev_model_%d\r\n", model_index);
 	pStream->Print("o lev_model_%d\r\n", model_index);
 
 
@@ -328,6 +330,8 @@ void ExportRegions()
 	int lobj_first_v = 0;
 	int lobj_first_t = 0;
 
+	int nSModels = 0;
+
 	// 2d region map
 	// easy seeking
 	for(int y = 0; y < dim_y; y++)
@@ -350,17 +354,24 @@ void ExportRegions()
 			Msg("offset: %d\n",regInfo->offset);
 			Msg("unk1: %d\n",regInfo->unk1);
 			Msg("unk2: %d\n",regInfo->unk2);
+			Msg("unk3: %d\n",regInfo->unk3);
+			Msg("unk4: %d\n",regInfo->unk4);
+			Msg("unk5: %d\n",regInfo->unk5);
+
+			nSModels += regInfo->unk4;
 
 			// Msg("cells: %d\n",regInfo->cellsSize);
 			Msg("nodes: %d\n",regInfo->contentsNodesSize);
 			Msg("tables: %d\n",regInfo->contentsTableSize);
 			Msg("models: %d\n",regInfo->modelsSize);
 
+			nSModels += regInfo->modelsSize;
+
 			Msg("regDataIndex: %d\n",regInfo->dataIndex);
 
 			int visDataOffset = g_levInfo.spooldata_offset + 2048 * regInfo->offset;
 			int cellsOffset = g_levInfo.spooldata_offset + 2048 * (regInfo->offset + regInfo->contentsNodesSize + regInfo->contentsTableSize);
-			int modelsOffset = g_levInfo.spooldata_offset + 2048 * (regInfo->offset + regInfo->contentsNodesSize + regInfo->contentsTableSize + regInfo->modelsSize);
+			int heightDataOffset = g_levInfo.spooldata_offset + 2048 * (regInfo->offset + regInfo->contentsNodesSize + regInfo->contentsTableSize + regInfo->modelsSize);
 			
 			// to read
 			int numVisBytes;
@@ -368,18 +379,20 @@ void ExportRegions()
 
 			g_levStream->Seek(visDataOffset, VS_SEEK_SET);
 			g_levStream->Read(&numVisBytes, 1, sizeof(int));
-			
+			// looks like visdata offsets
+
 			// TODO: Read and decode vis bytes, possible model count found here or computed by cell visibility
 
-			g_levStream->Seek(modelsOffset, VS_SEEK_SET);
+			g_levStream->Seek(heightDataOffset, VS_SEEK_SET);
 			g_levStream->Read(&numHeightFieldPoints, 1, sizeof(int));
+			// also depends on visibility
 
 			Msg("numVisBytes = %d\n", numVisBytes);
 			Msg("numHeightFieldPoints = %d\n", numHeightFieldPoints);
 
 			Msg("visdata ofs: %d\n", visDataOffset);
 			Msg("cell objects ofs: %d\n", cellsOffset);
-			Msg("models ofs: %d\n", modelsOffset);
+			Msg("heightdata ofs: %d\n", heightDataOffset);
 
 			RegionModels_t* regModels = NULL;
 
@@ -420,7 +433,10 @@ void ExportRegions()
 				}
 
 				if(cell.modelindex >= g_levelModels.numElem())
-					break;
+				{
+					cell_count++;
+					continue;
+				}
 
 				MODEL* model = FindModelByIndex(cell.modelindex, regModels);
 
@@ -454,6 +470,8 @@ void ExportRegions()
 
 	if(numCellObjectsRead != numCellsObjectsFile)
 		MsgError("numAllObjects mismath: in file: %d, read %d\n", numCellsObjectsFile, numCellObjectsRead);
+
+	Msg("nSModels = %d\n", nSModels);
 }
 
 //-------------------------------------------------------------
@@ -560,6 +578,17 @@ void ExportLevelData()
 	}
 
 	Msg("Export done\n");
+
+	// create material file
+	IFile* pLevFile = GetFileSystem()->Open(varargs("%s.lev", g_levname.c_str()), "wb");
+
+	if(pLevFile)
+	{
+		g_levStream->Seek(g_levSize, VS_SEEK_SET);
+
+		((CMemoryStream*)g_levStream)->WriteToFileStream(pLevFile);
+		GetFileSystem()->Close(pLevFile);
+	}
 }
 
 //-------------------------------------------------------------------------------------------------------------------------
@@ -580,6 +609,8 @@ DECLARE_CMD(lev, "Loads level, extracts model", 0)
 
 		GetFileSystem()->MakeDir(g_levname_moddir.c_str(), SP_ROOT);
 		GetFileSystem()->MakeDir(g_levname_texdir.c_str(), SP_ROOT);
+
+		g_levSize = GetFileSystem()->GetFileSize(levName.c_str());
 
 		LoadLevelFile( levName.c_str() );
 		ExportLevelData();

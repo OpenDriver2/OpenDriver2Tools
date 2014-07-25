@@ -389,8 +389,7 @@ void LoadLevelFile(const char* filename)
 	ReadLevelChunk( g_levStream );
 
 	//-----------------------------------------------------
-	// seek to section 2 - read global textures
-	g_levStream->Seek( g_levInfo.texdata_offset, VS_SEEK_SET );
+	// read global textures
 
 	LoadGlobalTextures(g_levStream);
 

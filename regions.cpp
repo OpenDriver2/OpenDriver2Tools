@@ -66,20 +66,8 @@ void LoadRegionData(IVirtualStream* pFile, RegionModels_t* models, regiondata_t*
 	{
 		int pageIdx = pages->pageIndexes[i];
 
-		/*
-		// if already has data
-		if(g_pageDatas[pageIdx].data)
-		{
-			pFile->Seek(TEXPAGE_4BIT_SIZE, VS_SEEK_CUR);
-
-			if(pFile->Tell() % 2048)
-				pFile->Seek(2048 - (pFile->Tell() % 2048),VS_SEEK_CUR);
-
-			continue;
-		}*/
-
-		// load texture pages
-		LoadTexturePageData(pFile, &g_pageDatas[pageIdx], pageIdx);
+		// region textures are non-compressed due to loading speeds
+		LoadTexturePageData(pFile, &g_pageDatas[pageIdx], pageIdx, false);
 
 		if(pFile->Tell() % 2048)
 			pFile->Seek(2048 - (pFile->Tell() % 2048),VS_SEEK_CUR);

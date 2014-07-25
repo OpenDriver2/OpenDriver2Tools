@@ -200,10 +200,11 @@ typedef struct texturedetail_t
 
 enum EPageStorage
 {
-	PAGE_FLAG_PRELOAD	= (1 << 0),		// pre-loaded page
+	PAGE_FLAG_PRELOAD	= (1 << 0),		// pre-loaded page.
 	PAGE_FLAG_REGION	= (1 << 1),		// demand-loaded
-	PAGE_FLAG_GLOBAL2	= (1 << 2),		// pre-loaded page (really unknown for me)
+	PAGE_FLAG_GLOBAL2	= (1 << 2),		// pre-loaded page  However, it doesn't indicate texture compression
 	PAGE_FLAG_UNK1		= (1 << 3),
+	PAGE_FLAG_UNK2		= (1 << 4),
 };
 
 typedef struct texpageinfo_t

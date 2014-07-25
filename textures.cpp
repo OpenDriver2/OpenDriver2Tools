@@ -98,21 +98,44 @@ void LoadCompressedTexture(IVirtualStream* pFile, texdata_t* out, ubyte* out4bit
 	pFile->Read(compressedData, 1, TEXPAGE_4BIT_SIZE + 28);
 
 	// unpack
-	out->size = UnpackTexture(compressedData, out4bitData);
+	out->rsize = UnpackTexture(compressedData, out4bitData);
 
 	// seek to the right position
-	pFile->Seek(imageStart + out->size, VS_SEEK_SET);
+	pFile->Seek(imageStart + out->rsize, VS_SEEK_SET);
 }
 
-void LoadTexturePageData(IVirtualStream* pFile, texdata_t* out, int nPage)
+void LoadTexturePageData(IVirtualStream* pFile, texdata_t* out, int nPage, bool isCompressed)
 {
 	int rStart = pFile->Tell();
 
-	Msg("PAGE %d (%s)\n", nPage, (g_texPageInfos[nPage].flags & PAGE_FLAG_PRELOAD) ? "preload" : "region_dyn");
+	if(out->data)
+	{
+		// skip already loaded data
+		pFile->Seek(out->rsize, VS_SEEK_CUR);
+		return;
+	}
+
+	// skip zero padding (usually 2048 bytes)
+	int check_numpal;
+	pFile->Read(&check_numpal, 1, sizeof(int));
+	pFile->Seek(-(int)sizeof(int), VS_SEEK_CUR); // seek back
+
+	if(check_numpal == 0)
+	{
+		pFile->Seek(2048, VS_SEEK_CUR);
+
+		/*
+		ubyte check_zero;
+		do
+		{
+			pFile->Read(&check_zero, 1, sizeof(ubyte));
+		}while(check_zero == 0);
+
+		pFile->Seek(-1, VS_SEEK_CUR); // seek back
+		*/
+	}
 
 	ubyte* tex4bitData = new ubyte[TEXPAGE_4BIT_SIZE];
-
-	bool isCompressed = (g_texPageInfos[nPage].flags & PAGE_FLAG_PRELOAD);// | (g_texPageInfos[nPage].flags & PAGE_FLAG_GLOBAL2);
 
 	if( isCompressed )
 	{
@@ -159,8 +182,12 @@ void LoadTexturePageData(IVirtualStream* pFile, texdata_t* out, int nPage)
 
 	delete [] tex4bitData;
 
-	out->size = TEXPAGE_SIZE;
+	int readSize = pFile->Tell()-rStart;
+
+	out->rsize = readSize;
 	out->data = indexed;
+
+	Msg("PAGE %d (%s) datasize=%d\n", nPage, isCompressed ? "preload" : "region_dyn", readSize);
 }
 
 //
@@ -169,39 +196,48 @@ void LoadTexturePageData(IVirtualStream* pFile, texdata_t* out, int nPage)
 void LoadGlobalTextures(IVirtualStream* pFile)
 {
 	Msg("loading global texture pages\n");
+	g_levStream->Seek( g_levInfo.texdata_offset, VS_SEEK_SET );
 
+	// allocate page data
 	g_pageDatas = new texdata_t[g_numTexPages];
 	memset(g_pageDatas, 0, sizeof(texdata_t)*g_numTexPages);
-
-	int ofs = pFile->Tell();
 
 	short mode = PAGE_FLAG_PRELOAD;
 
 	int numTex = 0;
+	int nPageIndex = 0;
 
-//read_again:
-
-	for(int i = 0; i < g_numTexPages; i++)
+	do
 	{
-		if(!((g_texPageInfos[i].flags & mode)))
+		if(!(g_texPageInfos[nPageIndex].flags & mode))
+		{
+			// goto next page
+			nPageIndex++;
+
+			// if we exceeded, switch mode and reset page index
+			if(nPageIndex >= g_numTexPages)
+			{
+				nPageIndex = 0;
+				mode = PAGE_FLAG_GLOBAL2;
+			}
+
 			continue;
+		}
 
-		// read data
-		LoadTexturePageData(pFile, &g_pageDatas[i], i);
+		// abort reading
+		if(nPageIndex >= g_numTexPages)
+			break;
 
-		if(pFile->Tell() % 2048)
+		// preloaded textures are compressed
+		LoadTexturePageData(pFile, &g_pageDatas[nPageIndex], nPageIndex, true);
+
+		numTex++;
+		nPageIndex++;
+
+		if(pFile->Tell() % 4096)
 			pFile->Seek(2048 - (pFile->Tell() % 2048),VS_SEEK_CUR);
-	}
 
-	//if(g_texPageInfos[i].flags != PAGE_FLAG_PRELOAD)
-	//	mode = PAGE_FLAG_GLOBAL2;
-	
-	//if(mode == PAGE_FLAG_PRELOAD)
-	//	mode = PAGE_FLAG_GLOBAL2;
-	//else
-	//	return;
-	
-	//goto read_again;
+	}while(pFile->Tell()-g_levInfo.texdata_offset < g_levInfo.texdata_size);
 
 	Msg("global textures: %d\n", numTex);
 }

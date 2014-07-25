@@ -21,7 +21,7 @@ struct TexPage_t
 struct texdata_t
 {
 	ubyte*		data;
-	int			size;
+	int			rsize;
 
 	TEXCLUT*	clut;
 	int			numPalettes;
@@ -37,7 +37,7 @@ TVec4D<ubyte>	bgr5a1_ToRGBA8(ushort color);
 int				UnpackTexture(ubyte* pSrc, ubyte* pDst);
 
 // loads texture (you must specify offset in virtual stream before)
-void			LoadTexturePageData(IVirtualStream* pFile, texdata_t* out, int pageIndex);
+void			LoadTexturePageData(IVirtualStream* pFile, texdata_t* out, int pageIndex, bool isCompressed);
 
 // loads global textures (pre-loading stage)
 void			LoadGlobalTextures(IVirtualStream* pFile);
