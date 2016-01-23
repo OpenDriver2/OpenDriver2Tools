@@ -5,7 +5,7 @@
 #ifndef LEVEL_H
 #define LEVEL_H
 
-#include "dktypes.h"
+#include "math/dktypes.h"
 
 // known lumps indexes
 #define LUMP_MODELS				1		// level models

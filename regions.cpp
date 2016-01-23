@@ -1,8 +1,8 @@
 #include "regions.h"
 #include "textures.h"
 
-#include "IVirtualStream.h"
-#include "DebugInterface.h"
+#include "core/IVirtualStream.h"
+#include "core/cmdlib.h"
 
 // loaded headers
 LEVELINFO			g_levInfo;
@@ -90,7 +90,7 @@ void LoadRegionData(IVirtualStream* pFile, RegionModels_t* models, regiondata_t*
 
 	pFile->Seek(modelsOffset,VS_SEEK_SET);
 
-	bool needModels = !models->modelRefs.numElem();
+	bool needModels = !models->modelRefs.size();
 
 	for(int i = 0; i < numModels; i++)
 	{
@@ -111,7 +111,7 @@ void LoadRegionData(IVirtualStream* pFile, RegionModels_t* models, regiondata_t*
 				ref.model = (MODEL*)data;
 				ref.size = modelSize;
 				
-				models->modelRefs.append(ref);
+				models->modelRefs.push_back(ref);
 			}
 		}
 	}
@@ -175,7 +175,7 @@ void LoadSpoolInfoLump(IVirtualStream* pFile)
 	pFile->Read(&regionsInfoSize, 1, sizeof(int));
 	g_numRegionSpool = regionsInfoSize/sizeof(REGIONINFO);
 
-	ASSERT(regionsInfoSize % sizeof(REGIONINFO) == 0);
+	//ASSERT(regionsInfoSize % sizeof(REGIONINFO) == 0);
 
 	Msg("Region spool count %d (size=%d bytes)\n", g_numRegionSpool, regionsInfoSize);
 
@@ -210,9 +210,9 @@ void FreeSpoolData()
 
 	if(g_regionModels)
 	{
-		for(int i = 0; i < g_regionModels[i].modelRefs.numElem(); i++)
+		for(int i = 0; i < g_regionModels[i].modelRefs.size(); i++)
 		{
-			for(int j = 0; j < g_regionModels[i].modelRefs.numElem(); j++)
+			for(int j = 0; j < g_regionModels[i].modelRefs.size(); j++)
 				free(g_regionModels[i].modelRefs[j].model);
 		}
 

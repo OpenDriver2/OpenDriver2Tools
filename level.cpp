@@ -1,41 +1,41 @@
 #include "driver_level.h"
-#include "IFileSystem.h"
-#include "VirtualStream.h"
+#include "core/VirtualStream.h"
 
-ConVar g_region_format("regformat", "3");
+int g_region_format = 3;
 
+/*
 void OnFormatChanged(ConVar* pVar,char const* pszOldValue)
 {
 	if(pVar->GetInt() == 2)
 		g_region_format.SetInt(3); // driver 2 uses 3rd generation of region info format
 	else if(pVar->GetInt() == 1)
 		g_region_format.SetInt(1); // driver 1 region info format
-}
+}*/
 
-ConVar g_format("format", "2", OnFormatChanged);
+int g_format = 0;
 
 //--------------------------------------------------------------------------------------------------------------------------
 
-EqString			g_levname = "MIAMI.LEV";
+std::string				g_levname = "MIAMI.LEV";
 
-IVirtualStream*		g_levStream = NULL;
+IVirtualStream*			g_levStream = NULL;
 
-DkList<EqString>	g_model_names;
-DkList<EqString>	g_texture_names;
-char*				g_textureNamesData = NULL;
+std::vector<std::string>	g_model_names;
+std::vector<std::string>	g_texture_names;
+char*						g_textureNamesData = NULL;
 
-DkList<ModelRef_t>	g_levelModels;		// level models
+std::vector<ModelRef_t>		g_levelModels;		// level models
 
-CarModelData_t		g_carModels[MAX_CAR_MODELS];
+CarModelData_t			g_carModels[MAX_CAR_MODELS];
 
 MODEL* FindModelByIndex(int nIndex, RegionModels_t* models)
 {
-	if(nIndex >= 0 && nIndex < g_levelModels.numElem())
+	if(nIndex >= 0 && nIndex < g_levelModels.size())
 	{
 		// try searching in region datas
 		if(g_levelModels[nIndex].swap && models)
 		{
-			for(int i = 0; i < models->modelRefs.numElem(); i++)
+			for(int i = 0; i < models->modelRefs.size(); i++)
 			{
 				if(models->modelRefs[i].index == nIndex)
 					return models->modelRefs[i].model;
@@ -50,7 +50,7 @@ MODEL* FindModelByIndex(int nIndex, RegionModels_t* models)
 
 int GetModelIndexByName(const char* name)
 {
-	for(int i = 0; i < g_levelModels.numElem(); i++)
+	for(int i = 0; i < g_levelModels.size(); i++)
 	{
 		if(!strcmp(g_model_names[i].c_str(), name))
 			return i;
@@ -143,7 +143,7 @@ void LoadModelNamesLump(IVirtualStream* pFile, int size)
 
 		len = strlen(str);
 
-		g_model_names.append(str);
+		g_model_names.push_back(str);
 
 		sz += len + 1; 
 	}while(sz < size);
@@ -173,7 +173,7 @@ void LoadTextureNamesLump(IVirtualStream* pFile, int size)
 
 		len = strlen(str);
 
-		g_texture_names.append(str);
+		g_texture_names.push_back(str);
 
 		sz += len + 1; 
 	}while(sz < size);
@@ -211,7 +211,7 @@ void LoadLevelModelsLump(IVirtualStream* pFile)
 			ref.size = modelSize;
 			ref.swap = false;
 
-			g_levelModels.append(ref);
+			g_levelModels.push_back(ref);
 		}
 		else // leave empty as swap
 		{
@@ -221,7 +221,7 @@ void LoadLevelModelsLump(IVirtualStream* pFile)
 			ref.size = modelSize;
 			ref.swap = true;
 
-			g_levelModels.append(ref);
+			g_levelModels.push_back(ref);
 		}
 	}
 	 
@@ -234,8 +234,13 @@ void ReadLevelChunk(IVirtualStream* pFile)
 {
 	int lump_count = 255; // Driver 2 difference: you not need to read lump count
 
-	if(g_format.GetInt() == 1)
-		pFile->Read(&lump_count, sizeof(int), 1);	// uncomment to support driver 1 TODO: command line switch
+	if(g_format == 1)
+		pFile->Read(&lump_count, sizeof(int), 1);
+
+	if(g_format == 2)
+		g_region_format = 3; // driver 2 uses 3rd generation of region info format
+	else if(g_format == 1)
+		g_region_format = 1; // driver 1 region info format
 
 	LUMP lump;
 
@@ -323,10 +328,13 @@ void ReadLevelChunk(IVirtualStream* pFile)
 void LoadLevelFile(const char* filename)
 {
 	// try load driver2 lev file
-	IFile* pReadFile = GetFileSystem()->Open(filename, "r+b");
+	FILE* pReadFile = fopen(filename, "rb");
 
 	if(!pReadFile)
+	{
+		MsgError("Failed to open LEV file!\n");
 		return;
+	}
 
 	CMemoryStream* stream = new CMemoryStream();
 	stream->Open(NULL, VS_OPEN_WRITE | VS_OPEN_READ, 0);
@@ -334,7 +342,7 @@ void LoadLevelFile(const char* filename)
 	// read file into stream
 	if( stream->ReadFromFileStream(pReadFile) )
 	{
-		GetFileSystem()->Close(pReadFile);
+		fclose(pReadFile);
 		g_levStream = stream;
 	}
 	else
@@ -348,9 +356,10 @@ void LoadLevelFile(const char* filename)
 
 	MsgWarning("-----------\nloading lev file '%s'\n", filename);
 
-	EqString fileName = filename;
+	std::string fileName = filename;
 
-	g_levname = fileName.Path_Strip_Ext();
+	size_t lastindex = fileName.find_last_of("."); 
+	fileName = fileName.substr(0, lastindex); 
 
 	//-------------------------------------------------------------------
 
@@ -431,7 +440,7 @@ void FreeLevelData()
 
 	FreeSpoolData();
 
-	for(int i = 0; i < g_levelModels.numElem(); i++)
+	for(int i = 0; i < g_levelModels.size(); i++)
 	{
 		if(g_levelModels[i].model)
 			free(g_levelModels[i].model);

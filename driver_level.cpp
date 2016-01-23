@@ -1,23 +1,44 @@
-#include "core_base_header.h"
-#include "DebugInterface.h"
-#include "VirtualStream.h"
-#include "cmdlib.h"
-
 #include "driver_level.h"
+#include "math/Matrix.h"
+#include "core/cmdlib.h"
+#include "core/VirtualStream.h"
+#include <stdarg.h>
+#include <direct.h>
 
-ConVar g_export_carmodels("carmodels", "0");
-ConVar g_export_models("models", "0");
-ConVar g_export_world("world", "0");
-ConVar g_export_textures("textures", "0");
+// string util
+char* varargs(const char* fmt,...)
+{
+	va_list		argptr;
 
-extern ConVar g_region_format;
+	static int index = 0;
+	static char	string[4][4096];
 
-#include "ImageLoader.h"
+	char* buf = string[index];
+	index = (index + 1) & 3;
+
+	memset(buf, 0, 4096);
+
+	va_start (argptr,fmt);
+	vsnprintf(buf, 4096, fmt,argptr);
+	va_end (argptr);
+
+	return buf;
+}
+
+bool g_export_carmodels = false;
+bool g_export_models = false;
+bool g_export_world = false;
+bool g_export_textures = false;
+
+extern int g_region_format;
+extern int g_format;
+
+//#include "ImageLoader.h"
 
 //---------------------------------------------------------------------------------------------------------------------------------
 
-EqString			g_levname_moddir;
-EqString			g_levname_texdir;
+std::string			g_levname_moddir;
+std::string			g_levname_texdir;
 
 int					g_levSize = 0;
 
@@ -217,18 +238,20 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 //-------------------------------------------------------------
 void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, bool isCarModel = false)
 {
-	IFile* mdlFile = GetFileSystem()->Open(varargs("%s.obj", model_name), "wb", SP_ROOT);
+	FILE* mdlFile = fopen(varargs("%s.obj", model_name), "wb");
 
 	if(mdlFile)
 	{
+		CFileStream fstr(mdlFile);
+
 		Msg("----------\nModel %s (%d)\n", model_name, model_index);
 
-		mdlFile->Print("mtllib MODELPAGES.mtl\r\n");
+		fstr.Print("mtllib MODELPAGES.mtl\r\n");
 
-		WriteMODELToObjStream( mdlFile, model, model_index, true );
+		WriteMODELToObjStream( &fstr, model, model_index, true );
 
 		// success
-		GetFileSystem()->Close(mdlFile);
+		fclose(mdlFile);
 	}
 }
 
@@ -237,18 +260,70 @@ void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, bo
 //-------------------------------------------------------------
 void ExportCarModel(MODEL* model, int size, int index, const char* name_suffix)
 {
-	EqString model_name(varargs("%s/CARMODEL_%d_%s", g_levname_moddir.c_str(), index, name_suffix));
+	std::string model_name(varargs("%s/CARMODEL_%d_%s", g_levname_moddir.c_str(), index, name_suffix));
 
 	// export model
 	ExportDMODELToOBJ(model, model_name.c_str(), index, true);
 			
 	// save original dmodel2
-	IFile* dFile = GetFileSystem()->Open(varargs("%s.dmodel",  model_name.c_str()), "wb", SP_ROOT);
+	FILE* dFile = fopen(varargs("%s.dmodel",  model_name.c_str()), "wb");
 	if(dFile)
 	{
-		dFile->Write(model, size, 1);
-		GetFileSystem()->Close(dFile);
+		fwrite(model, size, 1, dFile);
+		fclose(dFile);
 	}
+}
+
+void SaveTGA(const char* filename, ubyte* data, int w, int h, int c)
+{
+	// Define targa header.
+	#pragma pack(1)
+	typedef struct
+		{
+		int8	identsize;              // Size of ID field that follows header (0)
+		int8	colorMapType;           // 0 = None, 1 = paletted
+		int8	imageType;              // 0 = none, 1 = indexed, 2 = rgb, 3 = grey, +8=rle
+		unsigned short	colorMapStart;          // First colour map entry
+		unsigned short	colorMapLength;         // Number of colors
+		unsigned char 	colorMapBits;   // bits per palette entry
+		unsigned short	xstart;                 // image x origin
+		unsigned short	ystart;                 // image y origin
+		unsigned short	width;                  // width in pixels
+		unsigned short	height;                 // height in pixels
+		int8	bits;                   // bits per pixel (8 16, 24, 32)
+		int8	descriptor;             // image descriptor
+		} TGAHEADER;
+	#pragma pack(8)
+
+	TGAHEADER tgaHeader;
+
+	// Initialize the Targa header
+    tgaHeader.identsize = 0;
+    tgaHeader.colorMapType = 0;
+    tgaHeader.imageType = 2;
+    tgaHeader.colorMapStart = 0;
+    tgaHeader.colorMapLength = 0;
+    tgaHeader.colorMapBits = 0;
+    tgaHeader.xstart = 0;
+    tgaHeader.ystart = 0;
+    tgaHeader.width = w;
+    tgaHeader.height = h;
+    tgaHeader.bits = c*8;
+    tgaHeader.descriptor = 0;
+
+	int imageSize = w*h*c;
+
+	FILE* pFile = fopen(filename, "wb");
+	if(!pFile)
+		return;
+
+    // Write the header
+    fwrite(&tgaHeader, sizeof(TGAHEADER), 1, pFile);
+    
+    // Write the image data
+    fwrite(data, imageSize, 1, pFile);
+              
+    fclose(pFile);
 }
 
 void ExportTexturePage(int nPage)
@@ -263,10 +338,13 @@ void ExportTexturePage(int nPage)
 	if(!page->data)
 		return;		// NO DATA
 
-	CImage img;
-	uint* color_data = (uint*)img.Create(FORMAT_RGBA8, 256,256,1,1);
+#define TEX_CHANNELS 4
 
-	memset(color_data, 0, img.GetSliceSize());
+	int imgSize = TEXPAGE_SIZE * TEX_CHANNELS;
+
+	uint* color_data = (uint*)malloc(imgSize);
+
+	memset(color_data, 0, imgSize);
 
 	int clut = max(page->numPalettes, g_texPages[nPage].numDetails);
 
@@ -279,13 +357,6 @@ void ExportTexturePage(int nPage)
 
 		char* name = g_textureNamesData + g_texPages[nPage].details[i].texNameOffset;
 		
-		/*
-		Msg("Texture detail %d (%s) [%d %d %d %d]\n", i,name,
-														g_texPages[nPage].details[i].x,
-														g_texPages[nPage].details[i].y,
-														g_texPages[nPage].details[i].w,
-														g_texPages[nPage].details[i].h);
-		*/
 		for(int y = oy; y < oy+h; y++)
 		{
 			for(int x = ox; x < ox+w; x++)
@@ -294,14 +365,20 @@ void ExportTexturePage(int nPage)
 
 				TVec4D<ubyte> color = bgr5a1_ToRGBA8( page->clut[i].colors[clindex] );
 
-				color_data[y*256 + x] = *(uint*)(&color);
+				// flip texture by Y because of TGA
+				int ypos = (TEXPAGE_SIZE_Y - y-1)*TEXPAGE_SIZE_Y;
+
+				color_data[ypos + x] = *(uint*)(&color);
 			}
 		}
 	}
 
+	// need to flip textures
+
 	Msg("Writing texture %s/PAGE_%d.tga\n", g_levname_texdir.c_str(), nPage);
 
-	img.SaveTGA(varargs("%s/PAGE_%d.tga", g_levname_texdir.c_str(), nPage));
+	SaveTGA(varargs("%s/PAGE_%d.tga", g_levname_texdir.c_str(), nPage), (ubyte*)color_data, TEXPAGE_SIZE_Y,TEXPAGE_SIZE_Y,TEX_CHANNELS);
+	free(color_data);
 }
 
 void ExportRegions()
@@ -329,13 +406,16 @@ void ExportRegions()
 	 
 	int numCellObjectsRead = 0;
 
-	IFile* objFile = NULL;
-	IFile* levModelFile = NULL;
+	FILE* objFile = NULL;
+	FILE* levModelFile = NULL;
 
-	objFile = GetFileSystem()->Open(varargs("%s_CELLPOS_MAP.obj", g_levname.c_str()), "wb", SP_ROOT);
-	levModelFile = GetFileSystem()->Open(varargs("%s_LEVELMODEL.obj", g_levname.c_str()), "wb", SP_ROOT);
+	objFile = fopen(varargs("%s_CELLPOS_MAP.obj", g_levname.c_str()), "wb");
+	levModelFile = fopen(varargs("%s_LEVELMODEL.obj", g_levname.c_str()), "wb");
 
-	levModelFile->Print("mtllib %s_LEVELMODEL.mtl\r\n", g_levname.c_str());
+	CFileStream fobjFile(objFile);
+	CFileStream flevModelFile(levModelFile);
+
+	flevModelFile.Print("mtllib %s_LEVELMODEL.mtl\r\n", g_levname.c_str());
 
 	int lobj_first_v = 0;
 	int lobj_first_t = 0;
@@ -372,13 +452,14 @@ void ExportRegions()
 
 			int cellsOffset = g_levInfo.spooldata_offset + 2048 * (spool->offset + spool->pvs_size + spool->cell_data_size);
 			
-			if(g_region_format.GetInt() == 2) // driver 2 demo
+			if(g_region_format == 2) // driver 2 demo
 			{
 				cellsOffset = g_levInfo.spooldata_offset + 2048 * (spool->offset + spool->pvs_size + spool->cell_data_size + spool->roadm_size );
 			}
-			else if(g_region_format.GetInt() == 1) // driver 1
+			else if(g_region_format == 1) // driver 1
 			{
-				ASSERT(!"diferrent packed cells used?\n");
+				MsgError("diferrent packed cells used?\n");
+				continue;
 			}
 
 			Msg("cell objects ofs: %d\n", cellsOffset);
@@ -390,21 +471,21 @@ void ExportRegions()
 			{
 				regModels = &g_regionModels[spool->super_region];
 
-				bool isNew = (regModels->modelRefs.numElem() == 0);
+				bool isNew = (regModels->modelRefs.size() == 0);
 
 				LoadRegionData(g_levStream, regModels, &g_regionDataDescs[spool->super_region], &g_regionPages[spool->super_region]);
 
-				if( g_export_models.GetBool() && isNew )
+				if( g_export_models && isNew )
 				{
 					// export region models
-					for(int i = 0; i < regModels->modelRefs.numElem(); i++)
+					for(int i = 0; i < regModels->modelRefs.size(); i++)
 					{
 						int mod_indxex = regModels->modelRefs[i].index;
 
-						EqString modelFileName = varargs("%s/ZREG%d_MOD_%d", g_levname_moddir.c_str(), spool->super_region, mod_indxex);
+						std::string modelFileName = varargs("%s/ZREG%d_MOD_%d", g_levname_moddir.c_str(), spool->super_region, mod_indxex);
 
-						if(g_model_names[mod_indxex].GetLength())
-							modelFileName = varargs("%s/ZREG%d_%d_%s", g_levname_moddir.c_str(), spool->super_region, i, g_model_names[mod_indxex]);
+						if(g_model_names[mod_indxex].length())
+							modelFileName = varargs("%s/ZREG%d_%d_%s", g_levname_moddir.c_str(), spool->super_region, i, g_model_names[mod_indxex].c_str());
 
 						// export model
 						ExportDMODELToOBJ(regModels->modelRefs[i].model, modelFileName.c_str(), regModels->modelRefs[i].index);
@@ -417,8 +498,8 @@ void ExportRegions()
 
 			int cell_count = 0;
 
-			objFile->Print("#--------\r\n# region %d %d (ofs=%d)\r\n", x, y, cellsOffset);
-			objFile->Print("g cell_%d\r\n", sPosIdx);
+			fobjFile.Print("#--------\r\n# region %d %d (ofs=%d)\r\n", x, y, cellsOffset);
+			fobjFile.Print("g cell_%d\r\n", sPosIdx);
 
 			PACKED_CELL_OBJECT object;
 			do
@@ -437,11 +518,11 @@ void ExportRegions()
 
 				if(objFile)
 				{
-					objFile->Print("# m %d r %d\r\n", cell.modelindex, cell.rotation);
-					objFile->Print("v %g %g %g\r\n", (region_pos_x+cell.x)*-0.00015f, cell.y*-0.00015f, (region_pos_z+cell.z)*0.00015f);
+					fobjFile.Print("# m %d r %d\r\n", cell.modelindex, cell.rotation);
+					fobjFile.Print("v %g %g %g\r\n", (region_pos_x+cell.x)*-0.00015f, cell.y*-0.00015f, (region_pos_z+cell.z)*0.00015f);
 				}
 
-				if(cell.modelindex >= g_levelModels.numElem())
+				if(cell.modelindex >= g_levelModels.size())
 				{
 					Msg("cell model index invalid: %d\n", cell.modelindex);
 
@@ -458,7 +539,7 @@ void ExportRegions()
 				Matrix4x4 transform = translate(Vector3D((region_pos_x+cell.x)*-0.00015f, cell.y*-0.00015f, (region_pos_z+cell.z)*0.00015f));
 				transform = transform * rotateY4(cell.rotation / 64.0f*PI_F*2.0f) * scale4(1.0f,1.0f,1.0f);
 
-				WriteMODELToObjStream(levModelFile, model, cell.modelindex, false, transform, &lobj_first_v, &lobj_first_t, regModels);
+				WriteMODELToObjStream(&flevModelFile, model, cell.modelindex, false, transform, &lobj_first_v, &lobj_first_t, regModels);
 				
 				cell_count++;
 			}while(true);
@@ -467,15 +548,15 @@ void ExportRegions()
 
 			if(objFile)
 			{
-				objFile->Print("# total region cells %d\r\n", cell_count);
+				fobjFile.Print("# total region cells %d\r\n", cell_count);
 			}
 
 			numCellObjectsRead += cell_count;
 		}
 	}
 
-	GetFileSystem()->Close(objFile);
-	GetFileSystem()->Close(levModelFile);
+	fclose(objFile);
+	fclose(levModelFile);
 
 	int numCellsObjectsFile = g_mapInfo.numAllObjects - g_mapInfo.numStraddlers;
 
@@ -492,49 +573,49 @@ void ExportLevelData()
 	Msg("-------------\nExporting level data\n-------------\n");
 
 	// export models
-	if(g_export_models.GetBool())
+	if(g_export_models)
 	{
 		Msg("exporting models\n");
 
-		for(int i = 0; i < g_levelModels.numElem(); i++)
+		for(int i = 0; i < g_levelModels.size(); i++)
 		{
 			if(!g_levelModels[i].model)
 				continue;
 
-			EqString modelFileName = varargs("%s/ZMOD_%d", g_levname_moddir.c_str(), i);
+			std::string modelFileName(varargs("%s/ZMOD_%d", g_levname_moddir.c_str(), i));
 
-			if(g_model_names[i].GetLength())
-				modelFileName = varargs("%s/%d_%s", g_levname_moddir.c_str(), i, g_model_names[i]);
+			if(g_model_names[i].size())
+				modelFileName = varargs("%s/%d_%s", g_levname_moddir.c_str(), i, g_model_names[i].c_str());
 
 			// export model
 			ExportDMODELToOBJ(g_levelModels[i].model, modelFileName.c_str(), i);
 			
 			// save original dmodel2
-			IFile* dFile = GetFileSystem()->Open(varargs("%s.dmodel", modelFileName.c_str()), "wb", SP_ROOT);
+			FILE* dFile = fopen(varargs("%s.dmodel", modelFileName.c_str()), "wb");
 			if(dFile)
 			{
-				dFile->Write(g_levelModels[i].model, g_levelModels[i].size, 1);
-				GetFileSystem()->Close(dFile);
+				fwrite(g_levelModels[i].model, g_levelModels[i].size, 1, dFile);
+				fclose(dFile);
 			}
 		}
 
 		// create material file
-		IFile* pMtlFile = GetFileSystem()->Open(varargs("%s/MODELPAGES.mtl", g_levname_moddir.c_str()), "wb", SP_ROOT);
+		FILE* pMtlFile = fopen(varargs("%s/MODELPAGES.mtl", g_levname_moddir.c_str()), "wb");
 
 		if(pMtlFile)
 		{
 			for(int i = 0; i < g_numTexPages; i++)
 			{
-				pMtlFile->Print("newmtl page_%d\r\n", i);
-				pMtlFile->Print("map_Kd ../../%s/PAGE_%d.tga\r\n", g_levname_texdir.c_str(), i);
+				fprintf(pMtlFile, "newmtl page_%d\r\n", i);
+				fprintf(pMtlFile, "map_Kd ../../%s/PAGE_%d.tga\r\n", g_levname_texdir.c_str(), i);
 			}
 
-			GetFileSystem()->Close(pMtlFile);
+			fclose(pMtlFile);
 		}
 	}
 
 	// export car models
-	if(g_export_carmodels.GetBool())
+	if(g_export_carmodels)
 	{
 		for(int i = 0; i < MAX_CAR_MODELS; i++)
 		{
@@ -546,16 +627,16 @@ void ExportLevelData()
 	}
 
 	// export world region
-	if(g_export_world.GetBool())
+	if(g_export_world)
 	{
 		Msg("exporting cell points and world model\n");
 		ExportRegions();
 	}
 
-	if(g_export_textures.GetBool())
+	if(g_export_textures)
 	{
 		// preload region data if needed
-		if(!g_export_world.GetBool())
+		if(!g_export_world)
 		{
 			Msg("preloading region datas (%d)\n", g_numRegionDatas);
 
@@ -572,33 +653,28 @@ void ExportLevelData()
 		}
 
 		// create material file
-		IFile* pMtlFile = GetFileSystem()->Open(varargs("%s_LEVELMODEL.mtl", g_levname.c_str()), "wb", SP_ROOT);
+		FILE* pMtlFile = fopen(varargs("%s_LEVELMODEL.mtl", g_levname.c_str()), "wb");
+
+		std::string justLevFilename = g_levname.substr(g_levname.find_last_of("/\\") + 1);
+
+		size_t lastindex = justLevFilename.find_last_of("."); 
+		justLevFilename = justLevFilename.substr(0, lastindex); 
 
 		if(pMtlFile)
 		{
 			for(int i = 0; i < g_numTexPages; i++)
 			{
-				pMtlFile->Print("newmtl page_%d\r\n", i);
-				pMtlFile->Print("map_Kd %s_textures/PAGE_%d.tga\r\n", g_levname.Path_Extract_Name().c_str(), i);
+				
+				fprintf(pMtlFile, "newmtl page_%d\r\n", i);
+				fprintf(pMtlFile, "map_Kd %s_textures/PAGE_%d.tga\r\n", justLevFilename.c_str(), i);
 			}
 
-			GetFileSystem()->Close(pMtlFile);
+			fclose(pMtlFile);
 		}
 
 	}
 
 	Msg("Export done\n");
-
-	// create material file
-	IFile* pLevFile = GetFileSystem()->Open(varargs("%s.lev", g_levname.c_str()), "wb");
-
-	if(pLevFile)
-	{
-		g_levStream->Seek(g_levSize, VS_SEEK_SET);
-
-		((CMemoryStream*)g_levStream)->WriteToFileStream(pLevFile);
-		GetFileSystem()->Close(pLevFile);
-	}
 }
 
 //-------------------------------------------------------------------------------------------------------------------------
@@ -606,48 +682,107 @@ void ExportLevelData()
 void Usage()
 {
 	MsgWarning("USAGE:\n	driver_level +lev <input atl file> <output image file>\n");
+	MsgWarning("	-format <n> : level file format. 1 - driver1 level, 2 - driver2 level\n");
+	MsgWarning("	-regformat <n> : level region format. 1 - driver1 (unsupported), 2 - driver2 demo, 3 - driver2 release\n");
+	MsgWarning("	-textures <1/0> : export textures\n");
+	MsgWarning("	-models <1/0> : export models\n");
+	MsgWarning("	-carmodels <1/0> : export car models\n");
+	MsgWarning("	-world <1/0> : export whole world\n");
 }
 
-DECLARE_CMD(lev, "Loads level, extracts model", 0)
+
+void ProcessLevFile(const char* filename)
 {
-	if(args && args->numElem())
+	FILE* levTest = fopen(filename, "rb");
+
+	if(!levTest)
 	{
-		EqString levName = CMD_ARGV(0);
-
-		g_levname_moddir = levName.Path_Strip_Ext() + "_models";
-		g_levname_texdir = levName.Path_Strip_Ext() + "_textures";
-
-		GetFileSystem()->MakeDir(g_levname_moddir.c_str(), SP_ROOT);
-		GetFileSystem()->MakeDir(g_levname_texdir.c_str(), SP_ROOT);
-
-		g_levSize = GetFileSystem()->GetFileSize(levName.c_str());
-
-		LoadLevelFile( levName.c_str() );
-		ExportLevelData();
-
-		FreeLevelData();
+		MsgError("LEV file '%s' does not exists!\n", filename);
+		return;
 	}
-	else
-		Usage();
+
+	fseek(levTest, 0, SEEK_END);
+	g_levSize = ftell(levTest);
+	fclose(levTest);
+
+	g_levname = filename;
+
+	size_t lastindex = g_levname.find_last_of("."); 
+	g_levname = g_levname.substr(0, lastindex); 
+
+	g_levname_moddir = g_levname + "_models";
+	g_levname_texdir = g_levname + "_textures";
+
+	_mkdir(g_levname_moddir.c_str());
+	_mkdir(g_levname_texdir.c_str());
+
+	LoadLevelFile( filename );
+	ExportLevelData();
+
+	FreeLevelData();
 }
 
 int main(int argc, char* argv[])
 {
-	GetCore()->Init("driver_level", argc, argv);
-
-	Install_SpewFunction();
-
-	if(!GetFileSystem()->Init(false))
-		return -1;
+	Install_ConsoleSpewFunction();
 
 	Msg("---------------\ndriver_level - Driver 2 level loader\n---------------\n\n");
 
-	if(GetCmdLine()->GetArgumentCount() == 0)
+	if(argc == 0)
+	{
 		Usage();
+		return 0;
+	}
 
-	GetCmdLine()->ExecuteCommandLine( true, true );
+	std::string levName;
 
-	GetCore()->Shutdown();
+	for(int i = 0; i < argc; i++)
+	{
+		if(!stricmp(argv[i], "-format"))
+		{
+			g_format = atoi(argv[i+1]);
+			i++;
+		}
+		else if(!stricmp(argv[i], "-regformat"))
+		{
+			g_region_format = atoi(argv[i+1]);
+			i++;
+		}
+		else if(!stricmp(argv[i], "-textures"))
+		{
+			g_export_textures = atoi(argv[i+1]) > 0;
+			i++;
+		}
+		else if(!stricmp(argv[i], "-world"))
+		{
+			g_export_world = atoi(argv[i+1]) > 0;
+			i++;
+		}
+		else if(!stricmp(argv[i], "-models"))
+		{
+			g_export_models = atoi(argv[i+1]) > 0;
+			i++;
+		}
+		else if(!stricmp(argv[i], "-carmodels"))
+		{
+			g_export_carmodels = atoi(argv[i+1]) > 0;
+			i++;
+		}
+		else if(!stricmp(argv[i], "-lev"))
+		{
+			levName = argv[i+1];
+			i++;
+		}
+	}
+
+	if(levName.length() == 0)
+	{
+		MsgError("Empty filename!\nDid you forgot -lev key?\n");
+		Usage();
+		return 0;
+	}
+
+	ProcessLevFile( levName.c_str() );
 
 	return 0;
 }

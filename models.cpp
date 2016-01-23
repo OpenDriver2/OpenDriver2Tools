@@ -1,58 +1,5 @@
 #include "models.h"
-#include "IFileSystem.h"
-
-struct face_type_t
-{
-	ubyte flags;
-
-	char*	data;
-	int		size;
-};
-
-face_type_t g_facetypeLib[256];
-
-void InitFaceTypeLib()
-{
-	memset(&g_facetypeLib, 0, sizeof(face_type_t)*256);
-}
-
-void AddUniqueFaceType(ubyte flags, const char* data, int size)
-{
-	if(g_facetypeLib[flags].data == NULL)
-	{
-		g_facetypeLib[flags].data = (char*)malloc(size);
-		memcpy(g_facetypeLib[flags].data, data, size);
-
-		g_facetypeLib[flags].size = size;
-	}
-}
-
-void DumpFaceTypes()
-{
-	IFile* pFaceDumpFile = GetFileSystem()->Open("faceTypeLib.binstr.txt", "wb", SP_ROOT);
-
-	if(pFaceDumpFile)
-	{
-		pFaceDumpFile->Print("Face dump file. Open with hex viewer\r\n");
-		pFaceDumpFile->Print("Face begins after !!!! and ends with END!\r\n");
-
-		for(int i = 0; i < 256; i++)
-		{
-			if(!g_facetypeLib[i].data)
-				continue;
-
-			pFaceDumpFile->Print("\r\n---------\r\nface flags=%d size=%d\r\n\r\n", i, g_facetypeLib[i].size);
-			static char zeroes[4] = {0,0,0,0};
-
-			pFaceDumpFile->Print("!!!!");
-			pFaceDumpFile->Write(g_facetypeLib[i].data, 1, g_facetypeLib[i].size );
-			pFaceDumpFile->Write(zeroes, 1, 4 );
-			pFaceDumpFile->Print("END!");
-		}
-
-		GetFileSystem()->Close(pFaceDumpFile);
-	}
-};
+#include <malloc.h>
 
 //--------------------------------------------------------------------------------
 

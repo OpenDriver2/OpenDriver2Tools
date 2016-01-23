@@ -1,11 +1,11 @@
 ﻿
 #include "driver_level.h"
 
-#include "IVirtualStream.h"
-#include "Math/Vector.h"
+#include "core/cmdlib.h"
+#include "core/IVirtualStream.h"
+#include "math/Vector.h"
 
-#include "core_base_header.h"
-#include "DebugInterface.h"
+
 
 //-------------------------------------------------------------------------------
 
@@ -26,7 +26,7 @@ TVec4D<ubyte> bgr5a1_ToRGBA8(ushort color)
 	ubyte r = ((color >> 10) & 0x1F) * 8;
 	ubyte a = (color >> 15)*255;
 
-	return TVec4D<ubyte>(b,g,r,a);
+	return TVec4D<ubyte>(r,g,b,a);
 }
 
 //-------------------------------------------------------------------------------
