@@ -2,7 +2,17 @@
 #include "IFileSystem.h"
 #include "VirtualStream.h"
 
-ConVar g_format("format", "2");
+ConVar g_region_format("regformat", "3");
+
+void OnFormatChanged(ConVar* pVar,char const* pszOldValue)
+{
+	if(pVar->GetInt() == 2)
+		g_region_format.SetInt(3); // driver 2 uses 3rd generation of region info format
+	else if(pVar->GetInt() == 1)
+		g_region_format.SetInt(1); // driver 1 region info format
+}
+
+ConVar g_format("format", "2", OnFormatChanged);
 
 //--------------------------------------------------------------------------------------------------------------------------
 

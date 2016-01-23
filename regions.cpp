@@ -11,11 +11,12 @@ MAPINFO				g_mapInfo;
 regiondata_t*		g_regionDataDescs = NULL;	// region model/texture data descriptors
 regionpages_t*		g_regionPages = NULL;		// region texpage usage table
 RegionModels_t*		g_regionModels = NULL;		// cached region models
-REGIONINFO*			g_regionInfos = NULL;		// region data info
+Spool*				g_regionSpool = NULL;		// region data info
 ushort*				g_regionOffsets = NULL;		// region offset table
 
 int					g_numRegionDatas = 0;
 int					g_numRegionOffsets = 0;
+int					g_numRegionSpool = 0;
 
 CELL_OBJECT*		g_straddlers = NULL;		// cells that placed between regions (transition area)
 
@@ -172,12 +173,14 @@ void LoadSpoolInfoLump(IVirtualStream* pFile)
 
 	int regionsInfoSize;
 	pFile->Read(&regionsInfoSize, 1, sizeof(int));
-	int numRegionInfos = regionsInfoSize/sizeof(REGIONINFO);
+	g_numRegionSpool = regionsInfoSize/sizeof(REGIONINFO);
 
-	Msg("Region info count %d (size=%d bytes)\n", numRegionInfos, regionsInfoSize);
+	ASSERT(regionsInfoSize % sizeof(REGIONINFO) == 0);
 
-	g_regionInfos = (REGIONINFO*)malloc(regionsInfoSize);
-	pFile->Read(g_regionInfos, 1, regionsInfoSize);
+	Msg("Region spool count %d (size=%d bytes)\n", g_numRegionSpool, regionsInfoSize);
+
+	g_regionSpool = (Spool*)malloc(regionsInfoSize);
+	pFile->Read(g_regionSpool, 1, regionsInfoSize);
 
 	// seek back
 	pFile->Seek(l_ofs, VS_SEEK_SET);
@@ -189,9 +192,9 @@ void FreeSpoolData()
 		delete [] g_straddlers;
 	g_straddlers = NULL;
 
-	if(g_regionInfos)
-		free(g_regionInfos);
-	g_regionInfos = NULL;
+	if(g_regionSpool)
+		free(g_regionSpool);
+	g_regionSpool = NULL;
 
 	if(g_regionOffsets)
 		delete [] g_regionOffsets;

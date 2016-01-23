@@ -44,14 +44,14 @@ enum EFaceFlags_e
 {
 	FACE_IS_QUAD			= (1 << 0),
 	FACE_RGB				= (1 << 1),	// this face has a color data
-	FACE_TEXTURED			= (1 << 2),	// this face is textured and has custom texture coordinates
-	FACE_TEXTURED2			= (1 << 3),	// this face is textured, and texcoords are taken from texture atlas
+	FACE_TEXTURED			= (1 << 2),	// face is textured
+	FACE_TEXTURED2			= (1 << 3),	// face is textured, different method?
 
-	FACE_HAS_VERTEXNORMAL	= (1 << 4),
+	FACE_NOCULL				= (1 << 4), // no culling
 
 	FACE_UNK6				= (1 << 5),
-	FACE_UNK7				= (1 << 7),
-	FACE_UNK8				= (1 << 8),
+	FACE_UNK7				= (1 << 6),
+	FACE_UNK8				= (1 << 7),
 };
 
 //------------------------------------------------------------------------------------------------------------
@@ -105,43 +105,41 @@ enum ModelFlags2	// effect flags?
    sidewalk     = 32768
 };
 
-typedef struct dmodel_t	// in original sources declared as MODEL (thanks Driver for iOS)
+struct MODEL
 {
-	short	collFlags;	// collision flags? ModelFlags1
-	short	propFlags;	// property	flags? ModelFlags2
-	short	vertex_ref;	// it points on other model if not negative
-	short	unk3;
-	int		unk4;
+   short	shape_flags;
+   short	flags2;
+   short	instance_number;
 
-	short	numverts;
-	short	numfaces;
-	int		vertexOffset;
-	int		faceOffset;
+   ubyte	tri_verts;
+   ubyte	zBias;
 
-	int		faceOffset2;
-	int		unk6;			// may be also boundingOffsets
-	int		boundingsOffset;
+   short	bounding_sphere;
+   short	num_point_normals;
+
+   short	num_vertices;
+   short	num_polys;
+
+   int		vertices;
+   int		poly_block;
+   int		normals;
+   int		point_normals;
+   int		collision_block;
 
 	inline dvertex_t* pVertex(int i) const 
 	{
-		return (dvertex_t *)(((ubyte *)this) + vertexOffset) + i; 
+		return (dvertex_t *)(((ubyte *)this) + vertices) + i; 
 	}
 
-	inline char* pFaceAt(int ofs) const 
+	inline char* pPolyAt(int ofs) const 
 	{
-		return (char *)(((ubyte *)this) + faceOffset + ofs); 
+		return (char *)(((ubyte *)this) + poly_block + ofs); 
 	}
+};
 
-	inline dbounding_t* pBoundingData() const 
-	{
-		if(!boundingsOffset)
-			return NULL;
+assert_sizeof(MODEL, 36);
 
-		return (dbounding_t *)(((ubyte *)this) + boundingsOffset); 
-	}
-}MODEL;
-
-int decode_face(const char* face, dface_t* out);
+int decode_poly(const char* face, dface_t* out);
 
 //-------------------------------------------------------------------------------
 

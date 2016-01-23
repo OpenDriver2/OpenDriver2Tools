@@ -14,10 +14,18 @@
 
 struct ModelRef_t
 {
+	ModelRef_t()
+	{
+		model = NULL;
+		userData = NULL;
+	}
+
 	MODEL*	model;
 	int		index;
 	int		size;
 	bool	swap;
+
+	void*	userData;
 };
 
 struct RegionModels_t
@@ -68,13 +76,14 @@ extern DkList<ModelRef_t>	g_levelModels;
 extern regiondata_t*		g_regionDataDescs;	// region model/texture data descriptors
 extern regionpages_t*		g_regionPages;		// region texpage usage table
 extern RegionModels_t*		g_regionModels;		// cached region models
-extern REGIONINFO*			g_regionInfos;		// region data info
+extern Spool*				g_regionSpool;		// region data info
 extern ushort*				g_regionOffsets;	// region offset table
 
 extern CELL_OBJECT*			g_straddlers;
 
 extern int					g_numRegionDatas;
 extern int					g_numRegionOffsets;
+extern int					g_numRegionSpool;
 
 //----------------------------------------------------------
 

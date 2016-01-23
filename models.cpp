@@ -1,5 +1,5 @@
 #include "models.h"
-#include "DebugInterface.h"
+#include "IFileSystem.h"
 
 struct face_type_t
 {
@@ -58,146 +58,26 @@ void DumpFaceTypes()
 
 // returns size of face and fills dface_t struct
 // TODO: rework, few variants of faces still looks bad
-int decode_face(const char* face, dface_t* out)
+int decode_poly(const char* face, dface_t* out)
 {
-	/*
-	char* data = (char*)face;
+	out->page = 0xFF;
+	out->detail = 0xFFFF;
 
-	out->flags = *data++;
-
-	int numComp = 4;
-	
-	if((out->flags & FACE_TEXTURED) || (out->flags & FACE_TEXTURED2) || (out->flags & FACE_IS_QUAD))
-	{
-		out->palette = *data++;
-		out->texture = *data++;
-		*data++;
-	}
-	else
-		numComp = (out->flags & FACE_IS_QUAD) ? 4 : 3;
-
-	for(int i = 0; i < numComp; i++)
-	{
-		out->vindex[i] = *data++;
-	}
-
-	if(out->flags & FACE_TEXTURED)
-	{
-		if(out->flags & FACE_RGB)
-		{
-			for(int i = 0; i < 4; i++)
-			{
-				out->color[i] = *data++;
-			}
-		}
-
-		for(int i = 0; i < 4; i++)
-		{
-			out->texcoord[i][0] = *data++;
-			out->texcoord[i][1] = *data++;
-		}
-	}
-	else if(out->flags & FACE_TEXTURED2)
-	{
-		for(int i = 0; i < 4; i++)
-		{
-			out->texcoord[i][0] = *data++;
-			out->texcoord[i][1] = *data++;
-		}
-	}
-	else if(out->flags & FACE_RGB)
-	{
-		for(int i = 0; i < 4; i++)
-		{
-			out->color[i] = *data++;
-		}
-	}
-
-	if( (out->flags & FACE_HAS_VERTEXNORMAL) && numComp == 3 && !(out->flags & FACE_RGB))
-		data += 4;
-
-	if(!(out->flags & FACE_TEXTURED2))
-		data += 4;
-
-	return data-(char*)face;
-	*/
-
-	//----------------------------------------------------------------------------------------------------------------------
-	/*
 	char* data = (char*)face;
 
 	out->flags = *data++;
 
 	int numComp = 4;
 
-	if((out->flags & FACE_TEXTURED) || ((out->flags & FACE_TEXTURED2) && (out->flags & FACE_RGB)) || (out->flags & FACE_IS_QUAD))
+	bool has_texcoord = false;
+
+	if((out->flags & FACE_TEXTURED) || ((out->flags & FACE_TEXTURED2) && ((out->flags & FACE_RGB) || (out->flags & FACE_UNK6))) || (out->flags & FACE_IS_QUAD))
 	{
 		out->page	= *data++;
 		out->detail = *data++;
 		*data++;
-	}
-	else
-		numComp = (out->flags & FACE_IS_QUAD) ? 4 : 3;
 
-	for(int i = 0; i < numComp; i++)
-	{
-		out->vindex[i] = *data++;
-	}
-
-	if(out->flags & FACE_RGB)
-	{
-		for(int i = 0; i < 4; i++)
-		{
-			out->color[i] = *data++;
-		}
-	}
-
-	// this is fucking ugliest code ever
-	if((out->flags & FACE_TEXTURED2) && (out->flags & FACE_IS_QUAD))
-	{
-		out->texcoord[0][0] = out->color[0];
-		out->texcoord[0][1] = out->color[1];
-		out->texcoord[1][0] = out->color[2];
-		out->texcoord[1][1] = out->color[3];
-
-		if((out->flags & FACE_HAS_VERTEXNORMAL) && numComp == 3 && !(out->flags & FACE_RGB))
-		{
-			out->texcoord[2][0] = *data++;
-			out->texcoord[2][1] = *data++;
-			out->texcoord[3][0] = *data++;
-			out->texcoord[3][1] = *data++;
-		}
-	}
-	else
-	{
-		if(out->flags & FACE_TEXTURED)
-		{
-			for(int i = 0; i < 4; i++)
-			{
-				out->texcoord[i][0] = *data++;
-				out->texcoord[i][1] = *data++;
-			}
-		}
-
-		if((out->flags & FACE_HAS_VERTEXNORMAL) && numComp == 3 && !(out->flags & FACE_RGB))
-			data += 4;
-	}
-
-	data += 4;
-	*/
-	//----------------------------------------------------------------------------------------------------------------------
-
-	char* data = (char*)face;
-
-	out->flags = *data++;
-
-	int numComp = 4;
-
-	if((out->flags & FACE_TEXTURED) || ((out->flags & FACE_TEXTURED2) && (out->flags & FACE_RGB)) || (out->flags & FACE_IS_QUAD))
-	{
-		out->page	= *data++;
-		out->detail = *data++;
-		*data++;
+		has_texcoord = true;
 	}
 	else
 		numComp = (out->flags & FACE_IS_QUAD) ? 4 : 3;
@@ -208,15 +88,20 @@ int decode_face(const char* face, dface_t* out)
 	}
 
 	// this is fucking ugliest code ever
-	if((out->flags & FACE_TEXTURED2) && (out->flags & FACE_IS_QUAD))
+	if((out->flags & FACE_TEXTURED2) && (out->flags & FACE_IS_QUAD))// && (out->flags & FACE_UNK6))
 	{
-		if(!(out->flags & FACE_RGB))
-			data += 4;
-
 		for(int i = 0; i < 4; i++)
 		{
 			out->texcoord[i][0] = *data++;
 			out->texcoord[i][1] = *data++;
+		}
+
+		if(!(out->flags & FACE_RGB) && (out->flags & FACE_UNK6))
+			data += 4;
+
+		if(out->flags == 9)
+		{
+			return 12;
 		}
 	}
 	else
@@ -238,13 +123,11 @@ int decode_face(const char* face, dface_t* out)
 			}
 		}
 
-		if((out->flags & FACE_HAS_VERTEXNORMAL) && numComp == 3 && !(out->flags & FACE_RGB))
+		if((out->flags & FACE_NOCULL) && numComp == 3 && !(out->flags & FACE_RGB))
 			data += 4;
 
 		data += 4;
 	}
-
-	AddUniqueFaceType(out->flags, face, data-(char*)face);
 
 	return data-(char*)face;
 }

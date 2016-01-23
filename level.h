@@ -23,7 +23,7 @@
 #define LUMP_ROADBOUNDS			16		// unused lump in Driver 2
 #define LUMP_JUNCBOUNDS			17		// unused lump in Driver 2
 
-#define LUMP_SUBDIVISION		20
+#define LUMP_SUBDIVISION		20		
 #define LUMP_LOWDETAILTABLE		21		// LOD tables for models
 #define LUMP_MOTIONCAPTURE		22		// motion capture/animation data for peds and Tanner
 #define LUMP_OVERLAYMAP			24		// overlay map
@@ -139,7 +139,7 @@ struct regiondata_t
 	ushort	unk4[2];
 };
 
-#define REGDATA_EMPTY	(0xFF)
+#define SUPERREGION_NONE	(0xFF)
 
 // bundle texture page list. paired with regiondata_t
 struct regionpages_t
@@ -155,7 +155,9 @@ typedef struct regioninfo_t
 	ushort	offset;
 	ubyte	unk1;
 	ubyte	unk2;
+
 	ubyte	cellsSize;	// always zero in retail Driver 2, in Driver 1/Driver 2 demo not zero
+
 	uint8	contentsNodesSize;
 	uint8	contentsTableSize;
 	uint8	modelsSize;
@@ -164,6 +166,30 @@ typedef struct regioninfo_t
 	uint8	unk4;
 	uint8	unk5;
 }REGIONINFO;
+
+
+struct Spool // in my code it is REGIONINFO
+{
+   ushort	offset;					// 0
+   ushort	connected_areas;		// 2
+
+   ubyte	_padding;
+   ubyte	pvs_size;				// 4
+   
+   
+   ubyte	cell_data_size;			// 5
+   ubyte	_padding2;
+   
+
+   ubyte	super_region;			// 8
+   ubyte	num_connected_areas;
+   ubyte	roadm_size;
+   ubyte	roadh_size;
+};
+
+assert_sizeof(Spool, 12);
+assert_offsetof(Spool, pvs_size, 5);
+assert_offsetof(Spool, super_region, 8);
 
 #define REGION_EMPTY	(0xFFFF)
 

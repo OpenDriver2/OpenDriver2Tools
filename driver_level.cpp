@@ -10,6 +10,8 @@ ConVar g_export_models("models", "0");
 ConVar g_export_world("world", "0");
 ConVar g_export_textures("textures", "0");
 
+extern ConVar g_region_format;
+
 #include "ImageLoader.h"
 
 //---------------------------------------------------------------------------------------------------------------------------------
@@ -40,7 +42,7 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 
 	// export OBJ with points
 	if(debugInfo)
-		pStream->Print("#vert count %d\r\n", model->numverts);
+		pStream->Print("#vert count %d\r\n", model->num_vertices);
 
 	
 	pStream->Print("g lev_model_%d\r\n", model_index);
@@ -49,20 +51,20 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 
 	MODEL* vertex_ref = model;
 
-	if(model->vertex_ref > 0) // car models have vertex_ref=0
+	if(model->instance_number > 0) // car models have vertex_ref=0
 	{
-		pStream->Print("#vertex data ref model: %d (count = %d)\r\n", model->vertex_ref, model->numverts);
+		pStream->Print("#vertex data ref model: %d (count = %d)\r\n", model->instance_number, model->num_vertices);
 
-		vertex_ref = FindModelByIndex(model->vertex_ref, regModels);
+		vertex_ref = FindModelByIndex(model->instance_number, regModels);
 
 		if(!vertex_ref)
 		{
-			Msg("vertex ref not found %d\n", model->vertex_ref);
+			Msg("vertex ref not found %d\n", model->instance_number);
 			return;
 		}
 	}
 
-	for(int j = 0; j < vertex_ref->numverts; j++)
+	for(int j = 0; j < vertex_ref->num_vertices; j++)
 	{
 		Vector3D vertexTransformed = Vector3D(vertex_ref->pVertex(j)->x*-0.00015f, vertex_ref->pVertex(j)->y*-0.00015f, vertex_ref->pVertex(j)->z*0.00015f);
 
@@ -77,11 +79,11 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 
 	if(debugInfo)
 	{
-		pStream->Print("#face ofs %d\r\n", model->faceOffset);
-		pStream->Print("#face count %d\r\n", model->numfaces);
+		pStream->Print("#poly ofs %d\r\n", model->poly_block);
+		pStream->Print("#poly count %d\r\n", model->num_polys);
 	}
 
-	pStream->Print("usemtl none\r\n", model->numverts);
+	pStream->Print("usemtl none\r\n", model->num_vertices);
 
 	int numVertCoords = 0;
 	int numVerts = 0;
@@ -92,12 +94,20 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 	if(first_v)
 		numVerts = *first_v;
 
-	for(int j = 0; j < model->numfaces; j++)
+	bool bSmooth = false;
+
+	for(int j = 0; j < model->num_polys; j++)
 	{
-		char* facedata = model->pFaceAt(face_ofs);
+		char* facedata = model->pPolyAt(face_ofs);
 
 		dface_t dec_face;
-		int face_size = decode_face(facedata, &dec_face);
+		int face_size = decode_poly(facedata, &dec_face);
+
+		//if((dec_face.flags & FACE_SMOOTH) > 0 != bSmooth)
+		//{
+		//	bSmooth = (dec_face.flags & FACE_SMOOTH) > 0;
+		//	pStream->Print("s %s\r\n", bSmooth ? "1" : "off");
+		//}
 
 		if((dec_face.flags & FACE_TEXTURED) || (dec_face.flags & FACE_TEXTURED2))
 		{
@@ -105,7 +115,7 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 		}
 
 		if(debugInfo)
-			pStream->Print("#ft=%d ofs=%d size=%d\r\n", dec_face.flags,  model->faceOffset+face_ofs, face_size);
+			pStream->Print("#ft=%d ofs=%d size=%d\r\n", dec_face.flags,  model->poly_block+face_ofs, face_size);
 
 		if(dec_face.flags & FACE_IS_QUAD)
 		{
@@ -117,12 +127,12 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 				dec_face.vindex[0]
 			};
 
-			if( dec_face.vindex[0] < 0 || dec_face.vindex[0] > vertex_ref->numverts ||
-				dec_face.vindex[1] < 0 || dec_face.vindex[1] > vertex_ref->numverts ||
-				dec_face.vindex[2] < 0 || dec_face.vindex[2] > vertex_ref->numverts ||
-				dec_face.vindex[3] < 0 || dec_face.vindex[3] > vertex_ref->numverts)
+			if( dec_face.vindex[0] < 0 || dec_face.vindex[0] > vertex_ref->num_vertices ||
+				dec_face.vindex[1] < 0 || dec_face.vindex[1] > vertex_ref->num_vertices ||
+				dec_face.vindex[2] < 0 || dec_face.vindex[2] > vertex_ref->num_vertices ||
+				dec_face.vindex[3] < 0 || dec_face.vindex[3] > vertex_ref->num_vertices)
 			{
-				MsgError("quad %d (type=%d ofs=%d) has invalid indices (or format is unknown)\n", j, dec_face.flags, model->faceOffset+face_ofs);
+				MsgError("quad %d (type=%d ofs=%d) has invalid indices (or format is unknown)\n", j, dec_face.flags, model->poly_block+face_ofs);
 				face_ofs += face_size;
 				continue;
 			}
@@ -160,11 +170,11 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 				dec_face.vindex[0]
 			};
 
-			if( dec_face.vindex[0] < 0 || dec_face.vindex[0] > vertex_ref->numverts ||
-				dec_face.vindex[1] < 0 || dec_face.vindex[1] > vertex_ref->numverts ||
-				dec_face.vindex[2] < 0 || dec_face.vindex[2] > vertex_ref->numverts)
+			if( dec_face.vindex[0] < 0 || dec_face.vindex[0] > vertex_ref->num_vertices ||
+				dec_face.vindex[1] < 0 || dec_face.vindex[1] > vertex_ref->num_vertices ||
+				dec_face.vindex[2] < 0 || dec_face.vindex[2] > vertex_ref->num_vertices)
 			{
-				MsgError("triangle %d (type=%d ofs=%d) has invalid indices (or format is unknown)\n", j, dec_face.flags, model->faceOffset+face_ofs);
+				MsgError("triangle %d (type=%d ofs=%d) has invalid indices (or format is unknown)\n", j, dec_face.flags, model->poly_block+face_ofs);
 				face_ofs += face_size;
 				continue;
 			}
@@ -199,7 +209,7 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 		*first_t = numVertCoords;
 
 	if(first_v)
-		*first_v = numVerts+vertex_ref->numverts;
+		*first_v = numVerts+vertex_ref->num_vertices;
 }
 
 //-------------------------------------------------------------
@@ -330,8 +340,6 @@ void ExportRegions()
 	int lobj_first_v = 0;
 	int lobj_first_t = 0;
 
-	int nSModels = 0;
-
 	// 2d region map
 	// easy seeking
 	for(int y = 0; y < dim_y; y++)
@@ -348,59 +356,60 @@ void ExportRegions()
 			int region_pos_z = y * 65536;
 
 			// region at offset
-			REGIONINFO* regInfo = (REGIONINFO*)((ubyte*)g_regionInfos + g_regionOffsets[sPosIdx]);
+			Spool* spool = (Spool*)((ubyte*)g_regionSpool + g_regionOffsets[sPosIdx]);
 
-			Msg("---------\nregion %d %d (offset: %d)\n", x, y, g_regionOffsets[sPosIdx]);
-			Msg("offset: %d\n",regInfo->offset);
-			Msg("unk1: %d\n",regInfo->unk1);
-			Msg("unk2: %d\n",regInfo->unk2);
-			Msg("unk3: %d\n",regInfo->unk3);
-			Msg("unk4: %d\n",regInfo->unk4);
-			Msg("unk5: %d\n",regInfo->unk5);
+			Msg("---------\nSpool %d %d (offset: %d)\n", x, y, g_regionOffsets[sPosIdx]);
+			Msg("offset: %d\n",spool->offset);
 
-			nSModels += regInfo->unk4;
+			Msg("connected areas offset: %d\n",spool->connected_areas);
+			Msg("connected areas count: %d\n",spool->num_connected_areas);
+			Msg("pvs block size: %d\n",spool->pvs_size);
+			//Msg("padding: %d %d\n",spool->_padding,spool->_padding2);
+			Msg("cell data size: %d\n",spool->cell_data_size);
+			Msg("super regions: %d\n",spool->super_region);
+			Msg("roadm size: %d\n",spool->roadm_size);
+			Msg("roadh size: %d\n",spool->roadh_size);
 
-			// Msg("cells: %d\n",regInfo->cellsSize);
-			Msg("nodes: %d\n",regInfo->contentsNodesSize);
-			Msg("tables: %d\n",regInfo->contentsTableSize);
-			Msg("models: %d\n",regInfo->modelsSize);
-
-			nSModels += regInfo->modelsSize;
-
-			Msg("regDataIndex: %d\n",regInfo->dataIndex);
-
-			int visDataOffset = g_levInfo.spooldata_offset + 2048 * regInfo->offset;
-			int cellsOffset = g_levInfo.spooldata_offset + 2048 * (regInfo->offset + regInfo->contentsNodesSize + regInfo->contentsTableSize);
-			int heightDataOffset = g_levInfo.spooldata_offset + 2048 * (regInfo->offset + regInfo->contentsNodesSize + regInfo->contentsTableSize + regInfo->modelsSize);
+			int cellsOffset = g_levInfo.spooldata_offset + 2048 * (spool->offset + spool->pvs_size + spool->cell_data_size);
 			
-			// to read
-			int numVisBytes;
-			int numHeightFieldPoints;
+			if(g_region_format.GetInt() == 2) // driver 2 demo
+			{
+				cellsOffset = g_levInfo.spooldata_offset + 2048 * (spool->offset + spool->pvs_size + spool->cell_data_size + spool->roadm_size );
+			}
+			else if(g_region_format.GetInt() == 1) // driver 1
+			{
+				ASSERT(!"diferrent packed cells used?\n");
+			}
 
-			g_levStream->Seek(visDataOffset, VS_SEEK_SET);
-			g_levStream->Read(&numVisBytes, 1, sizeof(int));
-			// looks like visdata offsets
-
-			// TODO: Read and decode vis bytes, possible model count found here or computed by cell visibility
-
-			g_levStream->Seek(heightDataOffset, VS_SEEK_SET);
-			g_levStream->Read(&numHeightFieldPoints, 1, sizeof(int));
-			// also depends on visibility
-
-			Msg("numVisBytes = %d\n", numVisBytes);
-			Msg("numHeightFieldPoints = %d\n", numHeightFieldPoints);
-
-			Msg("visdata ofs: %d\n", visDataOffset);
 			Msg("cell objects ofs: %d\n", cellsOffset);
-			Msg("heightdata ofs: %d\n", heightDataOffset);
 
 			RegionModels_t* regModels = NULL;
 
 			// if region data is available, load models and textures
-			if(regInfo->dataIndex != REGDATA_EMPTY)
+			if(spool->super_region != SUPERREGION_NONE)
 			{
-				LoadRegionData(g_levStream, &g_regionModels[regInfo->dataIndex], &g_regionDataDescs[regInfo->dataIndex], &g_regionPages[regInfo->dataIndex]);
-				regModels = &g_regionModels[regInfo->dataIndex];
+				regModels = &g_regionModels[spool->super_region];
+
+				bool isNew = (regModels->modelRefs.numElem() == 0);
+
+				LoadRegionData(g_levStream, regModels, &g_regionDataDescs[spool->super_region], &g_regionPages[spool->super_region]);
+
+				if( g_export_models.GetBool() && isNew )
+				{
+					// export region models
+					for(int i = 0; i < regModels->modelRefs.numElem(); i++)
+					{
+						int mod_indxex = regModels->modelRefs[i].index;
+
+						EqString modelFileName = varargs("%s/ZREG%d_MOD_%d", g_levname_moddir.c_str(), spool->super_region, mod_indxex);
+
+						if(g_model_names[mod_indxex].GetLength())
+							modelFileName = varargs("%s/ZREG%d_%d_%s", g_levname_moddir.c_str(), spool->super_region, i, g_model_names[mod_indxex]);
+
+						// export model
+						ExportDMODELToOBJ(regModels->modelRefs[i].model, modelFileName.c_str(), regModels->modelRefs[i].index);
+					}
+				}
 			}
 
 			// seek to cells
@@ -434,6 +443,8 @@ void ExportRegions()
 
 				if(cell.modelindex >= g_levelModels.numElem())
 				{
+					Msg("cell model index invalid: %d\n", cell.modelindex);
+
 					cell_count++;
 					continue;
 				}
@@ -445,7 +456,7 @@ void ExportRegions()
 
 				// transform objects and save
 				Matrix4x4 transform = translate(Vector3D((region_pos_x+cell.x)*-0.00015f, cell.y*-0.00015f, (region_pos_z+cell.z)*0.00015f));
-				transform = transform * rotateY(cell.rotation / 64.0f*PI_F*2.0f) * scale(1.0f,1.0f,1.0f);
+				transform = transform * rotateY4(cell.rotation / 64.0f*PI_F*2.0f) * scale4(1.0f,1.0f,1.0f);
 
 				WriteMODELToObjStream(levModelFile, model, cell.modelindex, false, transform, &lobj_first_v, &lobj_first_t, regModels);
 				
@@ -469,9 +480,7 @@ void ExportRegions()
 	int numCellsObjectsFile = g_mapInfo.numAllObjects - g_mapInfo.numStraddlers;
 
 	if(numCellObjectsRead != numCellsObjectsFile)
-		MsgError("numAllObjects mismath: in file: %d, read %d\n", numCellsObjectsFile, numCellObjectsRead);
-
-	Msg("nSModels = %d\n", nSModels);
+		MsgError("numAllObjects mismatch: in file: %d, read %d\n", numCellsObjectsFile, numCellObjectsRead);
 }
 
 //-------------------------------------------------------------
@@ -531,11 +540,12 @@ void ExportLevelData()
 		{
 			ExportCarModel(g_carModels[i].cleanmodel, g_carModels[i].cleanSize, i, "clean");
 			ExportCarModel(g_carModels[i].lowmodel, g_carModels[i].lowSize, i, "low");
+
 			// TODO: export damaged model
 		}
 	}
 
-	// export world regions
+	// export world region
 	if(g_export_world.GetBool())
 	{
 		Msg("exporting cell points and world model\n");
@@ -569,7 +579,7 @@ void ExportLevelData()
 			for(int i = 0; i < g_numTexPages; i++)
 			{
 				pMtlFile->Print("newmtl page_%d\r\n", i);
-				pMtlFile->Print("map_Kd %s_textures/PAGE_%d.tga\r\n", g_levname.c_str(), i);
+				pMtlFile->Print("map_Kd %s_textures/PAGE_%d.tga\r\n", g_levname.Path_Extract_Name().c_str(), i);
 			}
 
 			GetFileSystem()->Close(pMtlFile);
@@ -630,7 +640,7 @@ int main(int argc, char* argv[])
 	if(!GetFileSystem()->Init(false))
 		return -1;
 
-	Msg("driver_level - Driver 2 level loader\n");
+	Msg("---------------\ndriver_level - Driver 2 level loader\n---------------\n\n");
 
 	if(GetCmdLine()->GetArgumentCount() == 0)
 		Usage();
