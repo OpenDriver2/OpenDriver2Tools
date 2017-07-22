@@ -29,6 +29,7 @@ bool g_export_carmodels = false;
 bool g_export_models = false;
 bool g_export_world = false;
 bool g_export_textures = false;
+bool g_export_separated = false;
 
 extern int g_region_format;
 extern int g_format;
@@ -48,7 +49,7 @@ const float			halfTexelSize = texelSize*0.5f;
 //-------------------------------------------------------------
 // writes Wavefront OBJ into stream
 //-------------------------------------------------------------
-void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_index, 
+void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_index, const char* name_prefix, 
 							bool debugInfo = true,
 							const Matrix4x4& translation = identity4(),
 							int* first_v = NULL,
@@ -66,8 +67,8 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 		pStream->Print("#vert count %d\r\n", model->num_vertices);
 
 	
-	pStream->Print("g lev_model_%d\r\n", model_index);
-	pStream->Print("o lev_model_%d\r\n", model_index);
+	pStream->Print("g %s_%d\r\n", name_prefix, model_index);
+	pStream->Print("o %s_%d\r\n", name_prefix, model_index);
 
 
 	MODEL* vertex_ref = model;
@@ -248,7 +249,7 @@ void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, bo
 
 		fstr.Print("mtllib MODELPAGES.mtl\r\n");
 
-		WriteMODELToObjStream( &fstr, model, model_index, true );
+		WriteMODELToObjStream( &fstr, model, model_index, model_name, true );
 
 		// success
 		fclose(mdlFile);
@@ -496,7 +497,7 @@ void ExportRegions()
 			// seek to cells
 			g_levStream->Seek(cellsOffset, VS_SEEK_SET);
 
-			int cell_count = 0;
+			int cellObj_count = 0;
 
 			fobjFile.Print("#--------\r\n# region %d %d (ofs=%d)\r\n", x, y, cellsOffset);
 			fobjFile.Print("g cell_%d\r\n", sPosIdx);
@@ -509,7 +510,7 @@ void ExportRegions()
 				// bad hack, need to parse visibility data for it
 				if(	(0x4544 == object.pos_x && 0x2153 == object.addidx_pos_y) ||
 					(0x4809 == object.pos_x && 0x4809 == object.addidx_pos_y) ||
-					(0xA608 == object.pos_x && 0xA608 == object.addidx_pos_y) ||cell_count >= 8192)
+					(0xA608 == object.pos_x && 0xA608 == object.addidx_pos_y) ||cellObj_count >= 8192)
 					break;
 				
 				// unpack cell
@@ -526,7 +527,7 @@ void ExportRegions()
 				{
 					Msg("cell model index invalid: %d\n", cell.modelindex);
 
-					cell_count++;
+					cellObj_count++;
 					continue;
 				}
 
@@ -539,19 +540,31 @@ void ExportRegions()
 				Matrix4x4 transform = translate(Vector3D((region_pos_x+cell.x)*-0.00015f, cell.y*-0.00015f, (region_pos_z+cell.z)*0.00015f));
 				transform = transform * rotateY4(cell.rotation / 64.0f*PI_F*2.0f) * scale4(1.0f,1.0f,1.0f);
 
-				WriteMODELToObjStream(&flevModelFile, model, cell.modelindex, false, transform, &lobj_first_v, &lobj_first_t, regModels);
+				const char* modelNamePrefix = NULL;
+
+				if( g_model_names[cell.modelindex].size() )
+				{
+					modelNamePrefix = g_export_separated ? varargs("reg%d_cell%d_%s", sPosIdx, cellObj_count, g_model_names[cell.modelindex].c_str()) : varargs("reg%d", sPosIdx);
+				}
+				else
+				{
+					modelNamePrefix = g_export_separated ? varargs("reg%d_cell%d", sPosIdx, cellObj_count) : varargs("reg%d", sPosIdx);
+				}
+
 				
-				cell_count++;
+				WriteMODELToObjStream(&flevModelFile, model, cell.modelindex, modelNamePrefix, false, transform, &lobj_first_v, &lobj_first_t, regModels);
+				
+				cellObj_count++;
 			}while(true);
 
-			MsgInfo("cell_count = %d\n", cell_count);
+			MsgInfo("cell_count = %d\n", cellObj_count);
 
 			if(objFile)
 			{
-				fobjFile.Print("# total region cells %d\r\n", cell_count);
+				fobjFile.Print("# total region cells %d\r\n", cellObj_count);
 			}
 
-			numCellObjectsRead += cell_count;
+			numCellObjectsRead += cellObj_count;
 		}
 	}
 
@@ -688,6 +701,7 @@ void Usage()
 	MsgWarning("	-models <1/0> : export models\n");
 	MsgWarning("	-carmodels <1/0> : export car models\n");
 	MsgWarning("	-world <1/0> : export whole world\n");
+	MsgWarning("	-separated <1/0> : separated objects\n");
 }
 
 
@@ -756,6 +770,11 @@ int main(int argc, char* argv[])
 		else if(!stricmp(argv[i], "-world"))
 		{
 			g_export_world = atoi(argv[i+1]) > 0;
+			i++;
+		}
+		else if(!stricmp(argv[i], "-separated"))
+		{
+			g_export_separated = atoi(argv[i+1]) > 0;
 			i++;
 		}
 		else if(!stricmp(argv[i], "-models"))
