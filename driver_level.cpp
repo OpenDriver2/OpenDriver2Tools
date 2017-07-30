@@ -27,9 +27,8 @@ char* varargs(const char* fmt,...)
 
 bool g_export_carmodels = false;
 bool g_export_models = false;
-bool g_export_world = false;
 bool g_export_textures = false;
-bool g_export_separated = false;
+bool g_export_world = false;
 
 extern int g_region_format;
 extern int g_format;
@@ -407,16 +406,13 @@ void ExportRegions()
 	 
 	int numCellObjectsRead = 0;
 
-	FILE* objFile = NULL;
-	FILE* levModelFile = NULL;
+	FILE* cellsFile = fopen(varargs("%s_CELLPOS_MAP.obj", g_levname.c_str()), "wb");
+	FILE* levelFile = fopen(varargs("%s_LEVELMODEL.obj", g_levname.c_str()), "wb");
 
-	objFile = fopen(varargs("%s_CELLPOS_MAP.obj", g_levname.c_str()), "wb");
-	levModelFile = fopen(varargs("%s_LEVELMODEL.obj", g_levname.c_str()), "wb");
+	CFileStream cellsFileStream(cellsFile);
+	CFileStream levelFileStream(levelFile);
 
-	CFileStream fobjFile(objFile);
-	CFileStream flevModelFile(levModelFile);
-
-	flevModelFile.Print("mtllib %s_LEVELMODEL.mtl\r\n", g_levname.c_str());
+	levelFileStream.Print("mtllib %s_LEVELMODEL.mtl\r\n", g_levname.c_str());
 
 	int lobj_first_v = 0;
 	int lobj_first_t = 0;
@@ -499,8 +495,8 @@ void ExportRegions()
 
 			int cellObj_count = 0;
 
-			fobjFile.Print("#--------\r\n# region %d %d (ofs=%d)\r\n", x, y, cellsOffset);
-			fobjFile.Print("g cell_%d\r\n", sPosIdx);
+			cellsFileStream.Print("#--------\r\n# region %d %d (ofs=%d)\r\n", x, y, cellsOffset);
+			cellsFileStream.Print("g cell_%d\r\n", sPosIdx);
 
 			PACKED_CELL_OBJECT object;
 			do
@@ -517,10 +513,10 @@ void ExportRegions()
 				CELL_OBJECT cell;
 				UnpackCellObject(object, cell);
 
-				if(objFile)
+				if(cellsFile)
 				{
-					fobjFile.Print("# m %d r %d\r\n", cell.modelindex, cell.rotation);
-					fobjFile.Print("v %g %g %g\r\n", (region_pos_x+cell.x)*-0.00015f, cell.y*-0.00015f, (region_pos_z+cell.z)*0.00015f);
+					cellsFileStream.Print("# m %d r %d\r\n", cell.modelindex, cell.rotation);
+					cellsFileStream.Print("v %g %g %g\r\n", (region_pos_x+cell.x)*-0.00015f, cell.y*-0.00015f, (region_pos_z+cell.z)*0.00015f);
 				}
 
 				if(cell.modelindex >= g_levelModels.size())
@@ -540,36 +536,26 @@ void ExportRegions()
 				Matrix4x4 transform = translate(Vector3D((region_pos_x+cell.x)*-0.00015f, cell.y*-0.00015f, (region_pos_z+cell.z)*0.00015f));
 				transform = transform * rotateY4(cell.rotation / 64.0f*PI_F*2.0f) * scale4(1.0f,1.0f,1.0f);
 
-				const char* modelNamePrefix = NULL;
+				const char* modelNamePrefix = varargs("reg%d", sPosIdx);
 
-				if( g_model_names[cell.modelindex].size() )
-				{
-					modelNamePrefix = g_export_separated ? varargs("reg%d_cell%d_%s", sPosIdx, cellObj_count, g_model_names[cell.modelindex].c_str()) : varargs("reg%d", sPosIdx);
-				}
-				else
-				{
-					modelNamePrefix = g_export_separated ? varargs("reg%d_cell%d", sPosIdx, cellObj_count) : varargs("reg%d", sPosIdx);
-				}
-
-				
-				WriteMODELToObjStream(&flevModelFile, model, cell.modelindex, modelNamePrefix, false, transform, &lobj_first_v, &lobj_first_t, regModels);
+				WriteMODELToObjStream(&levelFileStream, model, cell.modelindex, modelNamePrefix, false, transform, &lobj_first_v, &lobj_first_t, regModels);
 				
 				cellObj_count++;
 			}while(true);
 
 			MsgInfo("cell_count = %d\n", cellObj_count);
 
-			if(objFile)
+			if(cellsFile)
 			{
-				fobjFile.Print("# total region cells %d\r\n", cellObj_count);
+				cellsFileStream.Print("# total region cells %d\r\n", cellObj_count);
 			}
 
 			numCellObjectsRead += cellObj_count;
 		}
 	}
 
-	fclose(objFile);
-	fclose(levModelFile);
+	fclose(cellsFile);
+	fclose(levelFile);
 
 	int numCellsObjectsFile = g_mapInfo.numAllObjects - g_mapInfo.numStraddlers;
 
@@ -701,7 +687,6 @@ void Usage()
 	MsgWarning("	-models <1/0> : export models\n");
 	MsgWarning("	-carmodels <1/0> : export car models\n");
 	MsgWarning("	-world <1/0> : export whole world\n");
-	MsgWarning("	-separated <1/0> : separated objects\n");
 }
 
 
@@ -770,11 +755,6 @@ int main(int argc, char* argv[])
 		else if(!stricmp(argv[i], "-world"))
 		{
 			g_export_world = atoi(argv[i+1]) > 0;
-			i++;
-		}
-		else if(!stricmp(argv[i], "-separated"))
-		{
-			g_export_separated = atoi(argv[i+1]) > 0;
 			i++;
 		}
 		else if(!stricmp(argv[i], "-models"))
