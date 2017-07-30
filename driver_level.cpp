@@ -5,6 +5,9 @@
 #include <stdarg.h>
 #include <direct.h>
 
+#define MODEL_SCALING		(0.00015f)
+
+
 // string util
 char* varargs(const char* fmt,...)
 {
@@ -87,7 +90,7 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 
 	for(int j = 0; j < vertex_ref->num_vertices; j++)
 	{
-		Vector3D vertexTransformed = Vector3D(vertex_ref->pVertex(j)->x*-0.00015f, vertex_ref->pVertex(j)->y*-0.00015f, vertex_ref->pVertex(j)->z*0.00015f);
+		Vector3D vertexTransformed = Vector3D(vertex_ref->pVertex(j)->x*-MODEL_SCALING, vertex_ref->pVertex(j)->y*-MODEL_SCALING, vertex_ref->pVertex(j)->z*MODEL_SCALING);
 
 		vertexTransformed = (translation * Vector4D(vertexTransformed, 1.0f)).xyz();
 
@@ -516,10 +519,13 @@ void ExportRegions()
 				CELL_OBJECT cell;
 				UnpackCellObject(object, cell);
 
+				Vector3D absCellPosition((region_pos_x+cell.x)*-MODEL_SCALING, cell.y*-MODEL_SCALING, (region_pos_z+cell.z)*MODEL_SCALING);
+				float cellRotation = cell.rotation / 64.0f*PI_F*2.0f;
+
 				if(objFile)
 				{
 					fobjFile.Print("# m %d r %d\r\n", cell.modelindex, cell.rotation);
-					fobjFile.Print("v %g %g %g\r\n", (region_pos_x+cell.x)*-0.00015f, cell.y*-0.00015f, (region_pos_z+cell.z)*0.00015f);
+					fobjFile.Print("v %g %g %g\r\n", absCellPosition.x,absCellPosition.y,absCellPosition.z);
 				}
 
 				if(cell.modelindex >= g_levelModels.size())
@@ -536,8 +542,8 @@ void ExportRegions()
 					break;
 
 				// transform objects and save
-				Matrix4x4 transform = translate(Vector3D((region_pos_x+cell.x)*-0.00015f, cell.y*-0.00015f, (region_pos_z+cell.z)*0.00015f));
-				transform = transform * rotateY4(cell.rotation / 64.0f*PI_F*2.0f) * scale4(1.0f,1.0f,1.0f);
+				Matrix4x4 transform = translate(absCellPosition);
+				transform = transform * rotateY4(cellRotation) * scale4(1.0f,1.0f,1.0f);
 
 				WriteMODELToObjStream(&flevModelFile, model, cell.modelindex, false, transform, &lobj_first_v, &lobj_first_t, regModels);
 				
