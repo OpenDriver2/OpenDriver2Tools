@@ -6,6 +6,7 @@
 #define LEVEL_H
 
 #include "math/dktypes.h"
+#include "psx_math_types.h"
 
 // known lumps indexes
 #define LUMP_MODELS				1		// level models
@@ -73,123 +74,85 @@ typedef struct dlevinfo_t
 
 //------------------------------------------------------------------------------------------------------------
 
-typedef struct mapinfo_t // TODO: undone, for spool info for now
-{
-	int width;
-	int height;
+struct OUT_CELL_FILE_HEADER {
+	int cells_across; // size=0, offset=0
+	int cells_down; // size=0, offset=4
+	int cell_size; // size=0, offset=8
 
-	int tileSize;
-	int numRegions;
-	int visTableWidth;
+	int num_regions; // size=0, offset=12
+	int region_size; // size=0, offset=16
 
-	int numAllObjects;
-	int unk2;
+	int num_cell_objects; // size=0, offset=20
+	int num_cell_data; // size=0, offset=24
 
-	int ambientColor;
-	int sunAngle[3];
+	int ambient_light_level; // size=0, offset=28
+	struct VECTOR_NOPAD light_source; // size=12, offset=32
+};
 
-	int numStraddlers;
-}MAPINFO;
+//assert_sizeof(OUT_CELL_FILE_HEADER, 48);
 
 //------------------------------------------------------------------------------------------------------------
 
-typedef struct dpacked_cell_t
-{
-	ushort		pos_x;
-	short		addidx_pos_y;
-	ushort		pos_z;
+struct CELL_DATA {
+	ushort num; // size=0, offset=0
+};
+struct CELL_DATA_D1 {
+	ushort num; // size=0, offset=0
+	ushort next_ptr;
+};
 
-	ushort		rotation_model;	// 6 bit rotation and 10 bit model index
-}PACKED_CELL_OBJECT;
+struct PACKED_CELL_OBJECT {
+	struct USVECTOR_NOPAD	pos;
+	ushort					value; // packed angle and model param
+};
 
-typedef struct dcell_t
-{
-	ushort		x;
-	short		y;
-	ushort		z;
+struct CELL_OBJECT {
+	struct VECTOR_NOPAD		pos;
+	ubyte					pad; // just to be aligned in PSX memory
+	ubyte					yang;
+	ushort					type;
+};
 
-	ushort		rotation;
-	ushort		modelindex;		// max 2048
+struct AreaDataStr {
+	uint16	gfx_offset;
+	uint16	model_offset;
+	uint16	music_offset;
+	uint16	ambient_offset;
+	uint8	model_size;
 
-	// TODO: visibility info
-}CELL_OBJECT;
+	uint8	pad;
 
-inline void UnpackCellObject(const PACKED_CELL_OBJECT& object, CELL_OBJECT& cell)
-{
-	cell.x = object.pos_x;
-	cell.y = object.addidx_pos_y >> 1;
-	cell.z = object.pos_z;
+	uint8	num_tpages;
 
-	// unpack
-	cell.rotation = (object.rotation_model & 0x3f);
-	cell.modelindex = (object.rotation_model >> 6) + ((object.addidx_pos_y & 0x1) ? 1024 : 0);
-}
+	uint8	ambient_size;
 
-// region data info
-struct regiondata_t
-{
-	ushort	textureOffset;	// where additional textures placed (*2048)
-	ushort	modelsOffset;	// where models placed (*2048)
-	ushort	unknown;
-	ushort	unknown2;
-	uint8	modelsSize;		// size of models
-	uint8	unk2;
-	uint8	numberOfTextures;
-	uint8	unk3;
-	ushort	unk4[2];
+	uint8	music_size;
+	uint8	music_samples_size;
+	uint8	music_id;
+
+	uint8	ambient_id;
 };
 
 #define SUPERREGION_NONE	(0xFF)
 
 // bundle texture page list. paired with regiondata_t
-struct regionpages_t
+struct AreaTPage_t
 {
 	uint8	pageIndexes[16];
 };
 
 #define REGTEXPAGE_EMPTY	(0xFF)
 
-// sector info
-typedef struct regioninfo_t
-{
-	ushort	offset;
-	ubyte	unk1;
-	ubyte	unk2;
-
-	ubyte	cellsSize;	// always zero in retail Driver 2, in Driver 1/Driver 2 demo not zero
-
-	uint8	contentsNodesSize;
-	uint8	contentsTableSize;
-	uint8	modelsSize;
-	uint8	dataIndex;
-	uint8	unk3;
-	uint8	unk4;
-	uint8	unk5;
-}REGIONINFO;
-
-
-struct Spool // in my code it is REGIONINFO
-{
-   ushort	offset;					// 0
-   ushort	connected_areas;		// 2
-
-   ubyte	_padding;
-   ubyte	pvs_size;				// 4
-   
-   
-   ubyte	cell_data_size;			// 5
-   ubyte	_padding2;
-   
-
-   ubyte	super_region;			// 8
-   ubyte	num_connected_areas;
-   ubyte	roadm_size;
-   ubyte	roadh_size;
+struct Spool {
+	uint16	offset;
+	uint8	connected_areas[2];
+	uint8	pvs_size;
+	uint8	cell_data_size[3];
+	uint8	super_region;
+	uint8	num_connected_areas;
+	uint8	roadm_size;
+	uint8	roadh_size;
 };
-
-assert_sizeof(Spool, 12);
-assert_offsetof(Spool, pvs_size, 5);
-assert_offsetof(Spool, super_region, 8);
 
 #define REGION_EMPTY	(0xFFFF)
 
@@ -213,32 +176,29 @@ struct carmodelentry_t
 #define TEXPAGE_4BIT_SIZE	(TEXPAGE_SIZE_X*TEXPAGE_SIZE_Y)
 #define TEXPAGE_SIZE		(TEXPAGE_SIZE_Y*TEXPAGE_SIZE_Y)
 
-typedef struct texturedetail_t
-{
-	short	editorIndex;		// unknown thing
-	short	texNameOffset;		// texture name offset in LUMP_TEXTURENAMES data (for fast searching)
-
-	uint8	x;
-	uint8	y;
-	uint8	w;
-	uint8	h;
-}TEXTUREDETAIL;
+struct TEXINF {
+	uint16		id;
+	uint16		nameoffset;
+	uint8		x;
+	uint8		y;
+	uint8		width; 
+	uint8		height;
+};
 
 enum EPageStorage
 {
-	PAGE_FLAG_PRELOAD	= (1 << 0),		// pre-loaded page.
-	PAGE_FLAG_REGION	= (1 << 1),		// demand-loaded
-	PAGE_FLAG_GLOBAL2	= (1 << 2),		// pre-loaded page  However, it doesn't indicate texture compression
+	TPAGE_PERMANENT		= (1 << 0),		// pre-loaded page.
+	TPAGE_AREADATA	= (1 << 1),		// demand-loaded
+	TPAGE_SPECPAGES		= (1 << 2),		// pre-loaded page  However, it doesn't indicate texture compression
 	PAGE_FLAG_UNK1		= (1 << 3),
 	PAGE_FLAG_UNK2		= (1 << 4),
 };
 
-typedef struct texpageinfo_t
+typedef struct texpage_pos_t
 {
-	short	flags;			// EPageStorage
-	short	unk1;
-	int		endoffset;			// really offset?
-}TEXPAGEINFO;
+	unsigned long flags; // size=0, offset=0
+	unsigned long offset; // size=0, offset=4
+}TEXPAGE_POS;	// originally TP
 
 typedef struct dclut_t
 {
@@ -250,6 +210,8 @@ typedef struct dclut_t
 // functions
 
 class IVirtualStream;
+
+int GetCarPalIndex(int tpage);
 
 void LoadModelNamesLump(IVirtualStream* pFile, int size);
 void LoadTextureNamesLump(IVirtualStream* pFile, int size);
