@@ -675,8 +675,8 @@ void ExportRegions()
 
 			// determine region position
 			VECTOR_NOPAD regionPos;
-			regionPos.vx = x * g_mapInfo.region_size * g_mapInfo.cell_size;
-			regionPos.vz = y * g_mapInfo.region_size * g_mapInfo.cell_size;
+			regionPos.vx = (x - dim_x) * g_mapInfo.region_size * g_mapInfo.cell_size;
+			regionPos.vz = (y - dim_y) * g_mapInfo.region_size * g_mapInfo.cell_size;
 			regionPos.vy = 0;
 
 			// region at offset
@@ -721,16 +721,16 @@ void ExportRegions()
 				int cellObjectsOffset;
 				int pvsDataOffset;
 				
-				if(g_region_format == 2) // retail
+				if(g_region_format == 3) // retail
 				{
-					cellPointersOffset = spool->offset + spool->roadm_size; // SKIP PVS buffers, no need rn...
+					cellPointersOffset = spool->offset; // SKIP PVS buffers, no need rn...
 					cellDataOffset = cellPointersOffset + spool->cell_data_size[1];
 					cellObjectsOffset = cellDataOffset + spool->cell_data_size[0];
 					pvsDataOffset = cellObjectsOffset + spool->cell_data_size[2];
 				}
-				else if(g_region_format == 1) // 1.6 alpha
+				else if(g_region_format == 2) // 1.6 alpha
 				{
-					cellPointersOffset = spool->offset;
+					cellPointersOffset = spool->offset + spool->roadm_size;
 					cellDataOffset = cellPointersOffset + spool->cell_data_size[1];
 					cellObjectsOffset = cellDataOffset + spool->cell_data_size[0];
 					pvsDataOffset = cellObjectsOffset + spool->cell_data_size[2];
@@ -878,7 +878,7 @@ void ExportRegions()
 						celld = &g_cells_d1[cell_ptr];
 						
 						CELL_OBJECT& co = g_cell_objects[(celld->num & 0x3fff) - g_cell_objects_add[barrel_region]];
-
+						
 						{
 							Vector3D absCellPosition(co.pos.vx*-MODEL_SCALING, co.pos.vy*-MODEL_SCALING, co.pos.vz*MODEL_SCALING);
 							float cellRotationRad = co.yang / 64.0f*PI_F*2.0f;
@@ -904,6 +904,8 @@ void ExportRegions()
 
 							numRegionObjects++;
 						}
+
+						
 						
 						cell_ptr = celld->next_ptr;
 
