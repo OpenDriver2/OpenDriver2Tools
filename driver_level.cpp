@@ -707,14 +707,14 @@ void ExportRegions()
 			memset(g_cells, 0, sizeof(g_cells));
 			
 			memset(g_cells_d1, 0, sizeof(g_cells_d1));
-			
-			memset(g_packed_cell_objects + g_numStraddlers, 0, sizeof(g_packed_cell_objects) - g_numStraddlers * sizeof(PACKED_CELL_OBJECT));
-			
+
 			if(g_format == 2)	// Driver 2
 			{
 				//
 				// Driver 2 use PACKED_CELL_OBJECTS - 8 bytes. not wasting, but tricky
 				//
+
+				memset(g_packed_cell_objects + g_numStraddlers, 0, sizeof(g_packed_cell_objects) - g_numStraddlers * sizeof(PACKED_CELL_OBJECT));
 				
 				int cellPointersOffset;
 				int cellDataOffset;
@@ -750,12 +750,16 @@ void ExportRegions()
 				// read cell objects
 				g_levStream->Seek(g_levInfo.spooldata_offset + cellObjectsOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
 				g_levStream->Read(g_packed_cell_objects + g_numStraddlers, spool->cell_data_size[2] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
+
+				
 			}
 			else if(g_format == 1) // Driver 1
 			{
 				//
 				// Driver 1 use CELL_OBJECTS directly - 16 bytes, wasteful in RAM
 				//
+
+				memset(g_cell_objects + g_numStraddlers, 0, sizeof(g_cell_objects) - g_numStraddlers * sizeof(CELL_OBJECT));
 				
 				int cellPointersOffset = spool->offset + spool->roadm_size + spool->roadh_size; // SKIP road map
 				int cellDataOffset = cellPointersOffset + spool->cell_data_size[1];
@@ -776,6 +780,8 @@ void ExportRegions()
 				// read cell objects
 				g_levStream->Seek(g_levInfo.spooldata_offset + cellObjectsOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
 				g_levStream->Read(g_cell_objects + g_numStraddlers, spool->cell_data_size[2] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
+
+				
 			}
 
 			// read cell objects after we spool additional area data
