@@ -675,8 +675,8 @@ void ExportRegions()
 
 			// determine region position
 			VECTOR_NOPAD regionPos;
-			regionPos.vx = (x - dim_x) * g_mapInfo.region_size * g_mapInfo.cell_size;
-			regionPos.vz = (y - dim_y) * g_mapInfo.region_size * g_mapInfo.cell_size;
+			regionPos.vx = (x - dim_x / 2) * g_mapInfo.region_size * g_mapInfo.cell_size;
+			regionPos.vz = (y - dim_y / 2) * g_mapInfo.region_size * g_mapInfo.cell_size;
 			regionPos.vy = 0;
 
 			// region at offset
