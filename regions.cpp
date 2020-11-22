@@ -5,20 +5,25 @@
 #include "core/cmdlib.h"
 
 // loaded headers
-LEVELINFO			g_levInfo;
-MAPINFO				g_mapInfo;
+LEVELINFO				g_levInfo;
+OUT_CELL_FILE_HEADER	g_mapInfo;
 
-regiondata_t*		g_regionDataDescs = NULL;	// region model/texture data descriptors
-regionpages_t*		g_regionPages = NULL;		// region texpage usage table
+AreaDataStr*		g_areaData = NULL;			// region model/texture data descriptors
+AreaTPage_t*		g_regionPages = NULL;		// region texpage usage table
 RegionModels_t*		g_regionModels = NULL;		// cached region models
 Spool*				g_regionSpool = NULL;		// region data info
-ushort*				g_regionOffsets = NULL;		// region offset table
+ushort*				g_spoolInfoOffsets = NULL;		// region offset table
 
-int					g_numRegionDatas = 0;
-int					g_numRegionOffsets = 0;
-int					g_numRegionSpool = 0;
+int					g_numAreas = 0;
+int					g_numSpoolInfoOffsets = 0;
+int					g_numRegionSpools = 0;
 
-CELL_OBJECT*		g_straddlers = NULL;		// cells that placed between regions (transition area)
+void*				g_straddlers = NULL;		// cells that placed between regions (transition area)
+int					g_numStraddlers = 0;
+
+int					g_cell_slots_add[5] = { 0 };
+int					g_cell_objects_add[5] = { 0 };
+int					g_PVS_size[4] = { 0 };
 
 //-------------------------------------------------------------
 // parses LUMP_MAP and it's straddler objects
@@ -27,26 +32,36 @@ void LoadMapLump(IVirtualStream* pFile)
 {
 	int l_ofs = pFile->Tell();
 
-	pFile->Read(&g_mapInfo, 1, sizeof(MAPINFO));
+	pFile->Read(&g_mapInfo, 1, sizeof(OUT_CELL_FILE_HEADER));
 
-	Msg("Level dimensions[%d %d], tile size: %d\n", g_mapInfo.width, g_mapInfo.height, g_mapInfo.tileSize);
-	Msg("numRegions: %d\n", g_mapInfo.numRegions);
-	Msg("visTableWidth: %d\n", g_mapInfo.visTableWidth);
+	Msg("Level dimensions[%d %d], cell size: %d\n", g_mapInfo.cells_across, g_mapInfo.cells_down, g_mapInfo.cell_size);
+	Msg(" - num_regions: %d\n", g_mapInfo.num_regions);
+	Msg(" - region_size in cells: %d\n", g_mapInfo.region_size);
 
-	Msg("numAllObjects : %d\n", g_mapInfo.numAllObjects);
-	Msg("NumStraddlers: %d\n", g_mapInfo.numStraddlers);
+	Msg(" - num_cell_objects : %d\n", g_mapInfo.num_cell_objects);
+	Msg(" - num_cell_data: %d\n", g_mapInfo.num_cell_data);
 
-	g_straddlers = new CELL_OBJECT[g_mapInfo.numStraddlers];
-	
-	// straddler objects are placed where region transition comes
-	// FIXME: HOW to use them in regions?
-	for(int i = 0; i < g_mapInfo.numStraddlers; i++)
+	// ProcessMapLump
+	pFile->Read(&g_numStraddlers, 1, sizeof(g_numStraddlers));
+	Msg(" - num straddler cells: %d\n", g_numStraddlers);
+
+	const int pvs_square = 21;
+	const int pvs_square_sq = pvs_square*pvs_square;
+
+	// InitCellData actually here, but...
+
+	// read straddlers
+	if(g_format == 2)
 	{
-		PACKED_CELL_OBJECT object;
-		
-		pFile->Read(&object, 1, sizeof(PACKED_CELL_OBJECT));
-
-		UnpackCellObject(object, g_straddlers[i]);
+		// Driver 2 PCO
+		g_straddlers = malloc(sizeof(PACKED_CELL_OBJECT)*g_numStraddlers);
+		pFile->Read(g_straddlers, 1, sizeof(PACKED_CELL_OBJECT)*g_numStraddlers);
+	}
+	else
+	{
+		// Driver 1 CO
+		g_straddlers = malloc(sizeof(CELL_OBJECT)*g_numStraddlers);
+		pFile->Read(g_straddlers, 1, sizeof(CELL_OBJECT)*g_numStraddlers);
 	}
 
 	pFile->Seek(l_ofs, VS_SEEK_SET);
@@ -54,11 +69,11 @@ void LoadMapLump(IVirtualStream* pFile)
 
 //----------------------------------------------------------------------------------------
 
-void LoadRegionData(IVirtualStream* pFile, RegionModels_t* models, regiondata_t* data, regionpages_t* pages )
+void LoadRegionData(IVirtualStream* pFile, RegionModels_t* models, AreaDataStr* data, AreaTPage_t* pages )
 {
-	int modelsCountOffset = g_levInfo.spooldata_offset + 2048 * (data->modelsOffset + data->modelsSize-1);
-	int modelsOffset = g_levInfo.spooldata_offset + 2048 * data->modelsOffset;
-	int texturesOffset = g_levInfo.spooldata_offset + 2048 * data->textureOffset;
+	int modelsCountOffset = g_levInfo.spooldata_offset + 2048 * (data->model_offset + data->model_size -1);
+	int modelsOffset = g_levInfo.spooldata_offset + 2048 * data->model_offset;
+	int texturesOffset = g_levInfo.spooldata_offset + 2048 * data->gfx_offset;
 
 	pFile->Seek(texturesOffset, VS_SEEK_SET);
 
@@ -68,7 +83,7 @@ void LoadRegionData(IVirtualStream* pFile, RegionModels_t* models, regiondata_t*
 		int pageIdx = pages->pageIndexes[i];
 
 		// region textures are non-compressed due to loading speeds
-		LoadTexturePageData(pFile, &g_pageDatas[pageIdx], pageIdx, false);
+		LoadTPageAndCluts(pFile, &g_pageDatas[pageIdx], pageIdx, false);
 
 		if(pFile->Tell() % 2048)
 			pFile->Seek(2048 - (pFile->Tell() % 2048),VS_SEEK_CUR);
@@ -126,58 +141,85 @@ void LoadSpoolInfoLump(IVirtualStream* pFile)
 {
 	int l_ofs = pFile->Tell();
 
-	int unk;
-	pFile->Read(&unk, 1, sizeof(int));
+	int model_spool_buffer_size;
+	pFile->Read(&model_spool_buffer_size, 1, sizeof(int));
+	Msg("model_spool_buffer_size = %d * 2048\n", model_spool_buffer_size);
 
-	Msg("unk = %d\n", unk);
+	int Music_And_AmbientOffsetsSize;
+	pFile->Read(&Music_And_AmbientOffsetsSize, 1, sizeof(int));
+	Msg("Music_And_AmbientOffsetsSize = %d\n", Music_And_AmbientOffsetsSize);
 
-	int numSomething; // i think it's always 32
-	pFile->Read(&numSomething, 1, sizeof(int));
+	// move further
+	pFile->Seek(Music_And_AmbientOffsetsSize, VS_SEEK_CUR);
 
-	Msg("numSomething = %d\n", numSomething);
-	pFile->Seek(numSomething, VS_SEEK_CUR);
-	
-	pFile->Read(&g_numRegionDatas, 1, sizeof(int));
+	pFile->Read(&g_numAreas, 1, sizeof(int));
+	Msg("NumAreas = %d\n", g_numAreas);
 
-	Msg("numRegionDatas = %d\n", g_numRegionDatas);
-	g_regionModels = new RegionModels_t[g_numRegionDatas];
-
-	g_regionDataDescs = new regiondata_t[g_numRegionDatas];
-	g_regionPages = new regionpages_t[g_numRegionDatas];
+	g_areaData = new AreaDataStr[g_numAreas];
+	g_regionPages = new AreaTPage_t[g_numAreas];
+	g_regionModels = new RegionModels_t[g_numAreas];
 
 	// read local geometry and texture pages
-	pFile->Read(g_regionDataDescs, g_numRegionDatas, sizeof(regiondata_t));
-	pFile->Read(g_regionPages, g_numRegionDatas, sizeof(regionpages_t));
+	pFile->Read(g_areaData, g_numAreas, sizeof(AreaDataStr));
+	pFile->Read(g_regionPages, g_numAreas, sizeof(AreaTPage_t));
 
-	// something decompled, 48 bytes
-	struct V17Data
+	for (int i = 0; i < 5; i++)
 	{
-		int a[4];
-		int b[4];
-		int c[4];
-	};
+		g_cell_slots_add[i] = 0;
+		g_cell_objects_add[i] = 0;
+	}
 
-	V17Data unknStruct;
+	// read slots count
+	for (int i = 0; i < 4; i++)
+	{
+		int slots_count;
+		pFile->Read(&slots_count, 1, sizeof(int));
+		g_cell_slots_add[i] = g_cell_slots_add[4];
+		g_cell_slots_add[4] += slots_count;
+	}
 
-	pFile->Read(&unknStruct, 1, sizeof(unknStruct));
+	// read objects count
+	for (int i = 0; i < 4; i++)
+	{
+		int objects_count;
+		pFile->Read(&objects_count, 1, sizeof(int));
+		g_cell_objects_add[i] = g_cell_objects_add[4];
+		g_cell_objects_add[4] += objects_count;
+	}
 
-	Msg("unk a = [%d %d %d %d]\n", unknStruct.a[0], unknStruct.a[1], unknStruct.a[2], unknStruct.a[3]);
-	Msg("unk b = [%d %d %d %d]\n", unknStruct.b[0], unknStruct.b[1], unknStruct.b[2], unknStruct.b[3]);
-	Msg("unk c = [%d %d %d %d]\n", unknStruct.c[0]+2047 & -2048, unknStruct.c[1]+2047 & -2048, unknStruct.c[2]+2047 & -2048, unknStruct.c[3]+2047 & -2048);
+	// read pvs sizes
+	for (int i = 0; i < 4; i++)
+	{
+		int pvs_size;
+		pFile->Read(&pvs_size, 1, sizeof(int));
 
-	pFile->Read(&g_numRegionOffsets, 1, sizeof(int));
-	Msg("numRegionOffsets: %d\n", g_numRegionOffsets);
+		g_PVS_size[i] = pvs_size + 0x7ff & 0xfffff800;		
+	}
+ 
+	Msg("cell_slots_add = {%d,%d,%d,%d}\n", g_cell_slots_add[0], g_cell_slots_add[1], g_cell_slots_add[2], g_cell_slots_add[3]);
+	Msg("cell_objects_add = {%d,%d,%d,%d}\n", g_cell_objects_add[0], g_cell_objects_add[1], g_cell_objects_add[2], g_cell_objects_add[3]);
+	Msg("PVS_size = {%d,%d,%d,%d}\n", g_PVS_size[0], g_PVS_size[1], g_PVS_size[2], g_PVS_size[3]);
 
-	g_regionOffsets = new ushort[g_numRegionOffsets];
-	pFile->Read(g_regionOffsets, g_numRegionOffsets, sizeof(short));
+	// ... but InitCellData is here
+	{
+		int maxCellData = g_numStraddlers + g_cell_slots_add[4];
+		Msg("*** MAX cell slots = %d\n", maxCellData);
+
+		// I don't have any idea
+		pFile->Read(&g_numSpoolInfoOffsets, 1, sizeof(int));
+		Msg("numRegionOffsets: %d\n", g_numSpoolInfoOffsets);
+	}
+
+	g_spoolInfoOffsets = new ushort[g_numSpoolInfoOffsets];
+	pFile->Read(g_spoolInfoOffsets, g_numSpoolInfoOffsets, sizeof(short));
 
 	int regionsInfoSize;
 	pFile->Read(&regionsInfoSize, 1, sizeof(int));
-	g_numRegionSpool = regionsInfoSize/sizeof(REGIONINFO);
+	g_numRegionSpools = regionsInfoSize / sizeof(AreaDataStr);
 
 	//ASSERT(regionsInfoSize % sizeof(REGIONINFO) == 0);
 
-	Msg("Region spool count %d (size=%d bytes)\n", g_numRegionSpool, regionsInfoSize);
+	Msg("Region spool count %d (size=%d bytes)\n", g_numRegionSpools, regionsInfoSize);
 
 	g_regionSpool = (Spool*)malloc(regionsInfoSize);
 	pFile->Read(g_regionSpool, 1, regionsInfoSize);
@@ -189,24 +231,24 @@ void LoadSpoolInfoLump(IVirtualStream* pFile)
 void FreeSpoolData()
 {
 	if(g_straddlers)
-		delete [] g_straddlers;
+		free(g_straddlers);
 	g_straddlers = NULL;
 
 	if(g_regionSpool)
 		free(g_regionSpool);
 	g_regionSpool = NULL;
 
-	if(g_regionOffsets)
-		delete [] g_regionOffsets;
-	g_regionOffsets = NULL;
+	if(g_spoolInfoOffsets)
+		delete [] g_spoolInfoOffsets;
+	g_spoolInfoOffsets = NULL;
 
 	if(g_regionPages)
 		delete [] g_regionPages;
 	g_regionPages = NULL;
 
-	if(g_regionDataDescs)
-		delete [] g_regionDataDescs;
-	g_regionDataDescs = NULL;
+	if(g_areaData)
+		delete [] g_areaData;
+	g_areaData = NULL;
 
 	if(g_regionModels)
 	{

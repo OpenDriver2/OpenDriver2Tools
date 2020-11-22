@@ -12,9 +12,14 @@ class IVirtualStream;
 
 //---------------------------------------------------------------------------------------------------------------------------------
 
+struct XYPAIR {
+	int x; // size=0, offset=0
+	int y; // size=0, offset=4
+};
+
 struct TexPage_t
 {
-	TEXTUREDETAIL*	details;
+	TEXINF*			details;
 	int				numDetails;
 };
 
@@ -27,6 +32,16 @@ struct texdata_t
 	int			numPalettes;
 };
 
+struct extclutdata_t
+{
+	TEXCLUT clut;
+	int texnum[32];
+	int texcnt;
+	int palette;
+	int tpage;
+
+};
+
 //---------------------------------------------------------------------------------------------------------------------------------
 
 TVec4D<ubyte>	bgr5a1_ToRGBA8(ushort color);
@@ -37,15 +52,15 @@ TVec4D<ubyte>	bgr5a1_ToRGBA8(ushort color);
 int				UnpackTexture(ubyte* pSrc, ubyte* pDst);
 
 // loads texture (you must specify offset in virtual stream before)
-void			LoadTexturePageData(IVirtualStream* pFile, texdata_t* out, int pageIndex, bool isCompressed);
+void			LoadTPageAndCluts(IVirtualStream* pFile, texdata_t* out, int pageIndex, bool isCompressed);
 
 // loads global textures (pre-loading stage)
-void			LoadGlobalTextures(IVirtualStream* pFile);
+void			LoadPermanentTPages(IVirtualStream* pFile);
 
 // loads texture atlas information (details per page)
 void			LoadTextureInfoLump(IVirtualStream* pFile);
 
 // searches for texture detail
-TEXTUREDETAIL*	FindTextureDetail(const char* name);
+TEXINF*			FindTextureDetail(const char* name);
 
 #endif // TEXTURES_H

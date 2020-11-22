@@ -5,8 +5,7 @@
 #include <stdarg.h>
 #include <direct.h>
 
-#define MODEL_SCALING		(0.00015f)
-
+#define MODEL_SCALING			(0.00015f)
 
 // string util
 char* varargs(const char* fmt,...)
@@ -30,8 +29,8 @@ char* varargs(const char* fmt,...)
 
 bool g_export_carmodels = false;
 bool g_export_models = false;
-bool g_export_world = false;
 bool g_export_textures = false;
+bool g_export_world = false;
 
 extern int g_region_format;
 extern int g_format;
@@ -51,7 +50,7 @@ const float			halfTexelSize = texelSize*0.5f;
 //-------------------------------------------------------------
 // writes Wavefront OBJ into stream
 //-------------------------------------------------------------
-void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_index, 
+void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_index, const char* name_prefix,
 							bool debugInfo = true,
 							const Matrix4x4& translation = identity4(),
 							int* first_v = NULL,
@@ -69,8 +68,8 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 		pStream->Print("#vert count %d\r\n", model->num_vertices);
 
 	
-	pStream->Print("g lev_model_%d\r\n", model_index);
-	pStream->Print("o lev_model_%d\r\n", model_index);
+	pStream->Print("g %s_%d\r\n", name_prefix, model_index);
+	pStream->Print("o %s_%d\r\n", name_prefix, model_index);
 
 
 	MODEL* vertex_ref = model;
@@ -251,7 +250,7 @@ void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, bo
 
 		fstr.Print("mtllib MODELPAGES.mtl\r\n");
 
-		WriteMODELToObjStream( &fstr, model, model_index, true );
+		WriteMODELToObjStream( &fstr, model, model_index, model_name, true );
 
 		// success
 		fclose(mdlFile);
@@ -329,6 +328,31 @@ void SaveTGA(const char* filename, ubyte* data, int w, int h, int c)
     fclose(pFile);
 }
 
+void ConvertIndexedTextureToRGBA(int nPage, uint* dest_color_data, int detail, TEXCLUT* clut)
+{
+	texdata_t* page = &g_pageDatas[nPage];
+
+	int ox = g_texPages[nPage].details[detail].x;
+	int oy = g_texPages[nPage].details[detail].y;
+	int w = g_texPages[nPage].details[detail].width;
+	int h = g_texPages[nPage].details[detail].height;
+
+	for(int y = oy; y < oy+h; y++)
+	{
+		for(int x = ox; x < ox+w; x++)
+		{
+			ubyte clindex = page->data[y*256 + x];
+
+			TVec4D<ubyte> color = bgr5a1_ToRGBA8( clut->colors[clindex] );
+
+			// flip texture by Y because of TGA
+			int ypos = (TEXPAGE_SIZE_Y - y-1)*TEXPAGE_SIZE_Y;
+
+			dest_color_data[ypos + x] = *(uint*)(&color);
+		}
+	}
+}
+
 void ExportTexturePage(int nPage)
 {
 	//
@@ -349,55 +373,260 @@ void ExportTexturePage(int nPage)
 
 	memset(color_data, 0, imgSize);
 
-	int clut = max(page->numPalettes, g_texPages[nPage].numDetails);
+	int numPal = min(page->numPalettes, g_texPages[nPage].numDetails);
 
-	for(int i = 0; i < g_texPages[nPage].numDetails; i++, clut++)
+	for(int i = 0; i < numPal; i++)
 	{
-		int ox = g_texPages[nPage].details[i].x;
-		int oy = g_texPages[nPage].details[i].y;
-		int w = g_texPages[nPage].details[i].w;
-		int h = g_texPages[nPage].details[i].h;
+		ConvertIndexedTextureToRGBA(nPage, color_data, i, &page->clut[i]);
+	}
 
-		char* name = g_textureNamesData + g_texPages[nPage].details[i].texNameOffset;
-		
-		for(int y = oy; y < oy+h; y++)
+	Msg("Writing texture %s/PAGE_%d.tga\n", g_levname_texdir.c_str(), nPage);
+	SaveTGA(varargs("%s/PAGE_%d.tga", g_levname_texdir.c_str(), nPage), (ubyte*)color_data, TEXPAGE_SIZE_Y,TEXPAGE_SIZE_Y,TEX_CHANNELS);
+
+	int numPalettes = 0;
+	for(int pal = 0; pal < 16; pal++)
+	{
+		bool anyMatched = false;
+		for(int i = 0; i < g_numExtraPalettes; i++)
 		{
-			for(int x = ox; x < ox+w; x++)
+			if (g_extraPalettes[i].tpage != nPage)
+				continue;
+
+			if (g_extraPalettes[i].palette != pal)
+				continue;
+
+			for(int j = 0; j < g_extraPalettes[i].texcnt; j++)
 			{
-				ubyte clindex = page->data[y*256 + x];
+				ConvertIndexedTextureToRGBA(nPage, color_data, g_extraPalettes[i].texnum[j], &g_extraPalettes[i].clut);
+			}
+			
+			anyMatched = true;
+		}
 
-				TVec4D<ubyte> color = bgr5a1_ToRGBA8( page->clut[i].colors[clindex] );
+		if(anyMatched)
+		{
+			Msg("Writing texture %s/PAGE_%d_%d.tga\n", g_levname_texdir.c_str(), nPage, numPalettes);
+			SaveTGA(varargs("%s/PAGE_%d_%d.tga", g_levname_texdir.c_str(), nPage, numPalettes), (ubyte*)color_data, TEXPAGE_SIZE_Y,TEXPAGE_SIZE_Y,TEX_CHANNELS);
+			numPalettes++;
+		}
+	}
 
-				// flip texture by Y because of TGA
-				int ypos = (TEXPAGE_SIZE_Y - y-1)*TEXPAGE_SIZE_Y;
+	
+	free(color_data);
+}
 
-				color_data[ypos + x] = *(uint*)(&color);
+void DumpOverlayMap()
+{
+#if 0
+	CVECTOR* rgba = new CVECTOR[overlaidmaps[GameLevel].width * overlaidmaps[GameLevel].height];
+
+	ushort* clut = (ushort*)(MapBitMaps + 512);
+
+	int x, y, xx, yy;
+	int wide, tall;
+
+	wide = overlaidmaps[GameLevel].width / 32;
+	tall = overlaidmaps[GameLevel].height / 32;
+
+	for(x = 0; x < wide; x++)
+	{
+		for(y = 0; y < tall; y++)
+		{
+			int idx = x + y * wide;
+			int temp = x << 5;
+
+			if (idx > -1 && idx < overlaidmaps[GameLevel].toptile &&
+				temp > -1 && (temp < overlaidmaps[GameLevel].width))
+			{
+				UnpackRNC(MapBitMaps + *((ushort*)MapBitMaps + idx), MapBuffer);
+
+				// place segment
+				for(yy = 0; yy < 32; yy++)
+				{
+					for(xx = 0; xx < 32; xx++)
+					{
+						int px, py;
+
+						u_char colorIndex = (u_char)MapBuffer[yy * 16 + xx / 2];
+
+						if(0 != (xx & 1))
+							colorIndex >>= 4;
+
+						colorIndex &= 0xf;
+
+						CVECTOR color = bgr5a1_ToRGBA8(clut[colorIndex]);
+
+						px = x * 32 + xx;
+						py = y * 32 + yy;
+
+						rgba[px + py * overlaidmaps[GameLevel].width] = color;
+					}
+				}
 			}
 		}
 	}
 
-	// need to flip textures
+	SaveTGA("MAP.TGA", (uchar*)rgba,overlaidmaps[GameLevel].width, overlaidmaps[GameLevel].height, 4 );
+	delete [] rgba;
+#endif
+}
 
-	Msg("Writing texture %s/PAGE_%d.tga\n", g_levname_texdir.c_str(), nPage);
+int UnpackCellPointers(int region, int targetRegion, int cell_slots_add, ushort* dest_ptrs, char* src_data)
+{
+	ushort cell;
+	ushort* short_ptr;
+	ushort* source_packed_data;
+	int loop;
+	uint bitpos;
+	uint pcode;
+	int numCellPointers;
+	
+	int packtype;
 
-	SaveTGA(varargs("%s/PAGE_%d.tga", g_levname_texdir.c_str(), nPage), (ubyte*)color_data, TEXPAGE_SIZE_Y,TEXPAGE_SIZE_Y,TEX_CHANNELS);
-	free(color_data);
+	packtype = *(int *)(src_data + 4);
+	source_packed_data = (ushort *)(src_data + 8);
+
+	numCellPointers = 0;
+
+	if (packtype == 0)
+	{
+		short_ptr = dest_ptrs + targetRegion * 1024;
+
+		for (loop = 0; loop < 1024; loop++)
+			*short_ptr++ = 0xffff;
+	}
+	else if (packtype == 1)
+	{
+		short_ptr = dest_ptrs + targetRegion * 1024;
+
+		for (loop = 0; loop < 1024; loop++)
+		{
+			cell = *source_packed_data++;
+
+			if (cell != 0xffff)
+				cell += cell_slots_add;
+
+			*short_ptr++ = cell;
+			numCellPointers++;
+		}
+	}
+	else if (packtype == 2)
+	{
+		bitpos = 0x8000;
+		pcode = (uint)*source_packed_data;
+		source_packed_data++;
+		short_ptr = dest_ptrs + targetRegion * 1024;
+
+		for (loop = 0; loop < 1024; loop++)
+		{
+			if (pcode & bitpos)
+			{
+				cell = *source_packed_data++;
+				cell += cell_slots_add;
+			}
+			else
+				cell = 0xffff;
+
+			bitpos >>= 1;
+			*short_ptr++ = cell;
+			numCellPointers++;
+
+			if (bitpos == 0)
+			{
+				bitpos = 0x8000;
+				pcode = *source_packed_data++;
+			}
+		}
+	}
+	else 
+	{
+		MsgError("BAD PACKED CELL POINTER DATA, region = %d\n", region);
+	}
+
+	return numCellPointers;
+}
+
+#define SPOOL_CD_BLOCK_SIZE 2048
+
+char g_packed_cell_pointers[8192];
+ushort g_cell_ptrs[8192];
+
+CELL_DATA g_cells[16384];
+CELL_DATA_D1 g_cells_d1[16384];
+
+// Driver 2
+PACKED_CELL_OBJECT g_packed_cell_objects[16384];
+
+// Driver 1
+CELL_OBJECT g_cell_objects[16384];
+
+PACKED_CELL_OBJECT* GetFirstPackedCop(CELL_DATA** cell, ushort cell_ptr, int barrel_region)
+{
+	*cell = &g_cells[cell_ptr];
+
+	if ((*cell)->num & 0x8000)
+		return NULL;
+
+	return &g_packed_cell_objects[((*cell)->num & 0x3fff) - g_cell_objects_add[barrel_region]];
+}
+
+PACKED_CELL_OBJECT* GetNextPackedCop(CELL_DATA** cell, int barrel_region)
+{
+	ushort num;
+	PACKED_CELL_OBJECT* ppco;
+
+	do {
+		if ((*cell)->num & 0x8000)
+			return NULL;
+
+		(*cell) = (*cell) + 1;
+		num = (*cell)->num;
+
+		if (num & 0x4000)
+			return NULL;
+
+		ppco = &g_packed_cell_objects[((*cell)->num & 0x3fff) - g_cell_objects_add[barrel_region]];
+	} while (ppco->value == 0xffff && (ppco->pos.vy & 1) != 0);
+
+	return ppco;
+}
+
+void UnpackCellObject(PACKED_CELL_OBJECT* pco, CELL_OBJECT& co, VECTOR_NOPAD nearCell)
+{
+	//bool isStraddler = pco - cell_objects < g_numStraddlers;
+	
+	co.pos.vy = (pco->pos.vy << 0x10) >> 0x11;
+
+	//if(isStraddler)
+	{
+		co.pos.vx = nearCell.vx + ((nearCell.vx - pco->pos.vx << 0x10) >> 0x10);
+		co.pos.vz = nearCell.vz + ((nearCell.vz - pco->pos.vz << 0x10) >> 0x10);
+	}
+	//else
+	{
+		co.pos.vx = nearCell.vx + pco->pos.vx;// ((pco.pos.vx - nearCell.vx << 0x10) >> 0x10);
+		co.pos.vz = nearCell.vz + pco->pos.vz;// ((pco.pos.vz - nearCell.vz << 0x10) >> 0x10);
+	}
+
+	// unpack
+	co.yang = (pco->value & 0x3f);
+	co.type = (pco->value >> 6) + ((pco->pos.vy & 0x1) ? 1024 : 0);
 }
 
 void ExportRegions()
 {
 	int counter = 0;
-	
-	int dim_x = g_mapInfo.width / g_mapInfo.visTableWidth;
-	int dim_y = g_mapInfo.height / g_mapInfo.visTableWidth;
 
-	Msg("World size:\n [%dx%d] vis cells\n [%dx%d] regions\n", g_mapInfo.width, g_mapInfo.height, dim_x, dim_y);
+	int dim_x = g_mapInfo.cells_across / g_mapInfo.region_size;
+	int dim_y = g_mapInfo.cells_down / g_mapInfo.region_size;
+
+	Msg("World size:\n [%dx%d] cells\n [%dx%d] regions\n", g_mapInfo.cells_across, g_mapInfo.cells_down, dim_x, dim_y);
 
 	// print region map to console
-	for(int i = 0; i < g_numRegionOffsets; i++, counter++)
+	for(int i = 0; i < g_numSpoolInfoOffsets; i++, counter++)
 	{
 		// Debug information: Print the map to the console.
-		Msg(g_regionOffsets[i] == REGION_EMPTY ? "." : "O");
+		Msg(g_spoolInfoOffsets[i] == REGION_EMPTY ? "." : "O");
 		if(counter == dim_x)
 		{
 			Msg("\n");
@@ -409,21 +638,29 @@ void ExportRegions()
 	 
 	int numCellObjectsRead = 0;
 
-	FILE* objFile = NULL;
-	FILE* levModelFile = NULL;
+	FILE* cellsFile = fopen(varargs("%s_CELLPOS_MAP.obj", g_levname.c_str()), "wb");
+	FILE* levelFile = fopen(varargs("%s_LEVELMODEL.obj", g_levname.c_str()), "wb");
 
-	objFile = fopen(varargs("%s_CELLPOS_MAP.obj", g_levname.c_str()), "wb");
-	levModelFile = fopen(varargs("%s_LEVELMODEL.obj", g_levname.c_str()), "wb");
+	CFileStream cellsFileStream(cellsFile);
+	CFileStream levelFileStream(levelFile);
 
-	CFileStream fobjFile(objFile);
-	CFileStream flevModelFile(levModelFile);
-
-	flevModelFile.Print("mtllib %s_LEVELMODEL.mtl\r\n", g_levname.c_str());
+	levelFileStream.Print("mtllib %s_LEVELMODEL.mtl\r\n", g_levname.c_str());
 
 	int lobj_first_v = 0;
 	int lobj_first_t = 0;
 
-	// 2d region map
+	// copy straddlers to cell objects
+	if(g_format == 2)
+	{
+		memcpy(g_packed_cell_objects, g_straddlers, sizeof(PACKED_CELL_OBJECT)*g_numStraddlers);
+	}
+	else
+	{
+		memcpy(g_cell_objects, g_straddlers, sizeof(CELL_OBJECT)*g_numStraddlers);
+	}
+	
+
+	// dump 2d region map
 	// easy seeking
 	for(int y = 0; y < dim_y; y++)
 	{
@@ -431,44 +668,119 @@ void ExportRegions()
 		{
 			int sPosIdx = y*dim_x + x;
 
-			if(g_regionOffsets[sPosIdx] == REGION_EMPTY)
+			if(g_spoolInfoOffsets[sPosIdx] == REGION_EMPTY)
 				continue;
+
+			int barrel_region = (x & 1) + (y & 1) * 2;
 
 			// determine region position
-			int region_pos_x = x * 65536;
-			int region_pos_z = y * 65536;
+			VECTOR_NOPAD regionPos;
+			regionPos.vx = x * g_mapInfo.region_size * g_mapInfo.cell_size;
+			regionPos.vz = y * g_mapInfo.region_size * g_mapInfo.cell_size;
+			regionPos.vy = 0;
 
 			// region at offset
-			Spool* spool = (Spool*)((ubyte*)g_regionSpool + g_regionOffsets[sPosIdx]);
+			Spool* spool = (Spool*)((ubyte*)g_regionSpool + g_spoolInfoOffsets[sPosIdx]);
 
-			Msg("---------\nSpool %d %d (offset: %d)\n", x, y, g_regionOffsets[sPosIdx]);
-			Msg("offset: %d\n",spool->offset);
+			Msg("---------\nSpool %d %d (offset: %d)\n", x, y, g_spoolInfoOffsets[sPosIdx]);
+			Msg(" - offset: %d\n",spool->offset);
 
-			Msg("connected areas offset: %d\n",spool->connected_areas);
-			Msg("connected areas count: %d\n",spool->num_connected_areas);
-			Msg("pvs block size: %d\n",spool->pvs_size);
-			//Msg("padding: %d %d\n",spool->_padding,spool->_padding2);
-			Msg("cell data size: %d\n",spool->cell_data_size);
-			Msg("super regions: %d\n",spool->super_region);
-			Msg("roadm size: %d\n",spool->roadm_size);
-			Msg("roadh size: %d\n",spool->roadh_size);
+			for(int i = 0; i < spool->num_connected_areas; i++)
+				Msg(" - connected area %d: %d\n", i, spool->connected_areas[i]);
 
-			int cellsOffset = g_levInfo.spooldata_offset + 2048 * (spool->offset + spool->pvs_size + spool->cell_data_size);
+			Msg(" - pvs_size: %d\n",spool->pvs_size);
+			Msg(" - cell_data_size: %d %d %d\n",spool->cell_data_size[0], spool->cell_data_size[1], spool->cell_data_size[2]);
+
+			Msg(" - super_region: %d\n",spool->super_region);
+
+			// LoadRegionData - calculate offsets
+			Msg(" - cell pointers size: %d\n", spool->cell_data_size[1]);
+			Msg(" - cell data size: %d\n", spool->cell_data_size[0]);
+			Msg(" - cell objects size: %d\n", spool->cell_data_size[2]);
+			Msg(" - PVS data size: %d\n", spool->roadm_size);
+
+			// prepare
+			int cellPointerCount = 0;
+
+			memset(g_packed_cell_pointers, 0, sizeof(g_packed_cell_pointers));
 			
-			if(g_region_format == 2) // driver 2 demo
+			memset(g_cells, 0, sizeof(g_cells));
+			
+			memset(g_cells_d1, 0, sizeof(g_cells_d1));
+			
+			memset(g_packed_cell_objects + g_numStraddlers, 0, sizeof(g_packed_cell_objects) - g_numStraddlers * sizeof(PACKED_CELL_OBJECT));
+			
+			if(g_format == 2)	// Driver 2
 			{
-				cellsOffset = g_levInfo.spooldata_offset + 2048 * (spool->offset + spool->pvs_size + spool->cell_data_size + spool->roadm_size );
+				//
+				// Driver 2 use PACKED_CELL_OBJECTS - 8 bytes. not wasting, but tricky
+				//
+				
+				int cellPointersOffset;
+				int cellDataOffset;
+				int cellObjectsOffset;
+				int pvsDataOffset;
+				
+				if(g_region_format == 2) // retail
+				{
+					cellPointersOffset = spool->offset + spool->roadm_size; // SKIP PVS buffers, no need rn...
+					cellDataOffset = cellPointersOffset + spool->cell_data_size[1];
+					cellObjectsOffset = cellDataOffset + spool->cell_data_size[0];
+					pvsDataOffset = cellObjectsOffset + spool->cell_data_size[2];
+				}
+				else if(g_region_format == 1) // 1.6 alpha
+				{
+					cellPointersOffset = spool->offset;
+					cellDataOffset = cellPointersOffset + spool->cell_data_size[1];
+					cellObjectsOffset = cellDataOffset + spool->cell_data_size[0];
+					pvsDataOffset = cellObjectsOffset + spool->cell_data_size[2];
+				}
+				
+				// read packed cell pointers
+				g_levStream->Seek(g_levInfo.spooldata_offset + cellPointersOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
+				g_levStream->Read(g_packed_cell_pointers, spool->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
+
+				// unpack cell pointers so we can use them
+				cellPointerCount = UnpackCellPointers(sPosIdx, 0, 0, g_cell_ptrs, g_packed_cell_pointers);
+
+				// read cell data
+				g_levStream->Seek(g_levInfo.spooldata_offset + cellDataOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
+				g_levStream->Read(g_cells, spool->cell_data_size[0] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
+
+				// read cell objects
+				g_levStream->Seek(g_levInfo.spooldata_offset + cellObjectsOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
+				g_levStream->Read(g_packed_cell_objects + g_numStraddlers, spool->cell_data_size[2] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
 			}
-			else if(g_region_format == 1) // driver 1
+			else if(g_format == 1) // Driver 1
 			{
-				MsgError("diferrent packed cells used?\n");
-				continue;
+				//
+				// Driver 1 use CELL_OBJECTS directly - 16 bytes, wasteful in RAM
+				//
+				
+				int cellPointersOffset = spool->offset + spool->roadm_size + spool->roadh_size; // SKIP road map
+				int cellDataOffset = cellPointersOffset + spool->cell_data_size[1];
+				int cellObjectsOffset = cellDataOffset + spool->cell_data_size[0];
+				int pvsDataOffset = cellObjectsOffset + spool->cell_data_size[2]; // FIXME: is it even there in Driver 1?
+
+				 // read packed cell pointers
+				g_levStream->Seek(g_levInfo.spooldata_offset + cellPointersOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
+				g_levStream->Read(g_packed_cell_pointers, spool->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
+
+				// unpack cell pointers so we can use them
+				cellPointerCount = UnpackCellPointers(sPosIdx, 0, 0, g_cell_ptrs, g_packed_cell_pointers);
+
+				// read cell data
+				g_levStream->Seek(g_levInfo.spooldata_offset + cellDataOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
+				g_levStream->Read(g_cells_d1, spool->cell_data_size[0] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
+
+				// read cell objects
+				g_levStream->Seek(g_levInfo.spooldata_offset + cellObjectsOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
+				g_levStream->Read(g_cell_objects + g_numStraddlers, spool->cell_data_size[2] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
 			}
 
-			Msg("cell objects ofs: %d\n", cellsOffset);
-
+			// read cell objects after we spool additional area data
 			RegionModels_t* regModels = NULL;
-
+			
 			// if region data is available, load models and textures
 			if(spool->super_region != SUPERREGION_NONE)
 			{
@@ -476,7 +788,7 @@ void ExportRegions()
 
 				bool isNew = (regModels->modelRefs.size() == 0);
 
-				LoadRegionData(g_levStream, regModels, &g_regionDataDescs[spool->super_region], &g_regionPages[spool->super_region]);
+				LoadRegionData(g_levStream, regModels, &g_areaData[spool->super_region], &g_regionPages[spool->super_region]);
 
 				if( g_export_models && isNew )
 				{
@@ -495,76 +807,135 @@ void ExportRegions()
 					}
 				}
 			}
+			
 
-			// seek to cells
-			g_levStream->Seek(cellsOffset, VS_SEEK_SET);
 
-			int cell_count = 0;
+			int numRegionObjects = 0;
 
-			fobjFile.Print("#--------\r\n# region %d %d (ofs=%d)\r\n", x, y, cellsOffset);
-			fobjFile.Print("g cell_%d\r\n", sPosIdx);
-
-			PACKED_CELL_OBJECT object;
-			do
+			if(g_format == 2)	// Driver 2
 			{
-				g_levStream->Read(&object, 1, sizeof(PACKED_CELL_OBJECT));
-				
-				// bad hack, need to parse visibility data for it
-				if(	(0x4544 == object.pos_x && 0x2153 == object.addidx_pos_y) ||
-					(0x4809 == object.pos_x && 0x4809 == object.addidx_pos_y) ||
-					(0xA608 == object.pos_x && 0xA608 == object.addidx_pos_y) ||cell_count >= 8192)
-					break;
-				
-				// unpack cell
-				CELL_OBJECT cell;
-				UnpackCellObject(object, cell);
+				CELL_DATA* celld;
+				PACKED_CELL_OBJECT* pcop;
 
-				Vector3D absCellPosition((region_pos_x+cell.x)*-MODEL_SCALING, cell.y*-MODEL_SCALING, (region_pos_z+cell.z)*MODEL_SCALING);
-				float cellRotation = cell.rotation / 64.0f*PI_F*2.0f;
-
-				if(objFile)
+				// go through all cell pointers
+				for(int i = 0; i < cellPointerCount; i++)
 				{
-					fobjFile.Print("# m %d r %d\r\n", cell.modelindex, cell.rotation);
-					fobjFile.Print("v %g %g %g\r\n", absCellPosition.x,absCellPosition.y,absCellPosition.z);
+					ushort cell_ptr = g_cell_ptrs[i];
+					if (cell_ptr == 0xffff)
+						continue;
+
+					// iterate just like game would
+					if (pcop = GetFirstPackedCop(&celld, cell_ptr, barrel_region))
+					{
+						do
+						{
+							// unpack cell object
+							CELL_OBJECT co;
+							UnpackCellObject(pcop, co, regionPos);
+
+							{
+								Vector3D absCellPosition(co.pos.vx*-MODEL_SCALING, co.pos.vy*-MODEL_SCALING, co.pos.vz*MODEL_SCALING);
+								float cellRotationRad = co.yang / 64.0f*PI_F*2.0f;
+
+								if(cellsFile)
+								{
+									cellsFileStream.Print("# m %d r %d\r\n", co.type, co.yang);
+									cellsFileStream.Print("v %g %g %g\r\n", absCellPosition.x,absCellPosition.y,absCellPosition.z);
+								}
+
+								MODEL* model = FindModelByIndex(co.type, regModels);
+
+								if(model)
+								{
+									// transform objects and save
+									Matrix4x4 transform = translate(absCellPosition);
+									transform = transform * rotateY4(cellRotationRad) * scale4(1.0f,1.0f,1.0f);
+
+									const char* modelNamePrefix = varargs("reg%d", sPosIdx);
+
+									WriteMODELToObjStream(&levelFileStream, model, co.type, modelNamePrefix, false, transform, &lobj_first_v, &lobj_first_t, regModels);
+								}
+
+								numRegionObjects++;
+							}
+						} while (pcop = GetNextPackedCop(&celld, barrel_region));
+					}
+
 				}
-
-				if(cell.modelindex >= g_levelModels.size())
-				{
-					Msg("cell model index invalid: %d\n", cell.modelindex);
-
-					cell_count++;
-					continue;
-				}
-
-				MODEL* model = FindModelByIndex(cell.modelindex, regModels);
-
-				if(!model)
-					break;
-
-				// transform objects and save
-				Matrix4x4 transform = translate(absCellPosition);
-				transform = transform * rotateY4(cellRotation) * scale4(1.0f,1.0f,1.0f);
-
-				WriteMODELToObjStream(&flevModelFile, model, cell.modelindex, false, transform, &lobj_first_v, &lobj_first_t, regModels);
-				
-				cell_count++;
-			}while(true);
-
-			MsgInfo("cell_count = %d\n", cell_count);
-
-			if(objFile)
+			}
+			else // Driver 1
 			{
-				fobjFile.Print("# total region cells %d\r\n", cell_count);
+				CELL_DATA_D1* celld;
+
+				// go through all cell pointers
+				for(int i = 0; i < cellPointerCount; i++)
+				{
+					ushort cell_ptr = g_cell_ptrs[i];
+
+					// iterate just like game would
+					while (cell_ptr != 0xffff)
+					{
+						celld = &g_cells_d1[cell_ptr];
+						
+						CELL_OBJECT& co = g_cell_objects[(celld->num & 0x3fff) - g_cell_objects_add[barrel_region]];
+
+						{
+							Vector3D absCellPosition(co.pos.vx*-MODEL_SCALING, co.pos.vy*-MODEL_SCALING, co.pos.vz*MODEL_SCALING);
+							float cellRotationRad = co.yang / 64.0f*PI_F*2.0f;
+
+							if(cellsFile)
+							{
+								cellsFileStream.Print("# m %d r %d\r\n", co.type, co.yang);
+								cellsFileStream.Print("v %g %g %g\r\n", absCellPosition.x,absCellPosition.y,absCellPosition.z);
+							}
+
+							MODEL* model = FindModelByIndex(co.type, regModels);
+
+							if(model)
+							{
+								// transform objects and save
+								Matrix4x4 transform = translate(absCellPosition);
+								transform = transform * rotateY4(cellRotationRad) * scale4(1.0f,1.0f,1.0f);
+
+								const char* modelNamePrefix = varargs("reg%d", sPosIdx);
+
+								WriteMODELToObjStream(&levelFileStream, model, co.type, modelNamePrefix, false, transform, &lobj_first_v, &lobj_first_t, regModels);
+							}
+
+							numRegionObjects++;
+						}
+						
+						cell_ptr = celld->next_ptr;
+
+						if (cell_ptr != 0xffff)
+						{
+							// barrel_region doesn't work here
+							int val = 0;
+							for(int j = 0; j < 4; j++)
+							{
+								if(cell_ptr >= g_cell_slots_add[j])
+									val = g_cell_slots_add[j];
+							}
+							
+							cell_ptr -= val;
+						}
+					}
+				}
 			}
 
-			numCellObjectsRead += cell_count;
+			if(cellsFile)
+			{
+				cellsFileStream.Print("# total region cells %d\r\n", numRegionObjects);
+			}
+
+			numCellObjectsRead += numRegionObjects;
 		}
 	}
 
-	fclose(objFile);
-	fclose(levModelFile);
+	fclose(cellsFile);
+	fclose(levelFile);
 
-	int numCellsObjectsFile = g_mapInfo.numAllObjects - g_mapInfo.numStraddlers;
+	int numCellsObjectsFile = g_mapInfo.num_cell_objects;
 
 	if(numCellObjectsRead != numCellsObjectsFile)
 		MsgError("numAllObjects mismatch: in file: %d, read %d\n", numCellsObjectsFile, numCellObjectsRead);
@@ -583,7 +954,7 @@ void ExportLevelData()
 	{
 		Msg("exporting models\n");
 
-		for(int i = 0; i < g_levelModels.size(); i++)
+		for(int i = 0; i < 1536; i++)
 		{
 			if(!g_levelModels[i].model)
 				continue;
@@ -644,11 +1015,11 @@ void ExportLevelData()
 		// preload region data if needed
 		if(!g_export_world)
 		{
-			Msg("preloading region datas (%d)\n", g_numRegionDatas);
+			Msg("preloading region datas (%d)\n", g_numAreas);
 
-			for(int i = 0; i < g_numRegionDatas; i++)
+			for(int i = 0; i < g_numAreas; i++)
 			{
-				LoadRegionData( g_levStream, NULL, &g_regionDataDescs[i], &g_regionPages[i] );
+				LoadRegionData( g_levStream, NULL, &g_areaData[i], &g_regionPages[i] );
 			}
 		}
 

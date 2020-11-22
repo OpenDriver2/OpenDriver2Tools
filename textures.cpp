@@ -10,13 +10,18 @@
 //-------------------------------------------------------------------------------
 
 
-TEXPAGEINFO*		g_texPageInfos = NULL;
+TEXPAGE_POS*		g_texPagePos = NULL;
 
 int					g_numTexPages = 0;
 int					g_numTexDetails = 0;
 
+int					g_numPermanentPages = 0;
+int					g_numSpecPages = 0;
+
 texdata_t*			g_pageDatas = NULL;
 TexPage_t*			g_texPages = NULL;
+extclutdata_t*		g_extraPalettes = NULL;
+int					g_numExtraPalettes = 0;
 
 // legacy format converter
 TVec4D<ubyte> bgr5a1_ToRGBA8(ushort color)
@@ -40,9 +45,11 @@ int UnpackTexture(ubyte* pSrc, ubyte* pDst)
 
 	do
 	{
-		int8 count = *pSrcData++;
+		int8 c = *pSrcData++;
 
-		if(count < 0)
+		int count = c;// (c & 0x7f) + 1;
+
+		if(c & 0x80)
 		{
 			// Repeat 2 + |count| times
 
@@ -104,7 +111,7 @@ void LoadCompressedTexture(IVirtualStream* pFile, texdata_t* out, ubyte* out4bit
 	pFile->Seek(imageStart + out->rsize, VS_SEEK_SET);
 }
 
-void LoadTexturePageData(IVirtualStream* pFile, texdata_t* out, int nPage, bool isCompressed)
+void LoadTPageAndCluts(IVirtualStream* pFile, texdata_t* out, int nPage, bool isCompressed)
 {
 	int rStart = pFile->Tell();
 
@@ -187,59 +194,96 @@ void LoadTexturePageData(IVirtualStream* pFile, texdata_t* out, int nPage, bool 
 	out->rsize = readSize;
 	out->data = indexed;
 
-	Msg("PAGE %d (%s) datasize=%d\n", nPage, isCompressed ? "preload" : "region_dyn", readSize);
+	Msg("PAGE %d (%s) datasize=%d\n", nPage, isCompressed ? "compr" : "spooled", readSize);
 }
 
 //
 // loads global textures (pre-loading stage)
 //
-void LoadGlobalTextures(IVirtualStream* pFile)
+void LoadPermanentTPages(IVirtualStream* pFile)
 {
-	Msg("loading global texture pages\n");
 	g_levStream->Seek( g_levInfo.texdata_offset, VS_SEEK_SET );
 
 	// allocate page data
 	g_pageDatas = new texdata_t[g_numTexPages];
 	memset(g_pageDatas, 0, sizeof(texdata_t)*g_numTexPages);
 
-	short mode = PAGE_FLAG_PRELOAD;
+	//-----------------------------------
 
-	int numTex = 0;
-	int nPageIndex = 0;
-
-	do
+	if (g_format == 2)
 	{
-		if(!(g_texPageInfos[nPageIndex].flags & mode))
+		Msg("Loading permanent texture pages (%d)\n", g_numPermanentPages);
+
+		int numPermanents = 0;
+
+		// load permanent pages
+		for (int i = 0; i < g_numTexPages && numPermanents < g_numPermanentPages; i++)
 		{
-			// goto next page
-			nPageIndex++;
+			if (!(g_texPagePos[i].flags & TPAGE_PERMANENT))
+				continue;
 
-			// if we exceeded, switch mode and reset page index
-			if(nPageIndex >= g_numTexPages)
-			{
-				nPageIndex = 0;
-				mode = PAGE_FLAG_GLOBAL2;
-			}
+			numPermanents++;
 
-			continue;
+			// permanents are compressed
+			LoadTPageAndCluts(pFile, &g_pageDatas[i], i, true);
+
+			if (pFile->Tell() % 4096)
+				pFile->Seek(2048 - (pFile->Tell() % 2048), VS_SEEK_CUR);
 		}
 
-		// abort reading
-		if(nPageIndex >= g_numTexPages)
-			break;
+		Msg("Loading special texture pages (%d)\n", g_numSpecPages);
 
-		// preloaded textures are compressed
-		LoadTexturePageData(pFile, &g_pageDatas[nPageIndex], nPageIndex, true);
+		int numSpec = 0;
 
-		numTex++;
-		nPageIndex++;
+		// load spec pages
+		for (int i = 0; i < g_numTexPages && numSpec < g_numSpecPages; i++)
+		{
+			if (!(g_texPagePos[i].flags & TPAGE_SPECPAGES))
+				continue;
 
-		if(pFile->Tell() % 4096)
-			pFile->Seek(2048 - (pFile->Tell() % 2048),VS_SEEK_CUR);
+			numSpec++;
 
-	}while(pFile->Tell()-g_levInfo.texdata_offset < g_levInfo.texdata_size);
+			// permanents are compressed
+			LoadTPageAndCluts(pFile, &g_pageDatas[i], i, true);
 
-	Msg("global textures: %d\n", numTex);
+			if (pFile->Tell() % 4096)
+				pFile->Seek(2048 - (pFile->Tell() % 2048), VS_SEEK_CUR);
+		}
+	}
+	else
+	{
+		// load tpages
+		for (int i = 0; i < g_numTexPages; i++)
+		{
+			if (!(g_texPagePos[i].flags & TPAGE_PERMANENT))
+				continue;
+
+			// permanents are compressed
+			LoadTPageAndCluts(pFile, &g_pageDatas[i], i+1, true);
+
+			if (pFile->Tell() % 4096)
+				pFile->Seek(2048 - (pFile->Tell() % 2048), VS_SEEK_CUR);
+		}
+
+		Msg("Loading car texture pages (%d)\n", g_numSpecPages);
+
+		int numSpec = 0;
+
+		// load spec pages
+		for (int i = 0; i < g_numTexPages && numSpec < g_numSpecPages; i++)
+		{
+			if (!(g_texPagePos[i].flags & TPAGE_SPECPAGES))
+				continue;
+
+			numSpec++;
+
+			// permanents are compressed
+			LoadTPageAndCluts(pFile, &g_pageDatas[i], i, true);
+
+			if (pFile->Tell() % 4096)
+				pFile->Seek(2048 - (pFile->Tell() % 2048), VS_SEEK_CUR);
+		}
+	}
 }
 
 //-------------------------------------------------------------
@@ -250,51 +294,59 @@ void LoadTextureInfoLump(IVirtualStream* pFile)
 	int l_ofs = pFile->Tell();
 
 	int numPages;
-	pFile->Read(&numPages, sizeof(int), 1);
+	pFile->Read(&numPages, 1, sizeof(int));
 
-	int numTotalDetails;
-	pFile->Read(&numTotalDetails, sizeof(int), 1);
+	int numTextures;
+	pFile->Read(&numTextures, 1, sizeof(int));
 
-	Msg("Texture page count: %d\n", numPages);
-	Msg("Texture detail (atlas) count: %d\n", numTotalDetails);
+	Msg("TPage count: %d\n", numPages);
+	Msg("Texture amount: %d\n", numTextures);
 
 	// read array of texutre page info
-	g_texPageInfos = new TEXPAGEINFO[numPages];
-	pFile->Read(g_texPageInfos, numPages, sizeof(TEXPAGEINFO));
+	g_texPagePos = new TEXPAGE_POS[numPages+1];
+	g_texPages = new TexPage_t[numPages];
 
-	int unk1, unk2 = 0;
-	pFile->Read(&unk1, sizeof(int), 1);
-	pFile->Read(&unk2, sizeof(int), 1);
-
-	//Msg("unk1 = %d\n", unk1); // special?
-	//Msg("unk2 = %d\n", unk2);
+	pFile->Read(g_texPagePos, numPages+1, sizeof(TEXPAGE_POS));
 
 	// read page details
 	g_numTexPages = numPages;
 
-	g_texPages = new TexPage_t[numPages];
-
 	for(int i = 0; i < numPages; i++) 
 	{
-		pFile->Read(&g_texPages[i].numDetails, sizeof(int), 1);
+		TexPage_t& tp = g_texPages[i];
+
+		pFile->Read(&tp.numDetails, 1, sizeof(int));
 
 		// read texture detail info
-		g_texPages[i].details = new TEXTUREDETAIL[g_texPages[i].numDetails];
-		pFile->Read(g_texPages[i].details, g_texPages[i].numDetails, sizeof(TEXTUREDETAIL));
+		tp.details = new TEXINF[tp.numDetails];
+		pFile->Read(tp.details, tp.numDetails, sizeof(TEXINF));
 	}
 
+	pFile->Read(&g_numPermanentPages, 1, sizeof(int));
+	Msg("Permanent TPages = %d\n", g_numPermanentPages);
+
+	pFile->Seek(128, VS_SEEK_CUR); // skip permslist
+
+	//if(g_format == 2)
+	{
+		pFile->Read(&g_numSpecPages, 1, sizeof(int));
+		// skip speclist
+
+		Msg("Special TPages = %d\n", g_numSpecPages);
+	}
+	
 	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
 //----------------------------------------------------------------------------------------------------
 
-TEXTUREDETAIL* FindTextureDetail(const char* name)
+TEXINF* FindTextureDetail(const char* name)
 {
 	for(int i = 0; i < g_numTexPages; i++)
 	{
 		for(int j = 0; j < g_texPages[i].numDetails; j++)
 		{
-			char* pTexName = g_textureNamesData + g_texPages[i].details[j].texNameOffset;
+			char* pTexName = g_textureNamesData + g_texPages[i].details[j].nameoffset;
 
 			if(!strcmp(pTexName, name))
 			{
