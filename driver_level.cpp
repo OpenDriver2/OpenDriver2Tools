@@ -27,6 +27,7 @@ char* varargs(const char* fmt,...)
 	return buf;
 }
 
+bool g_extract_dmodels = false;
 bool g_export_carmodels = false;
 bool g_export_models = false;
 bool g_export_textures = false;
@@ -238,10 +239,36 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 }
 
 //-------------------------------------------------------------
+// Saves raw MODEL to file
+//-------------------------------------------------------------
+void ExtractDMODEL(MODEL* model, const char* model_name, int modelSize)
+{
+	FILE* mdlFile = fopen(varargs("%s.dmodel", model_name), "wb");
+
+	if(mdlFile)
+	{
+		CFileStream fstr(mdlFile);
+
+		fwrite(model, 1, modelSize, mdlFile);
+
+		Msg("----------\nSaving model %s\n", model_name);
+
+		// success
+		fclose(mdlFile);
+	}
+}
+
+//-------------------------------------------------------------
 // exports model to single file
 //-------------------------------------------------------------
-void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, bool isCarModel = false)
+void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, int modelSize)
 {
+	if(g_extract_dmodels)
+	{
+		ExtractDMODEL(model, model_name, modelSize);
+		return;
+	}
+	
 	FILE* mdlFile = fopen(varargs("%s.obj", model_name), "wb");
 
 	if(mdlFile)
@@ -267,7 +294,7 @@ void ExportCarModel(MODEL* model, int size, int index, const char* name_suffix)
 	std::string model_name(varargs("%s/CARMODEL_%d_%s", g_levname_moddir.c_str(), index, name_suffix));
 
 	// export model
-	ExportDMODELToOBJ(model, model_name.c_str(), index, true);
+	ExportDMODELToOBJ(model, model_name.c_str(), index, size);
 			
 	// save original dmodel2
 	FILE* dFile = fopen(varargs("%s.dmodel",  model_name.c_str()), "wb");
@@ -823,7 +850,7 @@ void ExportRegions()
 							modelFileName = varargs("%s/ZREG%d_%d_%s", g_levname_moddir.c_str(), spool->super_region, i, g_model_names[mod_indxex].c_str());
 
 						// export model
-						ExportDMODELToOBJ(regModels->modelRefs[i].model, modelFileName.c_str(), regModels->modelRefs[i].index);
+						ExportDMODELToOBJ(regModels->modelRefs[i].model, modelFileName.c_str(), regModels->modelRefs[i].index, regModels->modelRefs[i].size);
 					}
 				}
 			}
@@ -1001,7 +1028,7 @@ void ExportLevelData()
 				modelFileName = varargs("%s/%d_%s", g_levname_moddir.c_str(), i, g_model_names[i].c_str());
 
 			// export model
-			ExportDMODELToOBJ(g_levelModels[i].model, modelFileName.c_str(), i);
+			ExportDMODELToOBJ(g_levelModels[i].model, modelFileName.c_str(), i, g_levelModels[i].size);
 			
 			// save original dmodel2
 			FILE* dFile = fopen(varargs("%s.dmodel", modelFileName.c_str()), "wb");
@@ -1135,9 +1162,36 @@ void ProcessLevFile(const char* filename)
 	FreeLevelData();
 }
 
-void ConvertDModelFileToOBJ(const char* filename)
+void ConvertDModelFileToOBJ(const char* filename, const char* outputFilename)
 {
-	
+	MODEL* model;
+	int modelSize;
+
+	FILE* fp;
+	fp = fopen(filename, "rb");
+	if(fp)
+	{
+		fseek(fp, 0, SEEK_END);
+		modelSize = ftell(fp);
+		fseek(fp, 0, SEEK_SET);
+		
+		model = (MODEL*)malloc(modelSize + 16);
+		fread(model, 1, modelSize, fp);
+		fclose(fp);
+	}
+	else
+	{
+		MsgError("Failed to open '%s'!\n", filename);
+		return;
+	}
+
+	if(model->instance_number != -1)
+	{
+		MsgError("This model points to instance and cannot be exported!\n");
+		return;
+	}
+
+	ExportDMODELToOBJ(model, outputFilename, 0, modelSize);
 }
 
 int main(int argc, char* argv[])
@@ -1196,6 +1250,10 @@ int main(int argc, char* argv[])
 			g_export_carmodels = atoi(argv[i+1]) > 0;
 			i++;
 		}
+		else if(!stricmp(argv[i], "-extractmodels"))
+		{
+			g_extract_dmodels = true;
+		}
 		else if(!stricmp(argv[i], "-lev"))
 		{
 			levName = argv[i+1];
@@ -1203,8 +1261,8 @@ int main(int argc, char* argv[])
 		}
 		else if(!stricmp(argv[i], "-dmodel2obj"))
 		{
-			ConvertDModelFileToOBJ(argv[i+1]);
-			i++;
+			ConvertDModelFileToOBJ(argv[i+1], argv[i+2]);
+			return 0;
 		}
 	}
 
