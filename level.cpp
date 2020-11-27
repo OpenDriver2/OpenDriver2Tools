@@ -2,16 +2,6 @@
 #include "core/VirtualStream.h"
 
 int g_region_format = 3;
-
-/*
-void OnFormatChanged(ConVar* pVar,char const* pszOldValue)
-{
-	if(pVar->GetInt() == 2)
-		g_region_format.SetInt(3); // driver 2 uses 3rd generation of region info format
-	else if(pVar->GetInt() == 1)
-		g_region_format.SetInt(1); // driver 1 region info format
-}*/
-
 int g_format = 0;
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -290,10 +280,9 @@ void ProcessPalletLump(IVirtualStream *pFile, int lump_size)
 			// only in D1 we need to check count
 			if(g_format == 1)
 			{
-				if (added_cluts >= total_cluts-1)
+				if (added_cluts >= total_cluts)
 					break;
 			}
-
 		}
 		else
 		{
@@ -543,8 +532,10 @@ void FreeLevelData()
 	delete [] g_pageDatas;
 	delete [] g_texPagePos;
 	delete [] g_texPages;
+	delete[] g_extraPalettes;
 
 	g_pageDatas = NULL;
 	g_texPagePos = NULL;
 	g_texPagePos = NULL;
+	g_extraPalettes = NULL;
 }

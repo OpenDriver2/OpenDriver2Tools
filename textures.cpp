@@ -124,6 +124,7 @@ void LoadTPageAndCluts(IVirtualStream* pFile, texdata_t* out, int nPage, bool is
 		return;
 	}
 
+	/*
 	// skip zero padding (usually 2048 bytes)
 	int check_numpal;
 	pFile->Read(&check_numpal, 1, sizeof(int));
@@ -133,7 +134,7 @@ void LoadTPageAndCluts(IVirtualStream* pFile, texdata_t* out, int nPage, bool is
 	{
 		pFile->Seek(2048, VS_SEEK_CUR);
 
-		/*
+
 		ubyte check_zero;
 		do
 		{
@@ -141,8 +142,8 @@ void LoadTPageAndCluts(IVirtualStream* pFile, texdata_t* out, int nPage, bool is
 		}while(check_zero == 0);
 
 		pFile->Seek(-1, VS_SEEK_CUR); // seek back
-		*/
-	}
+		
+	}*/
 
 	ubyte* tex4bitData = new ubyte[TEXPAGE_4BIT_SIZE];
 

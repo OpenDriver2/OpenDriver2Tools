@@ -27,16 +27,107 @@ typedef struct dbounding_t
 
 //------------------------------------------------------------------------------------------------------------
 
-typedef struct dface_t
+struct CVECTOR
+{
+	ubyte r;
+	ubyte g;
+	ubyte b;
+	ubyte pad;
+};
+
+
+struct UV_INFO
+{
+	unsigned char u;
+	unsigned char v;
+};
+
+struct POLYFT3
+{
+	unsigned char id;
+	unsigned char texture_set;
+	unsigned char texture_id;
+	unsigned char spare;
+	unsigned char v0;
+	unsigned char v1;
+	unsigned char v2;
+	unsigned char pad;
+	UV_INFO uv0;
+	UV_INFO uv1;
+	UV_INFO uv2;
+	UV_INFO pad2;
+	CVECTOR color;
+};
+
+struct POLYGT3
+{
+	unsigned char id;
+	unsigned char texture_set;
+	unsigned char texture_id;
+	unsigned char spare;
+	unsigned char v0;
+	unsigned char v1;
+	unsigned char v2;
+	unsigned char pad;
+	unsigned char n0;
+	unsigned char n1;
+	unsigned char n2;
+	unsigned char pad2;
+	UV_INFO uv0;
+	UV_INFO uv1;
+	UV_INFO uv2;
+	UV_INFO pad3;
+	CVECTOR color;
+};
+
+struct POLYFT4
+{
+	unsigned char id;
+	unsigned char texture_set;
+	unsigned char texture_id;
+	unsigned char spare;
+	unsigned char v0;
+	unsigned char v1;
+	unsigned char v2;
+	unsigned char v3;
+	UV_INFO uv0;
+	UV_INFO uv1;
+	UV_INFO uv2;
+	UV_INFO uv3;
+	CVECTOR color;
+};
+
+struct POLYGT4
+{
+	unsigned char id;
+	unsigned char texture_set;
+	unsigned char texture_id;
+	unsigned char spare;
+	unsigned char v0;
+	unsigned char v1;
+	unsigned char v2;
+	unsigned char v3;
+	unsigned char n0;
+	unsigned char n1;
+	unsigned char n2;
+	unsigned char n3;
+	UV_INFO uv0;
+	UV_INFO uv1;
+	UV_INFO uv2;
+	UV_INFO uv3;
+	CVECTOR color;
+};
+
+typedef struct dpoly_t
 {
 	ubyte	flags;
 	ubyte	page;
-	uint16	detail;
+	ubyte	detail;
 
-	ubyte	vindex[4];
-	ubyte	texcoord[4][2];
-	ubyte	nindex[4];
-	ubyte	color[4];
+	ubyte	vindices[4];
+	ubyte	uv[4][2];
+	ubyte	nindices[4];
+	CVECTOR	color[4];
 	// something more?
 }FACE;
 
@@ -45,13 +136,8 @@ enum EFaceFlags_e
 	FACE_IS_QUAD			= (1 << 0),
 	FACE_RGB				= (1 << 1),	// this face has a color data
 	FACE_TEXTURED			= (1 << 2),	// face is textured
-	FACE_TEXTURED2			= (1 << 3),	// face is textured, different method?
-
-	FACE_NOCULL				= (1 << 4), // no culling
-
-	FACE_UNK6				= (1 << 5),
-	FACE_UNK7				= (1 << 6),
-	FACE_UNK8				= (1 << 7),
+	FACE_NORMAL				= (1 << 3), // no culling
+	FACE_VERT_NORMAL		= (1 << 4),
 };
 
 //------------------------------------------------------------------------------------------------------------
@@ -139,7 +225,8 @@ struct MODEL
 
 assert_sizeof(MODEL, 36);
 
-int decode_poly(const char* face, dface_t* out);
+void PrintUnknownPolys();
+int decode_poly(const char* face, dpoly_t* out);
 
 //-------------------------------------------------------------------------------
 

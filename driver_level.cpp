@@ -123,7 +123,7 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 	{
 		char* facedata = model->pPolyAt(face_ofs);
 
-		dface_t dec_face;
+		dpoly_t dec_face;
 		int face_size = decode_poly(facedata, &dec_face);
 
 		//if((dec_face.flags & FACE_SMOOTH) > 0 != bSmooth)
@@ -132,7 +132,7 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 		//	pStream->Print("s %s\r\n", bSmooth ? "1" : "off");
 		//}
 
-		if((dec_face.flags & FACE_TEXTURED) || (dec_face.flags & FACE_TEXTURED2))
+		if(dec_face.flags & FACE_TEXTURED)
 		{
 			pStream->Print("usemtl page_%d\r\n", dec_face.page);
 		}
@@ -144,28 +144,28 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 		{
 			// flip
 			int vertex_index[4] = {
-				dec_face.vindex[3],
-				dec_face.vindex[2],
-				dec_face.vindex[1],
-				dec_face.vindex[0]
+				dec_face.vindices[3],
+				dec_face.vindices[2],
+				dec_face.vindices[1],
+				dec_face.vindices[0]
 			};
 
-			if( dec_face.vindex[0] < 0 || dec_face.vindex[0] > vertex_ref->num_vertices ||
-				dec_face.vindex[1] < 0 || dec_face.vindex[1] > vertex_ref->num_vertices ||
-				dec_face.vindex[2] < 0 || dec_face.vindex[2] > vertex_ref->num_vertices ||
-				dec_face.vindex[3] < 0 || dec_face.vindex[3] > vertex_ref->num_vertices)
+			if( dec_face.vindices[0] < 0 || dec_face.vindices[0] > vertex_ref->num_vertices ||
+				dec_face.vindices[1] < 0 || dec_face.vindices[1] > vertex_ref->num_vertices ||
+				dec_face.vindices[2] < 0 || dec_face.vindices[2] > vertex_ref->num_vertices ||
+				dec_face.vindices[3] < 0 || dec_face.vindices[3] > vertex_ref->num_vertices)
 			{
-				MsgError("quad %d (type=%d ofs=%d) has invalid indices (or format is unknown)\n", j, dec_face.flags, model->poly_block+face_ofs);
+				MsgError("quad %d (type=%d ofs=%d) has invalid indices (or format is unknown)\n", j, *facedata & 31, model->poly_block+face_ofs);
 				face_ofs += face_size;
 				continue;
 			}
 
-			if((dec_face.flags & FACE_TEXTURED) || (dec_face.flags & FACE_TEXTURED2))
+			if(dec_face.flags & FACE_TEXTURED)
 			{
-				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[0][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.texcoord[0][1])) / 256.0f+halfTexelSize);
-				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[1][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.texcoord[1][1])) / 256.0f+halfTexelSize);
-				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[2][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.texcoord[2][1])) / 256.0f+halfTexelSize);
-				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[3][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.texcoord[3][1])) / 256.0f+halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.uv[0][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.uv[0][1])) / 256.0f+halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.uv[1][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.uv[1][1])) / 256.0f+halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.uv[2][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.uv[2][1])) / 256.0f+halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.uv[3][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.uv[3][1])) / 256.0f+halfTexelSize);
 
 				pStream->Print("f %d/%d %d/%d %d/%d %d/%d\r\n", 
 						vertex_index[0]+1+numVerts, numVertCoords+4,
@@ -188,25 +188,25 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 		{
 			// flip
 			int vertex_index[3] = {
-				dec_face.vindex[2],
-				dec_face.vindex[1],
-				dec_face.vindex[0]
+				dec_face.vindices[2],
+				dec_face.vindices[1],
+				dec_face.vindices[0]
 			};
 
-			if( dec_face.vindex[0] < 0 || dec_face.vindex[0] > vertex_ref->num_vertices ||
-				dec_face.vindex[1] < 0 || dec_face.vindex[1] > vertex_ref->num_vertices ||
-				dec_face.vindex[2] < 0 || dec_face.vindex[2] > vertex_ref->num_vertices)
+			if( dec_face.vindices[0] < 0 || dec_face.vindices[0] > vertex_ref->num_vertices ||
+				dec_face.vindices[1] < 0 || dec_face.vindices[1] > vertex_ref->num_vertices ||
+				dec_face.vindices[2] < 0 || dec_face.vindices[2] > vertex_ref->num_vertices)
 			{
-				MsgError("triangle %d (type=%d ofs=%d) has invalid indices (or format is unknown)\n", j, dec_face.flags, model->poly_block+face_ofs);
+				MsgError("triangle %d (type=%d ofs=%d) has invalid indices (or format is unknown)\n", j, *facedata & 31, model->poly_block+face_ofs);
 				face_ofs += face_size;
 				continue;
 			}
 
-			if((dec_face.flags & FACE_TEXTURED) || (dec_face.flags & FACE_TEXTURED2))
+			if(dec_face.flags & FACE_TEXTURED)
 			{
-				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[0][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.texcoord[0][1])) / 256.0f+halfTexelSize);
-				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[1][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.texcoord[1][1])) / 256.0f+halfTexelSize);
-				pStream->Print("vt %g %g\r\n", float(dec_face.texcoord[2][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.texcoord[2][1])) / 256.0f+halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.uv[0][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.uv[0][1])) / 256.0f+halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.uv[1][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.uv[1][1])) / 256.0f+halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.uv[2][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.uv[2][1])) / 256.0f+halfTexelSize);
 
 				pStream->Print("f %d/%d %d/%d %d/%d\r\n", 
 						vertex_index[0]+1+numVerts, numVertCoords+3,
@@ -233,6 +233,8 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 
 	if(first_v)
 		*first_v = numVerts+vertex_ref->num_vertices;
+
+	PrintUnknownPolys();
 }
 
 //-------------------------------------------------------------
@@ -375,6 +377,18 @@ void ExportTexturePage(int nPage)
 
 	int numPal = min(page->numPalettes, g_texPages[nPage].numDetails);
 
+	// Dump whole TPAGE indexes
+	for(int y = 0; y < 256; y++)
+	{
+		for(int x = 0; x < 256; x++)
+		{
+			ubyte clindex = page->data[y*256 + x];
+			int ypos = (TEXPAGE_SIZE_Y - y-1)*TEXPAGE_SIZE_Y;
+			
+			color_data[ypos + x] = clindex * 32;
+		}
+	}
+
 	for(int i = 0; i < numPal; i++)
 	{
 		ConvertIndexedTextureToRGBA(nPage, color_data, i, &page->clut[i]);
@@ -382,7 +396,7 @@ void ExportTexturePage(int nPage)
 
 	Msg("Writing texture %s/PAGE_%d.tga\n", g_levname_texdir.c_str(), nPage);
 	SaveTGA(varargs("%s/PAGE_%d.tga", g_levname_texdir.c_str(), nPage), (ubyte*)color_data, TEXPAGE_SIZE_Y,TEXPAGE_SIZE_Y,TEX_CHANNELS);
-
+	/*
 	int numPalettes = 0;
 	for(int pal = 0; pal < 16; pal++)
 	{
@@ -410,7 +424,7 @@ void ExportTexturePage(int nPage)
 			numPalettes++;
 		}
 	}
-
+	*/
 	
 	free(color_data);
 }
@@ -882,8 +896,22 @@ void ExportRegions()
 					while (cell_ptr != 0xffff)
 					{
 						celld = &g_cells_d1[cell_ptr];
+
+						int number = (celld->num & 0x3fff);// -g_cell_objects_add[barrel_region];
 						
-						CELL_OBJECT& co = g_cell_objects[(celld->num & 0x3fff) - g_cell_objects_add[barrel_region]];
+						{
+							// barrel_region doesn't work here
+							int val = 0;
+							for(int j = 0; j < 4; j++)
+							{
+								if(number >= g_cell_objects_add[j])
+									val = g_cell_objects_add[j];
+							}
+
+							number -= val;
+						}
+						
+						CELL_OBJECT& co = g_cell_objects[number];
 						
 						{
 							Vector3D absCellPosition(co.pos.vx*-MODEL_SCALING, co.pos.vy*-MODEL_SCALING, co.pos.vz*MODEL_SCALING);
@@ -1107,6 +1135,11 @@ void ProcessLevFile(const char* filename)
 	FreeLevelData();
 }
 
+void ConvertDModelFileToOBJ(const char* filename)
+{
+	
+}
+
 int main(int argc, char* argv[])
 {
 	Install_ConsoleSpewFunction();
@@ -1126,6 +1159,16 @@ int main(int argc, char* argv[])
 		if(!stricmp(argv[i], "-format"))
 		{
 			g_format = atoi(argv[i+1]);
+
+			if(g_format == 1)
+			{
+				g_region_format = 1;
+			}
+			else
+			{
+				if(g_region_format == 1)
+					g_region_format = 3;
+			}
 			i++;
 		}
 		else if(!stricmp(argv[i], "-regformat"))
@@ -1156,6 +1199,11 @@ int main(int argc, char* argv[])
 		else if(!stricmp(argv[i], "-lev"))
 		{
 			levName = argv[i+1];
+			i++;
+		}
+		else if(!stricmp(argv[i], "-dmodel2obj"))
+		{
+			ConvertDModelFileToOBJ(argv[i+1]);
 			i++;
 		}
 	}
