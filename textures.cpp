@@ -18,6 +18,8 @@ int					g_numTexDetails = 0;
 int					g_numPermanentPages = 0;
 int					g_numSpecPages = 0;
 
+XYPAIR				g_permsList[16];
+XYPAIR				g_specList[16];
 texdata_t*			g_pageDatas = NULL;
 TexPage_t*			g_texPages = NULL;
 extclutdata_t*		g_extraPalettes = NULL;
@@ -210,79 +212,34 @@ void LoadPermanentTPages(IVirtualStream* pFile)
 
 	//-----------------------------------
 
-	if (g_format == 2)
+	Msg("Loading permanent texture pages (%d)\n", g_numPermanentPages);
+
+	// load permanent pages
+	for(int i = 0; i < g_numPermanentPages; i++)
 	{
-		Msg("Loading permanent texture pages (%d)\n", g_numPermanentPages);
+		int tpage = g_permsList[i].x;
 
-		int numPermanents = 0;
+		// permanents are also compressed
+		LoadTPageAndCluts(pFile, &g_pageDatas[tpage], tpage, true);
 
-		// load permanent pages
-		for (int i = 0; i < g_numTexPages && numPermanents < g_numPermanentPages; i++)
-		{
-			if (!(g_texPagePos[i].flags & TPAGE_PERMANENT))
-				continue;
-
-			numPermanents++;
-
-			// permanents are compressed
-			LoadTPageAndCluts(pFile, &g_pageDatas[i], i, true);
-
-			if (pFile->Tell() % 4096)
-				pFile->Seek(2048 - (pFile->Tell() % 2048), VS_SEEK_CUR);
-		}
-
-		Msg("Loading special texture pages (%d)\n", g_numSpecPages);
-
-		int numSpec = 0;
-
-		// load spec pages
-		for (int i = 0; i < g_numTexPages && numSpec < g_numSpecPages; i++)
-		{
-			if (!(g_texPagePos[i].flags & TPAGE_SPECPAGES))
-				continue;
-
-			numSpec++;
-
-			// permanents are compressed
-			LoadTPageAndCluts(pFile, &g_pageDatas[i], i, true);
-
-			if (pFile->Tell() % 4096)
-				pFile->Seek(2048 - (pFile->Tell() % 2048), VS_SEEK_CUR);
-		}
+		if (pFile->Tell() % 4096)
+			pFile->Seek(2048 - (pFile->Tell() % 2048), VS_SEEK_CUR);
 	}
-	else
+
+	// Driver 2 - special cars only
+	// Driver 1 - only player cars
+	Msg("Loading special/car texture pages (%d)\n", g_numSpecPages);
+
+	// load spec pages
+	for (int i = 0; i < g_numSpecPages; i++)
 	{
-		// load tpages
-		for (int i = 0; i < g_numTexPages; i++)
-		{
-			if (!(g_texPagePos[i].flags & TPAGE_PERMANENT))
-				continue;
+		int tpage = g_specList[i].x;
+		
+		// permanents are compressed
+		LoadTPageAndCluts(pFile, &g_pageDatas[tpage], tpage, true);
 
-			// permanents are compressed
-			LoadTPageAndCluts(pFile, &g_pageDatas[i], i+1, true);
-
-			if (pFile->Tell() % 4096)
-				pFile->Seek(2048 - (pFile->Tell() % 2048), VS_SEEK_CUR);
-		}
-
-		Msg("Loading car texture pages (%d)\n", g_numSpecPages);
-
-		int numSpec = 0;
-
-		// load spec pages
-		for (int i = 0; i < g_numTexPages && numSpec < g_numSpecPages; i++)
-		{
-			if (!(g_texPagePos[i].flags & TPAGE_SPECPAGES))
-				continue;
-
-			numSpec++;
-
-			// permanents are compressed
-			LoadTPageAndCluts(pFile, &g_pageDatas[i], i, true);
-
-			if (pFile->Tell() % 4096)
-				pFile->Seek(2048 - (pFile->Tell() % 2048), VS_SEEK_CUR);
-		}
+		if (pFile->Tell() % 4096)
+			pFile->Seek(2048 - (pFile->Tell() % 2048), VS_SEEK_CUR);
 	}
 }
 
@@ -324,17 +281,15 @@ void LoadTextureInfoLump(IVirtualStream* pFile)
 
 	pFile->Read(&g_numPermanentPages, 1, sizeof(int));
 	Msg("Permanent TPages = %d\n", g_numPermanentPages);
+	pFile->Read(g_permsList, 16, sizeof(XYPAIR));
 
-	pFile->Seek(128, VS_SEEK_CUR); // skip permslist
+	// Driver 2 - special cars only
+	// Driver 1 - only player cars
+	pFile->Read(&g_numSpecPages, 1, sizeof(int));
+	pFile->Read(g_specList, 16, sizeof(XYPAIR));
 
-	//if(g_format == 2)
-	{
-		pFile->Read(&g_numSpecPages, 1, sizeof(int));
-		// skip speclist
+	Msg("Special/Car TPages = %d\n", g_numSpecPages);
 
-		Msg("Special TPages = %d\n", g_numSpecPages);
-	}
-	
 	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
