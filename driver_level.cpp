@@ -28,6 +28,7 @@ char* varargs(const char* fmt,...)
 }
 
 bool g_extract_dmodels = false;
+bool g_extract_tpages = false;
 bool g_export_carmodels = false;
 bool g_export_models = false;
 bool g_export_textures = false;
@@ -393,6 +394,9 @@ void ExportTexturePage(int nPage)
 
 	if(!page->data)
 		return;		// NO DATA
+
+	if(g_extract_tpages)
+		return;
 
 #define TEX_CHANNELS 4
 
@@ -1185,9 +1189,9 @@ void ConvertDModelFileToOBJ(const char* filename, const char* outputFilename)
 		return;
 	}
 
-	if(model->instance_number != -1)
+	if(model->instance_number > 0)
 	{
-		MsgError("This model points to instance and cannot be exported!\n");
+		MsgError("This model points to instance '%d' and cannot be exported!\n", model->instance_number);
 		return;
 	}
 
@@ -1253,6 +1257,10 @@ int main(int argc, char* argv[])
 		else if(!stricmp(argv[i], "-extractmodels"))
 		{
 			g_extract_dmodels = true;
+		}
+		else if(!stricmp(argv[i], "-extractpages"))
+		{
+			g_extract_tpages = true;
 		}
 		else if(!stricmp(argv[i], "-lev"))
 		{
