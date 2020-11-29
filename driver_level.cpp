@@ -264,6 +264,9 @@ void ExtractDMODEL(MODEL* model, const char* model_name, int modelSize)
 //-------------------------------------------------------------
 void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, int modelSize)
 {
+	if (!model)
+		return;
+	
 	if(g_extract_dmodels)
 	{
 		ExtractDMODEL(model, model_name, modelSize);
@@ -296,14 +299,6 @@ void ExportCarModel(MODEL* model, int size, int index, const char* name_suffix)
 
 	// export model
 	ExportDMODELToOBJ(model, model_name.c_str(), index, size);
-			
-	// save original dmodel2
-	FILE* dFile = fopen(varargs("%s.dmodel",  model_name.c_str()), "wb");
-	if(dFile)
-	{
-		fwrite(model, size, 1, dFile);
-		fclose(dFile);
-	}
 }
 
 void SaveTGA(const char* filename, ubyte* data, int w, int h, int c)
@@ -362,14 +357,32 @@ void ConvertIndexedTextureToRGBA(int nPage, uint* dest_color_data, int detail, T
 {
 	texdata_t* page = &g_pageDatas[nPage];
 
+	if (!(detail < g_texPages[nPage].numDetails))
+	{
+		MsgError("Cannot apply palette to non-existent detail! Programmer error?\n");
+		return;
+	}
+	
 	int ox = g_texPages[nPage].details[detail].x;
 	int oy = g_texPages[nPage].details[detail].y;
 	int w = g_texPages[nPage].details[detail].width;
 	int h = g_texPages[nPage].details[detail].height;
 
-	for(int y = oy; y < oy+h; y++)
+	if (w == 0)
+		w = 256;
+
+	if (h == 0)
+		h = 256;
+	
+	char* textureName = g_textureNamesData + g_texPages[nPage].details[detail].nameoffset;
+	//MsgWarning("Applying detail %d '%s' (xywh: %d %d %d %d)\n", detail, textureName, ox, oy, w, h);
+
+	int tp_wx = ox + w;
+	int tp_hy = oy + h;
+	
+	for(int y = oy; y < tp_hy; y++)
 	{
-		for(int x = ox; x < ox+w; x++)
+		for(int x = ox; x < tp_wx; x++)
 		{
 			ubyte clindex = page->data[y*256 + x];
 
@@ -427,7 +440,7 @@ void ExportTexturePage(int nPage)
 
 	Msg("Writing texture %s/PAGE_%d.tga\n", g_levname_texdir.c_str(), nPage);
 	SaveTGA(varargs("%s/PAGE_%d.tga", g_levname_texdir.c_str(), nPage), (ubyte*)color_data, TEXPAGE_SIZE_Y,TEXPAGE_SIZE_Y,TEX_CHANNELS);
-	/*
+
 	int numPalettes = 0;
 	for(int pal = 0; pal < 16; pal++)
 	{
@@ -455,7 +468,7 @@ void ExportTexturePage(int nPage)
 			numPalettes++;
 		}
 	}
-	*/
+
 	
 	free(color_data);
 }
@@ -1064,6 +1077,7 @@ void ExportLevelData()
 		for(int i = 0; i < MAX_CAR_MODELS; i++)
 		{
 			ExportCarModel(g_carModels[i].cleanmodel, g_carModels[i].cleanSize, i, "clean");
+			ExportCarModel(g_carModels[i].dammodel, g_carModels[i].cleanSize, i, "damaged");
 			ExportCarModel(g_carModels[i].lowmodel, g_carModels[i].lowSize, i, "low");
 
 			// TODO: export damaged model

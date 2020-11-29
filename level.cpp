@@ -218,12 +218,19 @@ void LoadLevelModelsLump(IVirtualStream* pFile)
 
 //---------------------------------------------------------------------------------------------------------------------------------
 
-struct CAR_PAL_INFO
+struct PAL_INFO
 {
 	int palette;
 	int texnum;
 	int tpage;
 	int clut_number;
+};
+
+struct PAL_INFO_D1
+{
+	int palette;
+	int texnum;
+	int tpage;
 };
 
 // [D]
@@ -249,12 +256,16 @@ void ProcessPalletLump(IVirtualStream *pFile, int lump_size)
 	int added_cluts = 0;
 	while(true)
 	{
-		CAR_PAL_INFO info;
+		PAL_INFO info;
 		
 		if(g_format == 1)
 		{
-			pFile->Read(&info, 1, sizeof(info) - sizeof(int));
+			PAL_INFO_D1 infod1;
+			pFile->Read(&infod1, 1, sizeof(info) - sizeof(int));
 			info.clut_number = -1; // D1 doesn't have that
+			info.tpage = infod1.tpage;
+			info.texnum = infod1.texnum;
+			info.palette = infod1.palette;
 		}
 		else
 		{
@@ -305,8 +316,10 @@ void ProcessLumps(IVirtualStream* pFile)
 {
 	int lump_count = 255; // Driver 2 difference: you not need to read lump count
 
-	if(g_format == 1)
+	if (g_format == 1)
+	{
 		pFile->Read(&lump_count, sizeof(int), 1);
+	}
 
 	if(g_format == 2)
 		g_region_format = 3; // driver 2 uses 3rd generation of region info format
@@ -388,6 +401,20 @@ void ProcessLumps(IVirtualStream* pFile)
 				MsgInfo("LUMP type: %d (0x%X) ofs=%d size=%d\n", lump.type, lump.type, pFile->Tell(), lump.size);
 		}
 
+		/*
+		if(g_format == 0)
+		{
+			if(lump.type == 0)
+			{
+				LUMP test;
+				// read lump info
+				pFile->Read(&test, sizeof(LUMP), 1);
+
+				Msg("FILE OFS: %d bytes\n", pFile->Tell());
+			}
+		}
+		*/
+		
 		// skip lump
 		pFile->Seek(lump.size, VS_SEEK_CUR);
 
@@ -441,7 +468,17 @@ void LoadLevelFile(const char* filename)
 
 	if(curLump.type != LUMP_LUMPDESC)
 	{
-		MsgError("Not a LEV file!\n");
+		// assume we're loading 4.11 level file
+		if(g_format == 0)
+		{
+			g_levStream->Seek(0, VS_SEEK_SET);
+			ProcessLumps(g_levStream);
+		}
+		else
+		{
+			MsgError("Not a LEV file!\n");
+		}
+
 		return;
 	}
 

@@ -97,7 +97,7 @@ void LoadCompressedTexture(IVirtualStream* pFile, texdata_t* out, ubyte* out4bit
 	for(int i = 0; i < out->numPalettes; i++)
 	{
 		// read 16 palettes
-		pFile->Read(&out->clut[i].colors, 1, sizeof(ushort)*16);
+		pFile->Read(&out->clut[i].colors, 16, sizeof(ushort));
 	}
 
 	int imageStart = pFile->Tell();
@@ -124,28 +124,7 @@ void LoadTPageAndCluts(IVirtualStream* pFile, texdata_t* out, int nPage, bool is
 		return;
 	}
 
-	/*
-	// skip zero padding (usually 2048 bytes)
-	int check_numpal;
-	pFile->Read(&check_numpal, 1, sizeof(int));
-	pFile->Seek(-(int)sizeof(int), VS_SEEK_CUR); // seek back
-
-	if(check_numpal == 0)
-	{
-		pFile->Seek(2048, VS_SEEK_CUR);
-
-
-		ubyte check_zero;
-		do
-		{
-			pFile->Read(&check_zero, 1, sizeof(ubyte));
-		}while(check_zero == 0);
-
-		pFile->Seek(-1, VS_SEEK_CUR); // seek back
-		
-	}*/
-
-	ubyte* tex4bitData = new ubyte[TEXPAGE_4BIT_SIZE];
+	ubyte* tex4bitData = new ubyte[TEXPAGE_4BIT_SIZE + 28];
 
 	if( isCompressed )
 	{
@@ -205,7 +184,7 @@ void LoadTPageAndCluts(IVirtualStream* pFile, texdata_t* out, int nPage, bool is
 //
 void LoadPermanentTPages(IVirtualStream* pFile)
 {
-	g_levStream->Seek( g_levInfo.texdata_offset, VS_SEEK_SET );
+	pFile->Seek( g_levInfo.texdata_offset, VS_SEEK_SET );
 
 	// allocate page data
 	g_pageDatas = new texdata_t[g_numTexPages];
@@ -215,17 +194,29 @@ void LoadPermanentTPages(IVirtualStream* pFile)
 
 	Msg("Loading permanent texture pages (%d)\n", g_numPermanentPages);
 
+	// simulate sectors
+	// convert current file offset to sectors
+	long sector = pFile->Tell() / 2048; 
+	int nsectors = 0;
+
+	for (int i = 0; i < g_numPermanentPages; i++)
+		nsectors += (g_permsList[i].y + 2047) / 2048;
+	
 	// load permanent pages
 	for(int i = 0; i < g_numPermanentPages; i++)
 	{
+		long curOfs = pFile->Tell(); 
 		int tpage = g_permsList[i].x;
 
 		// permanents are also compressed
 		LoadTPageAndCluts(pFile, &g_pageDatas[tpage], tpage, true);
 
-		if (pFile->Tell() % 4096)
-			pFile->Seek(2048 - (pFile->Tell() % 2048), VS_SEEK_CUR);
+		pFile->Seek(curOfs + ((g_permsList[i].y + 2047) & -2048), VS_SEEK_SET);
 	}
+
+	// simulate sectors
+	sector += nsectors;
+	pFile->Seek(sector * 2048, VS_SEEK_SET);
 
 	// Driver 2 - special cars only
 	// Driver 1 - only player cars
@@ -234,13 +225,13 @@ void LoadPermanentTPages(IVirtualStream* pFile)
 	// load spec pages
 	for (int i = 0; i < g_numSpecPages; i++)
 	{
+		long curOfs = pFile->Tell();
 		int tpage = g_specList[i].x;
 		
 		// permanents are compressed
 		LoadTPageAndCluts(pFile, &g_pageDatas[tpage], tpage, true);
 
-		if (pFile->Tell() % 4096)
-			pFile->Seek(2048 - (pFile->Tell() % 2048), VS_SEEK_CUR);
+		pFile->Seek(curOfs + ((g_specList[i].y + 2047) & -2048), VS_SEEK_SET);
 	}
 }
 
@@ -275,9 +266,16 @@ void LoadTextureInfoLump(IVirtualStream* pFile)
 
 		pFile->Read(&tp.numDetails, 1, sizeof(int));
 
-		// read texture detail info
-		tp.details = new TEXINF[tp.numDetails];
-		pFile->Read(tp.details, tp.numDetails, sizeof(TEXINF));
+		// don't load empty tpage details
+		if (tp.numDetails)
+		{
+			// read texture detail info
+			tp.details = new TEXINF[tp.numDetails];
+			pFile->Read(tp.details, tp.numDetails, sizeof(TEXINF));
+		}
+		else
+			tp.details = NULL;
+
 	}
 
 	pFile->Read(&g_numPermanentPages, 1, sizeof(int));
