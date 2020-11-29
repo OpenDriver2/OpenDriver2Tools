@@ -555,7 +555,7 @@ void ExportTIM(int nPage, int detail)
 	datahdr.height = h;
 	datahdr.len = img_size + sizeof(TIMIMAGEHDR);
 
-	FILE* pFile = fopen(varargs("%s/PAGE_%d/%s.TIM", g_levname_texdir.c_str(), nPage, textureName), "wb");
+	FILE* pFile = fopen(varargs("%s/PAGE_%d/%s_%d.TIM", g_levname_texdir.c_str(), nPage, textureName, detail), "wb");
 	if(!pFile)
 		return;
 
