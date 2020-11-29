@@ -2,8 +2,10 @@
 #include "math/Matrix.h"
 #include "core/cmdlib.h"
 #include "core/VirtualStream.h"
+#include "core/util.h"
 #include <stdarg.h>
 #include <direct.h>
+
 
 #define MODEL_SCALING			(0.00015f)
 
@@ -416,6 +418,11 @@ void ConvertIndexedTextureToRGBA(int nPage, uint* dest_color_data, int detail, T
 	}
 }
 
+int clutSortFunc(extclutdata_t* const& i, extclutdata_t* const& j)
+{
+	return (i->palette - j->palette);
+}
+
 void GetTPageDetailPalettes(std::vector<TEXCLUT*>& out, int nPage, int detail)
 {
 	texdata_t* page = &g_pageDatas[nPage];
@@ -423,8 +430,8 @@ void GetTPageDetailPalettes(std::vector<TEXCLUT*>& out, int nPage, int detail)
 	// ofc, add default
 	out.push_back(&page->clut[detail]);
 
+	std::vector<extclutdata_t*> extra_cluts;
 
-	
 	for(int i = 0; i < g_numExtraPalettes; i++)
 	{
 		if (g_extraPalettes[i].tpage != nPage)
@@ -442,8 +449,13 @@ void GetTPageDetailPalettes(std::vector<TEXCLUT*>& out, int nPage, int detail)
 		}
 
 		if(found)
-			out.push_back(&g_extraPalettes[i].clut);
+			extra_cluts.push_back(&g_extraPalettes[i]);
 	}
+
+	quickSort(extra_cluts, clutSortFunc, 0, extra_cluts.size() - 1);
+
+	for(int i = 0; i < extra_cluts.size(); i++)
+		out.push_back(&extra_cluts[i]->clut);
 }
 
 void ExportTIM(int nPage, int detail)
