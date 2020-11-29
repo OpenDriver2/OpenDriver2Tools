@@ -38,37 +38,31 @@ TVec4D<ubyte> bgr5a1_ToRGBA8(ushort color)
 
 //-------------------------------------------------------------------------------
 
-// unpacks texture, returns byte count
+// unpacks texture, returns new source pointer
 // there is something like RLE used
-int UnpackTexture(ubyte* pSrc, ubyte* pDst)
+char* unpackTexture(char* src, char* dest)
 {
-	ubyte* pSrcData = pSrc;
-	ubyte* pDstData = pDst;
+	// start from the end
+	char *ptr = dest + TEXPAGE_4BIT_SIZE - 1;
 
-	do
-	{
-		int8 c = *pSrcData++;
+	do {
+		char pix = *src++;
 
-		int count = c;// (c & 0x7f) + 1;
-
-		if(c & 0x80)
+		if ((pix & 0x80) != 0)
 		{
-			// Repeat 2 + |count| times
+			char p = *src++;
 
-			for(int i = 2; i > count; i--)
-				*pDstData++ = *pSrcData;
-
-			pSrcData++;
+			do (*ptr-- = p);
+			while (pix++ <= 0);
 		}
 		else
 		{
-			// Copy 1 + count bytes
-			for(int i = -1; i < count; i++)
-				*pDstData++ = *pSrcData++;
+			do (*ptr-- = *src++);
+			while (pix-- != 0);
 		}
-	}while((pDstData-pDst) < TEXPAGE_4BIT_SIZE);
+	} while (ptr >= dest);
 
-	return (pSrcData - pSrc);
+	return src;
 }
 
 //-------------------------------------------------------------------------------
@@ -103,11 +97,13 @@ void LoadCompressedTexture(IVirtualStream* pFile, texdata_t* out, ubyte* out4bit
 	int imageStart = pFile->Tell();
 
 	// read compression data
-	ubyte* compressedData = new ubyte[TEXPAGE_4BIT_SIZE + 28];
-	pFile->Read(compressedData, 1, TEXPAGE_4BIT_SIZE + 28);
+	ubyte* compressedData = new ubyte[TEXPAGE_4BIT_SIZE];
+	pFile->Read(compressedData, 1, TEXPAGE_4BIT_SIZE);
 
+	char* unpackEnd = unpackTexture((char*)compressedData, (char*)out4bitData);
+	
 	// unpack
-	out->rsize = UnpackTexture(compressedData, out4bitData);
+	out->rsize = (char*)unpackEnd - (char*)compressedData;
 
 	// seek to the right position
 	pFile->Seek(imageStart + out->rsize, VS_SEEK_SET);
@@ -124,7 +120,7 @@ void LoadTPageAndCluts(IVirtualStream* pFile, texdata_t* out, int nPage, bool is
 		return;
 	}
 
-	ubyte* tex4bitData = new ubyte[TEXPAGE_4BIT_SIZE + 28];
+	ubyte* tex4bitData = new ubyte[TEXPAGE_4BIT_SIZE];
 
 	if( isCompressed )
 	{
@@ -136,6 +132,7 @@ void LoadTPageAndCluts(IVirtualStream* pFile, texdata_t* out, int nPage, bool is
 		texturedata_t* texData = new texturedata_t;
 		pFile->Read( texData, 1, sizeof(texturedata_t) );
 
+		// palettes are after them
 		out->numPalettes = texData->numPalettes;
 
 		out->clut = new TEXCLUT[out->numPalettes];
@@ -147,34 +144,10 @@ void LoadTPageAndCluts(IVirtualStream* pFile, texdata_t* out, int nPage, bool is
 		delete texData;
 	}
 
-	// convert 4 bit indexed paletted to 8 bit indexed paletted
-	ubyte* indexed = new ubyte[TEXPAGE_SIZE];
-
-	for(int y = 0; y < 256; y++)
-	{
-		for(int x = 0; x < 256; x++)
-		{
-			// The color index from the file.
-			ubyte colorIndex = tex4bitData[y * 128 + x / 2];
-
-			if(isCompressed) // since compressed textures are flipped
-				colorIndex = tex4bitData[(TEXPAGE_4BIT_SIZE-1) - (y * 128 + x / 2)];
-
-			if(0 != (x & 1))
-				colorIndex >>= 4;
-
-			colorIndex = colorIndex & 0xF;
-
-			indexed[y * 256 + x] = colorIndex;
-		}
-	}
-
-	delete [] tex4bitData;
-
 	int readSize = pFile->Tell()-rStart;
 
 	out->rsize = readSize;
-	out->data = indexed;
+	out->data = tex4bitData;
 
 	Msg("PAGE %d (%s) datasize=%d\n", nPage, isCompressed ? "compr" : "spooled", readSize);
 }

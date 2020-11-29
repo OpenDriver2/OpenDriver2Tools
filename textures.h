@@ -49,7 +49,7 @@ TVec4D<ubyte>	bgr5a1_ToRGBA8(ushort color);
 //---------------------------------------------------------------------------------------------------------------------------------
 
 // unpacks compressed texture
-int				UnpackTexture(ubyte* pSrc, ubyte* pDst);
+char*			unpackTexture(char* src, char* dest);
 
 // loads texture (you must specify offset in virtual stream before)
 void			LoadTPageAndCluts(IVirtualStream* pFile, texdata_t* out, int pageIndex, bool isCompressed);

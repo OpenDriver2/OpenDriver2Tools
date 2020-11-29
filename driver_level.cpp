@@ -7,6 +7,40 @@
 
 #define MODEL_SCALING			(0.00015f)
 
+// Define targa header.
+#pragma pack( push, 1 )
+typedef struct
+{
+	int8	identsize;              // Size of ID field that follows header (0)
+	int8	colorMapType;           // 0 = None, 1 = paletted
+	int8	imageType;              // 0 = none, 1 = indexed, 2 = rgb, 3 = grey, +8=rle
+	unsigned short	colorMapStart;          // First colour map entry
+	unsigned short	colorMapLength;         // Number of colors
+	unsigned char 	colorMapBits;   // bits per palette entry
+	unsigned short	xstart;                 // image x origin
+	unsigned short	ystart;                 // image y origin
+	unsigned short	width;                  // width in pixels
+	unsigned short	height;                 // height in pixels
+	int8	bits;                   // bits per pixel (8 16, 24, 32)
+	int8	descriptor;             // image descriptor
+} TGAHEADER;
+#pragma pack( pop )
+
+struct TIMHDR
+{
+	int magic;
+	int flags;
+};
+
+struct TIMIMAGEHDR
+{
+	int len;
+	short origin_x;
+	short origin_y;
+	short width;
+	short height;
+};
+
 // string util
 char* varargs(const char* fmt,...)
 {
@@ -28,7 +62,7 @@ char* varargs(const char* fmt,...)
 }
 
 bool g_extract_dmodels = false;
-bool g_extract_tpages = false;
+bool g_explode_tpages = false;
 bool g_export_carmodels = false;
 bool g_export_models = false;
 bool g_export_textures = false;
@@ -303,25 +337,6 @@ void ExportCarModel(MODEL* model, int size, int index, const char* name_suffix)
 
 void SaveTGA(const char* filename, ubyte* data, int w, int h, int c)
 {
-	// Define targa header.
-	#pragma pack(1)
-	typedef struct
-		{
-		int8	identsize;              // Size of ID field that follows header (0)
-		int8	colorMapType;           // 0 = None, 1 = paletted
-		int8	imageType;              // 0 = none, 1 = indexed, 2 = rgb, 3 = grey, +8=rle
-		unsigned short	colorMapStart;          // First colour map entry
-		unsigned short	colorMapLength;         // Number of colors
-		unsigned char 	colorMapBits;   // bits per palette entry
-		unsigned short	xstart;                 // image x origin
-		unsigned short	ystart;                 // image y origin
-		unsigned short	width;                  // width in pixels
-		unsigned short	height;                 // height in pixels
-		int8	bits;                   // bits per pixel (8 16, 24, 32)
-		int8	descriptor;             // image descriptor
-		} TGAHEADER;
-	#pragma pack(8)
-
 	TGAHEADER tgaHeader;
 
 	// Initialize the Targa header
@@ -384,7 +399,12 @@ void ConvertIndexedTextureToRGBA(int nPage, uint* dest_color_data, int detail, T
 	{
 		for(int x = ox; x < tp_wx; x++)
 		{
-			ubyte clindex = page->data[y*256 + x];
+			ubyte clindex = page->data[y*128 + x / 2];
+
+			if(0 != (x & 1))
+				clindex >>= 4;
+
+			clindex &= 0xF;
 
 			TVec4D<ubyte> color = bgr5a1_ToRGBA8( clut->colors[clindex] );
 
@@ -394,6 +414,155 @@ void ConvertIndexedTextureToRGBA(int nPage, uint* dest_color_data, int detail, T
 			dest_color_data[ypos + x] = *(uint*)(&color);
 		}
 	}
+}
+
+void GetTPageDetailPalettes(std::vector<TEXCLUT*>& out, int nPage, int detail)
+{
+	texdata_t* page = &g_pageDatas[nPage];
+	
+	// ofc, add default
+	out.push_back(&page->clut[detail]);
+
+
+	
+	for(int i = 0; i < g_numExtraPalettes; i++)
+	{
+		if (g_extraPalettes[i].tpage != nPage)
+			continue;
+
+		bool found = false;
+
+		for(int j = 0; j < g_extraPalettes[i].texcnt; j++)
+		{
+			if (g_extraPalettes[i].texnum[j] == detail)
+			{
+				found = true;
+				break;
+			}
+		}
+
+		if(found)
+			out.push_back(&g_extraPalettes[i].clut);
+	}
+}
+
+void ExportTIM(int nPage, int detail)
+{
+	texdata_t* page = &g_pageDatas[nPage];
+	
+	if (!(detail < g_texPages[nPage].numDetails))
+	{
+		MsgError("Cannot apply palette to non-existent detail! Programmer error?\n");
+		return;
+	}
+
+	int ox = g_texPages[nPage].details[detail].x;
+	int oy = g_texPages[nPage].details[detail].y;
+	int w = g_texPages[nPage].details[detail].width;
+	int h = g_texPages[nPage].details[detail].height;
+
+	if (w == 0)
+		w = 256;
+
+	if (h == 0)
+		h = 256;
+
+	std::vector<TEXCLUT*> palettes;
+	GetTPageDetailPalettes(palettes, nPage, detail);
+
+	char* textureName = g_textureNamesData + g_texPages[nPage].details[detail].nameoffset;
+
+	Msg("Saving %s' %d (xywh: %d %d %d %d)\n", textureName, detail, ox, oy, w, h);
+
+	int tp_wx = ox + w;
+	int tp_hy = oy + h;
+
+	int half_w = (w >> 1);
+	int img_size = (half_w + ((half_w & 1) ? 0 : 1)) * h;
+
+	half_w -= half_w & 1;
+	
+	// copy image
+	ubyte* image_data = new ubyte[img_size];
+	TEXCLUT* clut_data = new TEXCLUT[palettes.size()];
+
+	for(int y = oy; y < tp_hy; y++)
+	{
+		for(int x = ox; x < tp_wx; x++)
+		{
+			int px, py;
+			px = (x - ox);
+			py = (y - oy);
+
+			int half_x = (x >> 1);
+			int half_px = (px >> 1);
+			//half_px -= half_px & 1;
+
+			if(py*half_w + half_px < img_size)
+			{
+				image_data[py*half_w + half_px] = page->data[y*128 + half_x];
+			}
+			else
+			{
+				if(py*half_w > h)
+					MsgWarning("Y offset exceeds %d (%d)\n", py, h);
+
+				if(half_px > half_w)
+					MsgWarning("X offset exceeds %d (%d)\n", half_px, half_w);
+			}
+		}
+	}
+
+	// copy cluts
+	for(int i = 0; i < palettes.size(); i++)
+	{
+		memcpy(&clut_data[i], palettes[i], sizeof(TEXCLUT));
+	}
+	
+	// compose TIMs
+	//
+	// prep headers
+	TIMHDR hdr;
+	hdr.magic = 0x10;
+	hdr.flags = 0x08; // for 4bpp
+
+	TIMIMAGEHDR cluthdr;
+	TIMIMAGEHDR datahdr;
+
+	cluthdr.origin_x = 0;
+	cluthdr.origin_y = 0;
+
+	cluthdr.width = 16;					// CLUTs always 16 bit color
+	cluthdr.height = palettes.size();
+	cluthdr.len = (cluthdr.width * cluthdr.height * sizeof(ushort)) + sizeof(TIMIMAGEHDR);
+
+	datahdr.origin_x = ox;
+	datahdr.origin_y = oy;
+	
+	datahdr.width = (w >> 2);
+	datahdr.height = h;
+	datahdr.len = img_size + sizeof(TIMIMAGEHDR);
+
+	FILE* pFile = fopen(varargs("%s/PAGE_%d/%s.TIM", g_levname_texdir.c_str(), nPage, textureName), "wb");
+	if(!pFile)
+		return;
+
+	// write header
+	fwrite(&hdr, 1, sizeof(hdr), pFile);
+
+	// write clut
+	fwrite(&cluthdr, 1, sizeof(cluthdr), pFile);
+	fwrite(clut_data, 1, cluthdr.len - sizeof(TIMIMAGEHDR), pFile);
+
+	// write data
+	fwrite(&datahdr, 1, sizeof(datahdr), pFile);
+	fwrite(image_data, 1, datahdr.len - sizeof(TIMIMAGEHDR), pFile);
+
+	// dun
+	fclose(pFile);
+
+	delete [] image_data;
+	delete [] clut_data;
 }
 
 void ExportTexturePage(int nPage)
@@ -408,8 +577,22 @@ void ExportTexturePage(int nPage)
 	if(!page->data)
 		return;		// NO DATA
 
-	if(g_extract_tpages)
+	int numPal = min(page->numPalettes, g_texPages[nPage].numDetails);
+	
+	if(g_explode_tpages)
+	{
+		MsgInfo("Exploding texture '%s/PAGE_%d'\n", g_levname_texdir.c_str(), nPage);
+
+		// make folder and place all tims in there
+		_mkdir(varargs("%s/PAGE_%d", g_levname_texdir.c_str(), nPage));
+		
+		for(int i = 0; i < numPal; i++)
+		{
+			ExportTIM(nPage, i);
+		}
+	
 		return;
+	}
 
 #define TEX_CHANNELS 4
 
@@ -419,14 +602,18 @@ void ExportTexturePage(int nPage)
 
 	memset(color_data, 0, imgSize);
 
-	int numPal = min(page->numPalettes, g_texPages[nPage].numDetails);
-
 	// Dump whole TPAGE indexes
 	for(int y = 0; y < 256; y++)
 	{
 		for(int x = 0; x < 256; x++)
 		{
-			ubyte clindex = page->data[y*256 + x];
+			ubyte clindex = page->data[y*128 + (x >> 1)];
+
+			if(0 != (x & 1))
+				clindex >>= 4;
+
+			clindex &= 0xF;
+			
 			int ypos = (TEXPAGE_SIZE_Y - y-1)*TEXPAGE_SIZE_Y;
 			
 			color_data[ypos + x] = clindex * 32;
@@ -438,7 +625,7 @@ void ExportTexturePage(int nPage)
 		ConvertIndexedTextureToRGBA(nPage, color_data, i, &page->clut[i]);
 	}
 
-	Msg("Writing texture %s/PAGE_%d.tga\n", g_levname_texdir.c_str(), nPage);
+	MsgInfo("Writing texture '%s/PAGE_%d.tga'\n", g_levname_texdir.c_str(), nPage);
 	SaveTGA(varargs("%s/PAGE_%d.tga", g_levname_texdir.c_str(), nPage), (ubyte*)color_data, TEXPAGE_SIZE_Y,TEXPAGE_SIZE_Y,TEX_CHANNELS);
 
 	int numPalettes = 0;
@@ -463,7 +650,7 @@ void ExportTexturePage(int nPage)
 
 		if(anyMatched)
 		{
-			Msg("Writing texture %s/PAGE_%d_%d.tga\n", g_levname_texdir.c_str(), nPage, numPalettes);
+			MsgInfo("Writing texture %s/PAGE_%d_%d.tga\n", g_levname_texdir.c_str(), nPage, numPalettes);
 			SaveTGA(varargs("%s/PAGE_%d_%d.tga", g_levname_texdir.c_str(), nPage, numPalettes), (ubyte*)color_data, TEXPAGE_SIZE_Y,TEXPAGE_SIZE_Y,TEX_CHANNELS);
 			numPalettes++;
 		}
@@ -1272,9 +1459,9 @@ int main(int argc, char* argv[])
 		{
 			g_extract_dmodels = true;
 		}
-		else if(!stricmp(argv[i], "-extractpages"))
+		else if(!stricmp(argv[i], "-explodetpages"))
 		{
-			g_extract_tpages = true;
+			g_explode_tpages = true;
 		}
 		else if(!stricmp(argv[i], "-lev"))
 		{
