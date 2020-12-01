@@ -3,9 +3,9 @@
 #include "core/cmdlib.h"
 #include "core/VirtualStream.h"
 #include "core/util.h"
+#include "rnc2.h"
 #include <stdarg.h>
 #include <direct.h>
-
 
 #define MODEL_SCALING			(0.00015f)
 
@@ -44,7 +44,7 @@ struct TIMIMAGEHDR
 };
 
 // string util
-char* varargs(const char* fmt,...)
+char* varargs(const char* fmt, ...)
 {
 	va_list		argptr;
 
@@ -56,9 +56,9 @@ char* varargs(const char* fmt,...)
 
 	memset(buf, 0, 4096);
 
-	va_start (argptr,fmt);
-	vsnprintf(buf, 4096, fmt,argptr);
-	va_end (argptr);
+	va_start(argptr, fmt);
+	vsnprintf(buf, 4096, fmt, argptr);
+	va_end(argptr);
 
 	return buf;
 }
@@ -69,6 +69,9 @@ bool g_export_carmodels = false;
 bool g_export_models = false;
 bool g_export_textures = false;
 bool g_export_world = false;
+bool g_export_overmap = false;
+
+int g_overlaymap_width = 1;
 
 extern int g_region_format;
 extern int g_format;
@@ -82,63 +85,61 @@ std::string			g_levname_texdir;
 
 int					g_levSize = 0;
 
-const float			texelSize = 1.0f/256.0f;
-const float			halfTexelSize = texelSize*0.5f;
+const float			texelSize = 1.0f / 256.0f;
+const float			halfTexelSize = texelSize * 0.5f;
 
 //-------------------------------------------------------------
 // writes Wavefront OBJ into stream
 //-------------------------------------------------------------
-void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_index, const char* name_prefix,
-							bool debugInfo = true,
-							const Matrix4x4& translation = identity4(),
-							int* first_v = NULL,
-							int* first_t = NULL,
-							RegionModels_t* regModels = NULL)
+void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int model_index, const char* name_prefix,
+	bool debugInfo = true,
+	const Matrix4x4& translation = identity4(),
+	int* first_v = NULL,
+	int* first_t = NULL,
+	RegionModels_t* regModels = NULL)
 {
-	if(!model)
+	if (!model)
 	{
 		MsgError("no model %d!!!\n", model_index);
 		return;
 	}
 
 	// export OBJ with points
-	if(debugInfo)
+	if (debugInfo)
 		pStream->Print("#vert count %d\r\n", model->num_vertices);
 
-	
 	pStream->Print("g %s_%d\r\n", name_prefix, model_index);
 	pStream->Print("o %s_%d\r\n", name_prefix, model_index);
 
-
 	MODEL* vertex_ref = model;
 
-	if(model->instance_number > 0) // car models have vertex_ref=0
+	if (model->instance_number > 0) // car models have vertex_ref=0
 	{
 		pStream->Print("#vertex data ref model: %d (count = %d)\r\n", model->instance_number, model->num_vertices);
 
 		vertex_ref = FindModelByIndex(model->instance_number, regModels);
 
-		if(!vertex_ref)
+		if (!vertex_ref)
 		{
 			Msg("vertex ref not found %d\n", model->instance_number);
 			return;
 		}
 	}
 
-	for(int j = 0; j < vertex_ref->num_vertices; j++)
+	for (int j = 0; j < vertex_ref->num_vertices; j++)
 	{
-		Vector3D vertexTransformed = Vector3D(vertex_ref->pVertex(j)->x*-MODEL_SCALING, vertex_ref->pVertex(j)->y*-MODEL_SCALING, vertex_ref->pVertex(j)->z*MODEL_SCALING);
+		Vector3D vertexTransformed = Vector3D(vertex_ref->pVertex(j)->x * -MODEL_SCALING, vertex_ref->pVertex(j)->y * -MODEL_SCALING, vertex_ref->pVertex(j)->z * MODEL_SCALING);
 
 		vertexTransformed = (translation * Vector4D(vertexTransformed, 1.0f)).xyz();
 
-		pStream->Print("v %g %g %g\r\n",	vertexTransformed.x,
-											vertexTransformed.y,
-											vertexTransformed.z);
+		pStream->Print("v %g %g %g\r\n", vertexTransformed.x,
+			vertexTransformed.y,
+			vertexTransformed.z);
 	}
 
 	int face_ofs = 0;
 
-	if(debugInfo)
+	if (debugInfo)
 	{
 		pStream->Print("#poly ofs %d\r\n", model->poly_block);
 		pStream->Print("#poly count %d\r\n", model->num_polys);
@@ -149,15 +150,15 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 	int numVertCoords = 0;
 	int numVerts = 0;
 
-	if(first_t)
+	if (first_t)
 		numVertCoords = *first_t;
 
-	if(first_v)
+	if (first_v)
 		numVerts = *first_v;
 
 	bool bSmooth = false;
 
-	for(int j = 0; j < model->num_polys; j++)
+	for (int j = 0; j < model->num_polys; j++)
 	{
 		char* facedata = model->pPolyAt(face_ofs);
 
@@ -170,15 +171,15 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 		//	pStream->Print("s %s\r\n", bSmooth ? "1" : "off");
 		//}
 
-		if(dec_face.flags & FACE_TEXTURED)
+		if (dec_face.flags & FACE_TEXTURED)
 		{
 			pStream->Print("usemtl page_%d\r\n", dec_face.page);
 		}
 
-		if(debugInfo)
-			pStream->Print("#ft=%d ofs=%d size=%d\r\n", dec_face.flags,  model->poly_block+face_ofs, face_size);
+		if (debugInfo)
+			pStream->Print("#ft=%d ofs=%d size=%d\r\n", dec_face.flags, model->poly_block + face_ofs, face_size);
 
-		if(dec_face.flags & FACE_IS_QUAD)
+		if (dec_face.flags & FACE_IS_QUAD)
 		{
 			// flip
 			int vertex_index[4] = {
@@ -188,38 +189,38 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 				dec_face.vindices[0]
 			};
 
-			if( dec_face.vindices[0] < 0 || dec_face.vindices[0] > vertex_ref->num_vertices ||
+			if (dec_face.vindices[0] < 0 || dec_face.vindices[0] > vertex_ref->num_vertices ||
 				dec_face.vindices[1] < 0 || dec_face.vindices[1] > vertex_ref->num_vertices ||
 				dec_face.vindices[2] < 0 || dec_face.vindices[2] > vertex_ref->num_vertices ||
 				dec_face.vindices[3] < 0 || dec_face.vindices[3] > vertex_ref->num_vertices)
 			{
-				MsgError("quad %d (type=%d ofs=%d) has invalid indices (or format is unknown)\n", j, *facedata & 31, model->poly_block+face_ofs);
+				MsgError("quad %d (type=%d ofs=%d) has invalid indices (or format is unknown)\n", j, *facedata & 31, model->poly_block + face_ofs);
 				face_ofs += face_size;
 				continue;
 			}
 
-			if(dec_face.flags & FACE_TEXTURED)
+			if (dec_face.flags & FACE_TEXTURED)
 			{
-				pStream->Print("vt %g %g\r\n", float(dec_face.uv[0][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.uv[0][1])) / 256.0f+halfTexelSize);
-				pStream->Print("vt %g %g\r\n", float(dec_face.uv[1][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.uv[1][1])) / 256.0f+halfTexelSize);
-				pStream->Print("vt %g %g\r\n", float(dec_face.uv[2][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.uv[2][1])) / 256.0f+halfTexelSize);
-				pStream->Print("vt %g %g\r\n", float(dec_face.uv[3][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.uv[3][1])) / 256.0f+halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.uv[0][0]) / 256.0f + halfTexelSize, (255.0f - float(dec_face.uv[0][1])) / 256.0f + halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.uv[1][0]) / 256.0f + halfTexelSize, (255.0f - float(dec_face.uv[1][1])) / 256.0f + halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.uv[2][0]) / 256.0f + halfTexelSize, (255.0f - float(dec_face.uv[2][1])) / 256.0f + halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.uv[3][0]) / 256.0f + halfTexelSize, (255.0f - float(dec_face.uv[3][1])) / 256.0f + halfTexelSize);
 
-				pStream->Print("f %d/%d %d/%d %d/%d %d/%d\r\n", 
-						vertex_index[0]+1+numVerts, numVertCoords+4,
-						vertex_index[1]+1+numVerts, numVertCoords+3,
-						vertex_index[2]+1+numVerts, numVertCoords+2,
-						vertex_index[3]+1+numVerts, numVertCoords+1);
+				pStream->Print("f %d/%d %d/%d %d/%d %d/%d\r\n",
+					vertex_index[0] + 1 + numVerts, numVertCoords + 4,
+					vertex_index[1] + 1 + numVerts, numVertCoords + 3,
+					vertex_index[2] + 1 + numVerts, numVertCoords + 2,
+					vertex_index[3] + 1 + numVerts, numVertCoords + 1);
 
 				numVertCoords += 4;
 			}
 			else
 			{
 				pStream->Print("f %d %d %d %d\r\n",
-						vertex_index[0]+1+numVerts,
-						vertex_index[1]+1+numVerts,
-						vertex_index[2]+1+numVerts,
-						vertex_index[3]+1+numVerts);
+					vertex_index[0] + 1 + numVerts,
+					vertex_index[1] + 1 + numVerts,
+					vertex_index[2] + 1 + numVerts,
+					vertex_index[3] + 1 + numVerts);
 			}
 		}
 		else
@@ -231,46 +232,45 @@ void WriteMODELToObjStream(	IVirtualStream* pStream, MODEL* model, int model_ind
 				dec_face.vindices[0]
 			};
 
-			if( dec_face.vindices[0] < 0 || dec_face.vindices[0] > vertex_ref->num_vertices ||
+			if (dec_face.vindices[0] < 0 || dec_face.vindices[0] > vertex_ref->num_vertices ||
 				dec_face.vindices[1] < 0 || dec_face.vindices[1] > vertex_ref->num_vertices ||
 				dec_face.vindices[2] < 0 || dec_face.vindices[2] > vertex_ref->num_vertices)
 			{
-				MsgError("triangle %d (type=%d ofs=%d) has invalid indices (or format is unknown)\n", j, *facedata & 31, model->poly_block+face_ofs);
+				MsgError("triangle %d (type=%d ofs=%d) has invalid indices (or format is unknown)\n", j, *facedata & 31, model->poly_block + face_ofs);
 				face_ofs += face_size;
 				continue;
 			}
 
-			if(dec_face.flags & FACE_TEXTURED)
+			if (dec_face.flags & FACE_TEXTURED)
 			{
-				pStream->Print("vt %g %g\r\n", float(dec_face.uv[0][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.uv[0][1])) / 256.0f+halfTexelSize);
-				pStream->Print("vt %g %g\r\n", float(dec_face.uv[1][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.uv[1][1])) / 256.0f+halfTexelSize);
-				pStream->Print("vt %g %g\r\n", float(dec_face.uv[2][0]) / 256.0f+halfTexelSize, (255.0f-float(dec_face.uv[2][1])) / 256.0f+halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.uv[0][0]) / 256.0f + halfTexelSize, (255.0f - float(dec_face.uv[0][1])) / 256.0f + halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.uv[1][0]) / 256.0f + halfTexelSize, (255.0f - float(dec_face.uv[1][1])) / 256.0f + halfTexelSize);
+				pStream->Print("vt %g %g\r\n", float(dec_face.uv[2][0]) / 256.0f + halfTexelSize, (255.0f - float(dec_face.uv[2][1])) / 256.0f + halfTexelSize);
 
-				pStream->Print("f %d/%d %d/%d %d/%d\r\n", 
-						vertex_index[0]+1+numVerts, numVertCoords+3,
-						vertex_index[1]+1+numVerts, numVertCoords+2,
-						vertex_index[2]+1+numVerts, numVertCoords+1);
+				pStream->Print("f %d/%d %d/%d %d/%d\r\n",
+					vertex_index[0] + 1 + numVerts, numVertCoords + 3,
+					vertex_index[1] + 1 + numVerts, numVertCoords + 2,
+					vertex_index[2] + 1 + numVerts, numVertCoords + 1);
 
 				numVertCoords += 3;
 			}
 			else
 			{
-				pStream->Print("f %d %d %d\r\n", 
-						vertex_index[0]+1+numVerts,
-						vertex_index[1]+1+numVerts,
-						vertex_index[2]+1+numVerts);
+				pStream->Print("f %d %d %d\r\n",
+					vertex_index[0] + 1 + numVerts,
+					vertex_index[1] + 1 + numVerts,
+					vertex_index[2] + 1 + numVerts);
 			}
-						
 		}
 
 		face_ofs += face_size;
 	}
 
-	if(first_t)
+	if (first_t)
 		*first_t = numVertCoords;
 
-	if(first_v)
-		*first_v = numVerts+vertex_ref->num_vertices;
+	if (first_v)
+		*first_v = numVerts + vertex_ref->num_vertices;
 
 	PrintUnknownPolys();
 }
@@ -282,7 +282,7 @@ void ExtractDMODEL(MODEL* model, const char* model_name, int modelSize)
 {
 	FILE* mdlFile = fopen(varargs("%s.dmodel", model_name), "wb");
 
-	if(mdlFile)
+	if (mdlFile)
 	{
 		CFileStream fstr(mdlFile);
 
@@ -302,16 +302,16 @@ void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, in
 {
 	if (!model)
 		return;
-	
-	if(g_extract_dmodels)
+
+	if (g_extract_dmodels)
 	{
 		ExtractDMODEL(model, model_name, modelSize);
 		return;
 	}
-	
+
 	FILE* mdlFile = fopen(varargs("%s.obj", model_name), "wb");
 
-	if(mdlFile)
+	if (mdlFile)
 	{
 		CFileStream fstr(mdlFile);
 
@@ -319,7 +319,7 @@ void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, in
 
 		fstr.Print("mtllib MODELPAGES.mtl\r\n");
 
-		WriteMODELToObjStream( &fstr, model, model_index, model_name, true );
+		WriteMODELToObjStream(&fstr, model, model_index, model_name, true);
 
 		// success
 		fclose(mdlFile);
@@ -342,32 +342,32 @@ void SaveTGA(const char* filename, ubyte* data, int w, int h, int c)
 	TGAHEADER tgaHeader;
 
 	// Initialize the Targa header
-    tgaHeader.identsize = 0;
-    tgaHeader.colorMapType = 0;
-    tgaHeader.imageType = 2;
-    tgaHeader.colorMapStart = 0;
-    tgaHeader.colorMapLength = 0;
-    tgaHeader.colorMapBits = 0;
-    tgaHeader.xstart = 0;
-    tgaHeader.ystart = 0;
-    tgaHeader.width = w;
-    tgaHeader.height = h;
-    tgaHeader.bits = c*8;
-    tgaHeader.descriptor = 0;
+	tgaHeader.identsize = 0;
+	tgaHeader.colorMapType = 0;
+	tgaHeader.imageType = 2;
+	tgaHeader.colorMapStart = 0;
+	tgaHeader.colorMapLength = 0;
+	tgaHeader.colorMapBits = 0;
+	tgaHeader.xstart = 0;
+	tgaHeader.ystart = 0;
+	tgaHeader.width = w;
+	tgaHeader.height = h;
+	tgaHeader.bits = c * 8;
+	tgaHeader.descriptor = 0;
 
-	int imageSize = w*h*c;
+	int imageSize = w * h * c;
 
 	FILE* pFile = fopen(filename, "wb");
-	if(!pFile)
+	if (!pFile)
 		return;
 
-    // Write the header
-    fwrite(&tgaHeader, sizeof(TGAHEADER), 1, pFile);
-    
-    // Write the image data
-    fwrite(data, imageSize, 1, pFile);
-              
-    fclose(pFile);
+	// Write the header
+	fwrite(&tgaHeader, sizeof(TGAHEADER), 1, pFile);
+
+	// Write the image data
+	fwrite(data, imageSize, 1, pFile);
+
+	fclose(pFile);
 }
 
 void ConvertIndexedTextureToRGBA(int nPage, uint* dest_color_data, int detail, TEXCLUT* clut)
@@ -379,7 +379,7 @@ void ConvertIndexedTextureToRGBA(int nPage, uint* dest_color_data, int detail, T
 		MsgError("Cannot apply palette to non-existent detail! Programmer error?\n");
 		return;
 	}
-	
+
 	int ox = g_texPages[nPage].details[detail].x;
 	int oy = g_texPages[nPage].details[detail].y;
 	int w = g_texPages[nPage].details[detail].width;
@@ -390,28 +390,28 @@ void ConvertIndexedTextureToRGBA(int nPage, uint* dest_color_data, int detail, T
 
 	if (h == 0)
 		h = 256;
-	
+
 	char* textureName = g_textureNamesData + g_texPages[nPage].details[detail].nameoffset;
 	//MsgWarning("Applying detail %d '%s' (xywh: %d %d %d %d)\n", detail, textureName, ox, oy, w, h);
 
 	int tp_wx = ox + w;
 	int tp_hy = oy + h;
-	
-	for(int y = oy; y < tp_hy; y++)
-	{
-		for(int x = ox; x < tp_wx; x++)
-		{
-			ubyte clindex = page->data[y*128 + x / 2];
 
-			if(0 != (x & 1))
+	for (int y = oy; y < tp_hy; y++)
+	{
+		for (int x = ox; x < tp_wx; x++)
+		{
+			ubyte clindex = page->data[y * 128 + x / 2];
+
+			if (0 != (x & 1))
 				clindex >>= 4;
 
 			clindex &= 0xF;
 
-			TVec4D<ubyte> color = bgr5a1_ToRGBA8( clut->colors[clindex] );
+			TVec4D<ubyte> color = bgr5a1_ToRGBA8(clut->colors[clindex]);
 
 			// flip texture by Y because of TGA
-			int ypos = (TEXPAGE_SIZE_Y - y-1)*TEXPAGE_SIZE_Y;
+			int ypos = (TEXPAGE_SIZE_Y - y - 1) * TEXPAGE_SIZE_Y;
 
 			dest_color_data[ypos + x] = *(uint*)(&color);
 		}
@@ -426,20 +426,20 @@ int clutSortFunc(extclutdata_t* const& i, extclutdata_t* const& j)
 void GetTPageDetailPalettes(std::vector<TEXCLUT*>& out, int nPage, int detail)
 {
 	texdata_t* page = &g_pageDatas[nPage];
-	
+
 	// ofc, add default
 	out.push_back(&page->clut[detail]);
 
 	std::vector<extclutdata_t*> extra_cluts;
 
-	for(int i = 0; i < g_numExtraPalettes; i++)
+	for (int i = 0; i < g_numExtraPalettes; i++)
 	{
 		if (g_extraPalettes[i].tpage != nPage)
 			continue;
 
 		bool found = false;
 
-		for(int j = 0; j < g_extraPalettes[i].texcnt; j++)
+		for (int j = 0; j < g_extraPalettes[i].texcnt; j++)
 		{
 			if (g_extraPalettes[i].texnum[j] == detail)
 			{
@@ -448,20 +448,20 @@ void GetTPageDetailPalettes(std::vector<TEXCLUT*>& out, int nPage, int detail)
 			}
 		}
 
-		if(found)
+		if (found)
 			extra_cluts.push_back(&g_extraPalettes[i]);
 	}
 
 	quickSort(extra_cluts, clutSortFunc, 0, extra_cluts.size() - 1);
 
-	for(int i = 0; i < extra_cluts.size(); i++)
+	for (int i = 0; i < extra_cluts.size(); i++)
 		out.push_back(&extra_cluts[i]->clut);
 }
 
 void ExportTIM(int nPage, int detail)
 {
 	texdata_t* page = &g_pageDatas[nPage];
-	
+
 	if (!(detail < g_texPages[nPage].numDetails))
 	{
 		MsgError("Cannot apply palette to non-existent detail! Programmer error?\n");
@@ -493,14 +493,14 @@ void ExportTIM(int nPage, int detail)
 	int img_size = (half_w + ((half_w & 1) ? 0 : 1)) * h;
 
 	half_w -= half_w & 1;
-	
+
 	// copy image
 	ubyte* image_data = new ubyte[img_size];
 	TEXCLUT* clut_data = new TEXCLUT[palettes.size()];
 
-	for(int y = oy; y < tp_hy; y++)
+	for (int y = oy; y < tp_hy; y++)
 	{
-		for(int x = ox; x < tp_wx; x++)
+		for (int x = ox; x < tp_wx; x++)
 		{
 			int px, py;
 			px = (x - ox);
@@ -510,27 +510,27 @@ void ExportTIM(int nPage, int detail)
 			int half_px = (px >> 1);
 			//half_px -= half_px & 1;
 
-			if(py*half_w + half_px < img_size)
+			if (py * half_w + half_px < img_size)
 			{
-				image_data[py*half_w + half_px] = page->data[y*128 + half_x];
+				image_data[py * half_w + half_px] = page->data[y * 128 + half_x];
 			}
 			else
 			{
-				if(py*half_w > h)
+				if (py * half_w > h)
 					MsgWarning("Y offset exceeds %d (%d)\n", py, h);
 
-				if(half_px > half_w)
+				if (half_px > half_w)
 					MsgWarning("X offset exceeds %d (%d)\n", half_px, half_w);
 			}
 		}
 	}
 
 	// copy cluts
-	for(int i = 0; i < palettes.size(); i++)
+	for (int i = 0; i < palettes.size(); i++)
 	{
 		memcpy(&clut_data[i], palettes[i], sizeof(TEXCLUT));
 	}
-	
+
 	// compose TIMs
 	//
 	// prep headers
@@ -550,13 +550,13 @@ void ExportTIM(int nPage, int detail)
 
 	datahdr.origin_x = ox;
 	datahdr.origin_y = oy;
-	
+
 	datahdr.width = (w >> 2);
 	datahdr.height = h;
 	datahdr.len = img_size + sizeof(TIMIMAGEHDR);
 
 	FILE* pFile = fopen(varargs("%s/PAGE_%d/%s_%d.TIM", g_levname_texdir.c_str(), nPage, textureName, detail), "wb");
-	if(!pFile)
+	if (!pFile)
 		return;
 
 	// write header
@@ -573,8 +573,8 @@ void ExportTIM(int nPage, int detail)
 	// dun
 	fclose(pFile);
 
-	delete [] image_data;
-	delete [] clut_data;
+	delete[] image_data;
+	delete[] clut_data;
 }
 
 void ExportTexturePage(int nPage)
@@ -586,23 +586,23 @@ void ExportTexturePage(int nPage)
 
 	texdata_t* page = &g_pageDatas[nPage];
 
-	if(!page->data)
+	if (!page->data)
 		return;		// NO DATA
 
 	int numPal = min(page->numPalettes, g_texPages[nPage].numDetails);
-	
-	if(g_explode_tpages)
+
+	if (g_explode_tpages)
 	{
 		MsgInfo("Exploding texture '%s/PAGE_%d'\n", g_levname_texdir.c_str(), nPage);
 
 		// make folder and place all tims in there
 		_mkdir(varargs("%s/PAGE_%d", g_levname_texdir.c_str(), nPage));
-		
-		for(int i = 0; i < numPal; i++)
+
+		for (int i = 0; i < numPal; i++)
 		{
 			ExportTIM(nPage, i);
 		}
-	
+
 		return;
 	}
 
@@ -615,36 +615,36 @@ void ExportTexturePage(int nPage)
 	memset(color_data, 0, imgSize);
 
 	// Dump whole TPAGE indexes
-	for(int y = 0; y < 256; y++)
+	for (int y = 0; y < 256; y++)
 	{
-		for(int x = 0; x < 256; x++)
+		for (int x = 0; x < 256; x++)
 		{
-			ubyte clindex = page->data[y*128 + (x >> 1)];
+			ubyte clindex = page->data[y * 128 + (x >> 1)];
 
-			if(0 != (x & 1))
+			if (0 != (x & 1))
 				clindex >>= 4;
 
 			clindex &= 0xF;
-			
-			int ypos = (TEXPAGE_SIZE_Y - y-1)*TEXPAGE_SIZE_Y;
-			
+
+			int ypos = (TEXPAGE_SIZE_Y - y - 1) * TEXPAGE_SIZE_Y;
+
 			color_data[ypos + x] = clindex * 32;
 		}
 	}
 
-	for(int i = 0; i < numPal; i++)
+	for (int i = 0; i < numPal; i++)
 	{
 		ConvertIndexedTextureToRGBA(nPage, color_data, i, &page->clut[i]);
 	}
 
 	MsgInfo("Writing texture '%s/PAGE_%d.tga'\n", g_levname_texdir.c_str(), nPage);
-	SaveTGA(varargs("%s/PAGE_%d.tga", g_levname_texdir.c_str(), nPage), (ubyte*)color_data, TEXPAGE_SIZE_Y,TEXPAGE_SIZE_Y,TEX_CHANNELS);
+	SaveTGA(varargs("%s/PAGE_%d.tga", g_levname_texdir.c_str(), nPage), (ubyte*)color_data, TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, TEX_CHANNELS);
 
 	int numPalettes = 0;
-	for(int pal = 0; pal < 16; pal++)
+	for (int pal = 0; pal < 16; pal++)
 	{
 		bool anyMatched = false;
-		for(int i = 0; i < g_numExtraPalettes; i++)
+		for (int i = 0; i < g_numExtraPalettes; i++)
 		{
 			if (g_extraPalettes[i].tpage != nPage)
 				continue;
@@ -652,80 +652,106 @@ void ExportTexturePage(int nPage)
 			if (g_extraPalettes[i].palette != pal)
 				continue;
 
-			for(int j = 0; j < g_extraPalettes[i].texcnt; j++)
+			for (int j = 0; j < g_extraPalettes[i].texcnt; j++)
 			{
 				ConvertIndexedTextureToRGBA(nPage, color_data, g_extraPalettes[i].texnum[j], &g_extraPalettes[i].clut);
 			}
-			
+
 			anyMatched = true;
 		}
 
-		if(anyMatched)
+		if (anyMatched)
 		{
 			MsgInfo("Writing texture %s/PAGE_%d_%d.tga\n", g_levname_texdir.c_str(), nPage, numPalettes);
-			SaveTGA(varargs("%s/PAGE_%d_%d.tga", g_levname_texdir.c_str(), nPage, numPalettes), (ubyte*)color_data, TEXPAGE_SIZE_Y,TEXPAGE_SIZE_Y,TEX_CHANNELS);
+			SaveTGA(varargs("%s/PAGE_%d_%d.tga", g_levname_texdir.c_str(), nPage, numPalettes), (ubyte*)color_data, TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, TEX_CHANNELS);
 			numPalettes++;
 		}
 	}
 
-	
 	free(color_data);
 }
 
-void DumpOverlayMap()
+void ExportOverlayMap()
 {
-#if 0
-	CVECTOR* rgba = new CVECTOR[overlaidmaps[GameLevel].width * overlaidmaps[GameLevel].height];
+	ushort* offsets = (ushort*)g_overlayMapData;
+	
+	char* mapBuffer = new char[32768];
 
-	ushort* clut = (ushort*)(MapBitMaps + 512);
+	int numValid = 0;
+
+	// max offset count for overlay map is 256, next is palette
+	for (int i = 0; i < 256; i++)
+	{
+		char* rncData = g_overlayMapData + offsets[i];
+		if (rncData[0] == 'R' && rncData[1] == 'N' && rncData[2] == 'C')
+		{
+			numValid++;
+		}
+		else
+		{
+			MsgWarning("overlay map segment count: %d\n", numValid);
+			break;
+		}
+	}
+
+	int overmapWidth = g_overlaymap_width * 32;
+	int overmapHeight = (numValid / g_overlaymap_width) * 32;
+
+	TVec4D<ubyte>* rgba = new TVec4D<ubyte>[overmapWidth * overmapHeight];
+
+	ushort* clut = (ushort*)(g_overlayMapData + 512);
 
 	int x, y, xx, yy;
 	int wide, tall;
 
-	wide = overlaidmaps[GameLevel].width / 32;
-	tall = overlaidmaps[GameLevel].height / 32;
+	wide = overmapWidth / 32;
+	tall = overmapHeight / 32;
 
-	for(x = 0; x < wide; x++)
+	int numTilesProcessed = 0;
+
+	for (x = 0; x < wide; x++)
 	{
-		for(y = 0; y < tall; y++)
+		for (y = 0; y < tall; y++)
 		{
 			int idx = x + y * wide;
-			int temp = x << 5;
 
-			if (idx > -1 && idx < overlaidmaps[GameLevel].toptile &&
-				temp > -1 && (temp < overlaidmaps[GameLevel].width))
+			UnpackRNC(g_overlayMapData + offsets[idx], mapBuffer);
+			numTilesProcessed++;
+
+			// place segment
+			for (yy = 0; yy < 32; yy++)
 			{
-				UnpackRNC(MapBitMaps + *((ushort*)MapBitMaps + idx), MapBuffer);
-
-				// place segment
-				for(yy = 0; yy < 32; yy++)
+				for (xx = 0; xx < 32; xx++)
 				{
-					for(xx = 0; xx < 32; xx++)
-					{
-						int px, py;
+					int px, py;
 
-						u_char colorIndex = (u_char)MapBuffer[yy * 16 + xx / 2];
+					ubyte colorIndex = (ubyte)mapBuffer[yy * 16 + xx / 2];
 
-						if(0 != (xx & 1))
-							colorIndex >>= 4;
+					if (0 != (xx & 1))
+						colorIndex >>= 4;
 
-						colorIndex &= 0xf;
+					colorIndex &= 0xf;
 
-						CVECTOR color = bgr5a1_ToRGBA8(clut[colorIndex]);
+					TVec4D<ubyte> color = bgr5a1_ToRGBA8(clut[colorIndex]);
 
-						px = x * 32 + xx;
-						py = y * 32 + yy;
+					px = x * 32 + xx;
+					py = (tall - 1 - y) * 32 + (31-yy);
 
-						rgba[px + py * overlaidmaps[GameLevel].width] = color;
-					}
+					rgba[px + py * overmapWidth] = color;
 				}
 			}
 		}
 	}
 
-	SaveTGA("MAP.TGA", (uchar*)rgba,overlaidmaps[GameLevel].width, overlaidmaps[GameLevel].height, 4 );
-	delete [] rgba;
-#endif
+	if(numTilesProcessed != numValid)
+	{
+		MsgWarning("Missed tiles: %d\n", numValid-numTilesProcessed);
+	}
+
+	SaveTGA(varargs("%s/MAP.tga", g_levname_texdir.c_str()), (ubyte*)rgba, overmapWidth, overmapHeight, TEX_CHANNELS);
+
+	delete[] rgba;
+	delete[] mapBuffer;
 }
 
 int UnpackCellPointers(int region, int targetRegion, int cell_slots_add, ushort* dest_ptrs, char* src_data)
@@ -737,11 +763,11 @@ int UnpackCellPointers(int region, int targetRegion, int cell_slots_add, ushort*
 	uint bitpos;
 	uint pcode;
 	int numCellPointers;
-	
+
 	int packtype;
 
-	packtype = *(int *)(src_data + 4);
-	source_packed_data = (ushort *)(src_data + 8);
+	packtype = *(int*)(src_data + 4);
+	source_packed_data = (ushort*)(src_data + 8);
 
 	numCellPointers = 0;
 
@@ -795,7 +821,7 @@ int UnpackCellPointers(int region, int targetRegion, int cell_slots_add, ushort*
 			}
 		}
 	}
-	else 
+	else
 	{
 		MsgError("BAD PACKED CELL POINTER DATA, region = %d\n", region);
 	}
@@ -851,7 +877,7 @@ PACKED_CELL_OBJECT* GetNextPackedCop(CELL_DATA** cell, int barrel_region)
 void UnpackCellObject(PACKED_CELL_OBJECT* pco, CELL_OBJECT& co, VECTOR_NOPAD nearCell)
 {
 	//bool isStraddler = pco - cell_objects < g_numStraddlers;
-	
+
 	co.pos.vy = (pco->pos.vy << 0x10) >> 0x11;
 
 	//if(isStraddler)
@@ -880,11 +906,11 @@ void ExportRegions()
 	Msg("World size:\n [%dx%d] cells\n [%dx%d] regions\n", g_mapInfo.cells_across, g_mapInfo.cells_down, dim_x, dim_y);
 
 	// print region map to console
-	for(int i = 0; i < g_numSpoolInfoOffsets; i++, counter++)
+	for (int i = 0; i < g_numSpoolInfoOffsets; i++, counter++)
 	{
 		// Debug information: Print the map to the console.
 		Msg(g_spoolInfoOffsets[i] == REGION_EMPTY ? "." : "O");
-		if(counter == dim_x)
+		if (counter == dim_x)
 		{
 			Msg("\n");
 			counter = 0;
@@ -892,7 +918,7 @@ void ExportRegions()
 	}
 
 	Msg("\n");
-	 
+
 	int numCellObjectsRead = 0;
 
 	FILE* cellsFile = fopen(varargs("%s_CELLPOS_MAP.obj", g_levname.c_str()), "wb");
@@ -907,25 +933,24 @@ void ExportRegions()
 	int lobj_first_t = 0;
 
 	// copy straddlers to cell objects
-	if(g_format == 2)
+	if (g_format == 2)
 	{
-		memcpy(g_packed_cell_objects, g_straddlers, sizeof(PACKED_CELL_OBJECT)*g_numStraddlers);
+		memcpy(g_packed_cell_objects, g_straddlers, sizeof(PACKED_CELL_OBJECT) * g_numStraddlers);
 	}
 	else
 	{
-		memcpy(g_cell_objects, g_straddlers, sizeof(CELL_OBJECT)*g_numStraddlers);
+		memcpy(g_cell_objects, g_straddlers, sizeof(CELL_OBJECT) * g_numStraddlers);
 	}
-	
 
 	// dump 2d region map
 	// easy seeking
-	for(int y = 0; y < dim_y; y++)
+	for (int y = 0; y < dim_y; y++)
 	{
-		for(int x = 0; x < dim_x; x++)
+		for (int x = 0; x < dim_x; x++)
 		{
-			int sPosIdx = y*dim_x + x;
+			int sPosIdx = y * dim_x + x;
 
-			if(g_spoolInfoOffsets[sPosIdx] == REGION_EMPTY)
+			if (g_spoolInfoOffsets[sPosIdx] == REGION_EMPTY)
 				continue;
 
 			int barrel_region = (x & 1) + (y & 1) * 2;
@@ -940,15 +965,15 @@ void ExportRegions()
 			Spool* spool = (Spool*)((ubyte*)g_regionSpool + g_spoolInfoOffsets[sPosIdx]);
 
 			Msg("---------\nSpool %d %d (offset: %d)\n", x, y, g_spoolInfoOffsets[sPosIdx]);
-			Msg(" - offset: %d\n",spool->offset);
+			Msg(" - offset: %d\n", spool->offset);
 
-			for(int i = 0; i < spool->num_connected_areas; i++)
+			for (int i = 0; i < spool->num_connected_areas; i++)
 				Msg(" - connected area %d: %d\n", i, spool->connected_areas[i]);
 
-			Msg(" - pvs_size: %d\n",spool->pvs_size);
-			Msg(" - cell_data_size: %d %d %d\n",spool->cell_data_size[0], spool->cell_data_size[1], spool->cell_data_size[2]);
+			Msg(" - pvs_size: %d\n", spool->pvs_size);
+			Msg(" - cell_data_size: %d %d %d\n", spool->cell_data_size[0], spool->cell_data_size[1], spool->cell_data_size[2]);
 
-			Msg(" - super_region: %d\n",spool->super_region);
+			Msg(" - super_region: %d\n", spool->super_region);
 
 			// LoadRegionData - calculate offsets
 			Msg(" - cell pointers size: %d\n", spool->cell_data_size[1]);
@@ -960,39 +985,39 @@ void ExportRegions()
 			int cellPointerCount = 0;
 
 			memset(g_packed_cell_pointers, 0, sizeof(g_packed_cell_pointers));
-			
+
 			memset(g_cells, 0, sizeof(g_cells));
-			
+
 			memset(g_cells_d1, 0, sizeof(g_cells_d1));
 
-			if(g_format == 2)	// Driver 2
+			if (g_format == 2)	// Driver 2
 			{
 				//
 				// Driver 2 use PACKED_CELL_OBJECTS - 8 bytes. not wasting, but tricky
 				//
 
 				memset(g_packed_cell_objects + g_numStraddlers, 0, sizeof(g_packed_cell_objects) - g_numStraddlers * sizeof(PACKED_CELL_OBJECT));
-				
+
 				int cellPointersOffset;
 				int cellDataOffset;
 				int cellObjectsOffset;
 				int pvsDataOffset;
-				
-				if(g_region_format == 3) // retail
+
+				if (g_region_format == 3) // retail
 				{
 					cellPointersOffset = spool->offset; // SKIP PVS buffers, no need rn...
 					cellDataOffset = cellPointersOffset + spool->cell_data_size[1];
 					cellObjectsOffset = cellDataOffset + spool->cell_data_size[0];
 					pvsDataOffset = cellObjectsOffset + spool->cell_data_size[2];
 				}
-				else if(g_region_format == 2) // 1.6 alpha
+				else if (g_region_format == 2) // 1.6 alpha
 				{
 					cellPointersOffset = spool->offset + spool->roadm_size;
 					cellDataOffset = cellPointersOffset + spool->cell_data_size[1];
 					cellObjectsOffset = cellDataOffset + spool->cell_data_size[0];
 					pvsDataOffset = cellObjectsOffset + spool->cell_data_size[2];
 				}
-				
+
 				// read packed cell pointers
 				g_levStream->Seek(g_levInfo.spooldata_offset + cellPointersOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
 				g_levStream->Read(g_packed_cell_pointers, spool->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
@@ -1007,17 +1032,15 @@ void ExportRegions()
 				// read cell objects
 				g_levStream->Seek(g_levInfo.spooldata_offset + cellObjectsOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
 				g_levStream->Read(g_packed_cell_objects + g_numStraddlers, spool->cell_data_size[2] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
-
-				
 			}
-			else if(g_format == 1) // Driver 1
+			else if (g_format == 1) // Driver 1
 			{
 				//
 				// Driver 1 use CELL_OBJECTS directly - 16 bytes, wasteful in RAM
 				//
 
 				memset(g_cell_objects + g_numStraddlers, 0, sizeof(g_cell_objects) - g_numStraddlers * sizeof(CELL_OBJECT));
-				
+
 				int cellPointersOffset = spool->offset + spool->roadm_size + spool->roadh_size; // SKIP road map
 				int cellDataOffset = cellPointersOffset + spool->cell_data_size[1];
 				int cellObjectsOffset = cellDataOffset + spool->cell_data_size[0];
@@ -1037,15 +1060,13 @@ void ExportRegions()
 				// read cell objects
 				g_levStream->Seek(g_levInfo.spooldata_offset + cellObjectsOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
 				g_levStream->Read(g_cell_objects + g_numStraddlers, spool->cell_data_size[2] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
-
-				
 			}
 
 			// read cell objects after we spool additional area data
 			RegionModels_t* regModels = NULL;
-			
+
 			// if region data is available, load models and textures
-			if(spool->super_region != SUPERREGION_NONE)
+			if (spool->super_region != SUPERREGION_NONE)
 			{
 				regModels = &g_regionModels[spool->super_region];
 
@@ -1053,16 +1074,16 @@ void ExportRegions()
 
 				LoadRegionData(g_levStream, regModels, &g_areaData[spool->super_region], &g_regionPages[spool->super_region]);
 
-				if( g_export_models && isNew )
+				if (g_export_models && isNew)
 				{
 					// export region models
-					for(int i = 0; i < regModels->modelRefs.size(); i++)
+					for (int i = 0; i < regModels->modelRefs.size(); i++)
 					{
 						int mod_indxex = regModels->modelRefs[i].index;
 
 						std::string modelFileName = varargs("%s/ZREG%d_MOD_%d", g_levname_moddir.c_str(), spool->super_region, mod_indxex);
 
-						if(g_model_names[mod_indxex].length())
+						if (g_model_names[mod_indxex].length())
 							modelFileName = varargs("%s/ZREG%d_%d_%s", g_levname_moddir.c_str(), spool->super_region, i, g_model_names[mod_indxex].c_str());
 
 						// export model
@@ -1070,18 +1091,16 @@ void ExportRegions()
 					}
 				}
 			}
-			
-
 
 			int numRegionObjects = 0;
 
-			if(g_format == 2)	// Driver 2
+			if (g_format == 2)	// Driver 2
 			{
 				CELL_DATA* celld;
 				PACKED_CELL_OBJECT* pcop;
 
 				// go through all cell pointers
-				for(int i = 0; i < cellPointerCount; i++)
+				for (int i = 0; i < cellPointerCount; i++)
 				{
 					ushort cell_ptr = g_cell_ptrs[i];
 					if (cell_ptr == 0xffff)
@@ -1097,22 +1116,22 @@ void ExportRegions()
 							UnpackCellObject(pcop, co, regionPos);
 
 							{
-								Vector3D absCellPosition(co.pos.vx*-MODEL_SCALING, co.pos.vy*-MODEL_SCALING, co.pos.vz*MODEL_SCALING);
-								float cellRotationRad = co.yang / 64.0f*PI_F*2.0f;
+								Vector3D absCellPosition(co.pos.vx * -MODEL_SCALING, co.pos.vy * -MODEL_SCALING, co.pos.vz * MODEL_SCALING);
+								float cellRotationRad = co.yang / 64.0f * PI_F * 2.0f;
 
-								if(cellsFile)
+								if (cellsFile)
 								{
 									cellsFileStream.Print("# m %d r %d\r\n", co.type, co.yang);
-									cellsFileStream.Print("v %g %g %g\r\n", absCellPosition.x,absCellPosition.y,absCellPosition.z);
+									cellsFileStream.Print("v %g %g %g\r\n", absCellPosition.x, absCellPosition.y, absCellPosition.z);
 								}
 
 								MODEL* model = FindModelByIndex(co.type, regModels);
 
-								if(model)
+								if (model)
 								{
 									// transform objects and save
 									Matrix4x4 transform = translate(absCellPosition);
-									transform = transform * rotateY4(cellRotationRad) * scale4(1.0f,1.0f,1.0f);
+									transform = transform * rotateY4(cellRotationRad) * scale4(1.0f, 1.0f, 1.0f);
 
 									const char* modelNamePrefix = varargs("reg%d", sPosIdx);
 
@@ -1123,7 +1142,6 @@ void ExportRegions()
 							}
 						} while (pcop = GetNextPackedCop(&celld, barrel_region));
 					}
-
 				}
 			}
 			else // Driver 1
@@ -1131,7 +1149,7 @@ void ExportRegions()
 				CELL_DATA_D1* celld;
 
 				// go through all cell pointers
-				for(int i = 0; i < cellPointerCount; i++)
+				for (int i = 0; i < cellPointerCount; i++)
 				{
 					ushort cell_ptr = g_cell_ptrs[i];
 
@@ -1141,38 +1159,38 @@ void ExportRegions()
 						celld = &g_cells_d1[cell_ptr];
 
 						int number = (celld->num & 0x3fff);// -g_cell_objects_add[barrel_region];
-						
+
 						{
 							// barrel_region doesn't work here
 							int val = 0;
-							for(int j = 0; j < 4; j++)
+							for (int j = 0; j < 4; j++)
 							{
-								if(number >= g_cell_objects_add[j])
+								if (number >= g_cell_objects_add[j])
 									val = g_cell_objects_add[j];
 							}
 
 							number -= val;
 						}
-						
-						CELL_OBJECT& co = g_cell_objects[number];
-						
-						{
-							Vector3D absCellPosition(co.pos.vx*-MODEL_SCALING, co.pos.vy*-MODEL_SCALING, co.pos.vz*MODEL_SCALING);
-							float cellRotationRad = co.yang / 64.0f*PI_F*2.0f;
 
-							if(cellsFile)
+						CELL_OBJECT& co = g_cell_objects[number];
+
+						{
+							Vector3D absCellPosition(co.pos.vx * -MODEL_SCALING, co.pos.vy * -MODEL_SCALING, co.pos.vz * MODEL_SCALING);
+							float cellRotationRad = co.yang / 64.0f * PI_F * 2.0f;
+
+							if (cellsFile)
 							{
 								cellsFileStream.Print("# m %d r %d\r\n", co.type, co.yang);
-								cellsFileStream.Print("v %g %g %g\r\n", absCellPosition.x,absCellPosition.y,absCellPosition.z);
+								cellsFileStream.Print("v %g %g %g\r\n", absCellPosition.x, absCellPosition.y, absCellPosition.z);
 							}
 
 							MODEL* model = FindModelByIndex(co.type, regModels);
 
-							if(model)
+							if (model)
 							{
 								// transform objects and save
 								Matrix4x4 transform = translate(absCellPosition);
-								transform = transform * rotateY4(cellRotationRad) * scale4(1.0f,1.0f,1.0f);
+								transform = transform * rotateY4(cellRotationRad) * scale4(1.0f, 1.0f, 1.0f);
 
 								const char* modelNamePrefix = varargs("reg%d", sPosIdx);
 
@@ -1182,27 +1200,25 @@ void ExportRegions()
 							numRegionObjects++;
 						}
 
-						
-						
 						cell_ptr = celld->next_ptr;
 
 						if (cell_ptr != 0xffff)
 						{
 							// barrel_region doesn't work here
 							int val = 0;
-							for(int j = 0; j < 4; j++)
+							for (int j = 0; j < 4; j++)
 							{
-								if(cell_ptr >= g_cell_slots_add[j])
+								if (cell_ptr >= g_cell_slots_add[j])
 									val = g_cell_slots_add[j];
 							}
-							
+
 							cell_ptr -= val;
 						}
 					}
 				}
 			}
 
-			if(cellsFile)
+			if (cellsFile)
 			{
 				cellsFileStream.Print("# total region cells %d\r\n", numRegionObjects);
 			}
@@ -1216,7 +1232,7 @@ void ExportRegions()
 
 	int numCellsObjectsFile = g_mapInfo.num_cell_objects;
 
-	if(numCellObjectsRead != numCellsObjectsFile)
+	if (numCellObjectsRead != numCellsObjectsFile)
 		MsgError("numAllObjects mismatch: in file: %d, read %d\n", numCellsObjectsFile, numCellObjectsRead);
 }
 
@@ -1229,26 +1245,26 @@ void ExportLevelData()
 	Msg("-------------\nExporting level data\n-------------\n");
 
 	// export models
-	if(g_export_models)
+	if (g_export_models)
 	{
 		Msg("exporting models\n");
 
-		for(int i = 0; i < 1536; i++)
+		for (int i = 0; i < 1536; i++)
 		{
-			if(!g_levelModels[i].model)
+			if (!g_levelModels[i].model)
 				continue;
 
 			std::string modelFileName(varargs("%s/ZMOD_%d", g_levname_moddir.c_str(), i));
 
-			if(g_model_names[i].size())
+			if (g_model_names[i].size())
 				modelFileName = varargs("%s/%d_%s", g_levname_moddir.c_str(), i, g_model_names[i].c_str());
 
 			// export model
 			ExportDMODELToOBJ(g_levelModels[i].model, modelFileName.c_str(), i, g_levelModels[i].size);
-			
+
 			// save original dmodel2
 			FILE* dFile = fopen(varargs("%s.dmodel", modelFileName.c_str()), "wb");
-			if(dFile)
+			if (dFile)
 			{
 				fwrite(g_levelModels[i].model, g_levelModels[i].size, 1, dFile);
 				fclose(dFile);
@@ -1258,9 +1274,9 @@ void ExportLevelData()
 		// create material file
 		FILE* pMtlFile = fopen(varargs("%s/MODELPAGES.mtl", g_levname_moddir.c_str()), "wb");
 
-		if(pMtlFile)
+		if (pMtlFile)
 		{
-			for(int i = 0; i < g_numTexPages; i++)
+			for (int i = 0; i < g_numTexPages; i++)
 			{
 				fprintf(pMtlFile, "newmtl page_%d\r\n", i);
 				fprintf(pMtlFile, "map_Kd ../../%s/PAGE_%d.tga\r\n", g_levname_texdir.c_str(), i);
@@ -1271,9 +1287,9 @@ void ExportLevelData()
 	}
 
 	// export car models
-	if(g_export_carmodels)
+	if (g_export_carmodels)
 	{
-		for(int i = 0; i < MAX_CAR_MODELS; i++)
+		for (int i = 0; i < MAX_CAR_MODELS; i++)
 		{
 			ExportCarModel(g_carModels[i].cleanmodel, g_carModels[i].cleanSize, i, "clean");
 			ExportCarModel(g_carModels[i].dammodel, g_carModels[i].cleanSize, i, "damaged");
@@ -1284,27 +1300,27 @@ void ExportLevelData()
 	}
 
 	// export world region
-	if(g_export_world)
+	if (g_export_world)
 	{
 		Msg("exporting cell points and world model\n");
 		ExportRegions();
 	}
 
-	if(g_export_textures)
+	if (g_export_textures)
 	{
 		// preload region data if needed
-		if(!g_export_world)
+		if (!g_export_world)
 		{
 			Msg("preloading region datas (%d)\n", g_numAreas);
 
-			for(int i = 0; i < g_numAreas; i++)
+			for (int i = 0; i < g_numAreas; i++)
 			{
-				LoadRegionData( g_levStream, NULL, &g_areaData[i], &g_regionPages[i] );
+				LoadRegionData(g_levStream, NULL, &g_areaData[i], &g_regionPages[i]);
 			}
 		}
 
 		Msg("exporting texture data\n");
-		for(int i = 0; i < g_numTexPages; i++)
+		for (int i = 0; i < g_numTexPages; i++)
 		{
 			ExportTexturePage(i);
 		}
@@ -1314,45 +1330,34 @@ void ExportLevelData()
 
 		std::string justLevFilename = g_levname.substr(g_levname.find_last_of("/\\") + 1);
 
-		size_t lastindex = justLevFilename.find_last_of("."); 
-		justLevFilename = justLevFilename.substr(0, lastindex); 
+		size_t lastindex = justLevFilename.find_last_of(".");
+		justLevFilename = justLevFilename.substr(0, lastindex);
 
-		if(pMtlFile)
+		if (pMtlFile)
 		{
-			for(int i = 0; i < g_numTexPages; i++)
+			for (int i = 0; i < g_numTexPages; i++)
 			{
-				
 				fprintf(pMtlFile, "newmtl page_%d\r\n", i);
 				fprintf(pMtlFile, "map_Kd %s_textures/PAGE_%d.tga\r\n", justLevFilename.c_str(), i);
 			}
 
 			fclose(pMtlFile);
 		}
-
 	}
+
+	if (g_export_overmap)
+		ExportOverlayMap();
 
 	Msg("Export done\n");
 }
 
 //-------------------------------------------------------------------------------------------------------------------------
 
-void Usage()
-{
-	MsgWarning("USAGE:\n	driver_level +lev <input atl file> <output image file>\n");
-	MsgWarning("	-format <n> : level file format. 1 - driver1 level, 2 - driver2 level\n");
-	MsgWarning("	-regformat <n> : level region format. 1 - driver1 (unsupported), 2 - driver2 demo, 3 - driver2 release\n");
-	MsgWarning("	-textures <1/0> : export textures\n");
-	MsgWarning("	-models <1/0> : export models\n");
-	MsgWarning("	-carmodels <1/0> : export car models\n");
-	MsgWarning("	-world <1/0> : export whole world\n");
-}
-
-
 void ProcessLevFile(const char* filename)
 {
 	FILE* levTest = fopen(filename, "rb");
 
-	if(!levTest)
+	if (!levTest)
 	{
 		MsgError("LEV file '%s' does not exists!\n", filename);
 		return;
@@ -1364,8 +1369,8 @@ void ProcessLevFile(const char* filename)
 
 	g_levname = filename;
 
-	size_t lastindex = g_levname.find_last_of("."); 
-	g_levname = g_levname.substr(0, lastindex); 
+	size_t lastindex = g_levname.find_last_of(".");
+	g_levname = g_levname.substr(0, lastindex);
 
 	g_levname_moddir = g_levname + "_models";
 	g_levname_texdir = g_levname + "_textures";
@@ -1373,7 +1378,7 @@ void ProcessLevFile(const char* filename)
 	_mkdir(g_levname_moddir.c_str());
 	_mkdir(g_levname_texdir.c_str());
 
-	LoadLevelFile( filename );
+	LoadLevelFile(filename);
 	ExportLevelData();
 
 	FreeLevelData();
@@ -1386,12 +1391,12 @@ void ConvertDModelFileToOBJ(const char* filename, const char* outputFilename)
 
 	FILE* fp;
 	fp = fopen(filename, "rb");
-	if(fp)
+	if (fp)
 	{
 		fseek(fp, 0, SEEK_END);
 		modelSize = ftell(fp);
 		fseek(fp, 0, SEEK_SET);
-		
+
 		model = (MODEL*)malloc(modelSize + 16);
 		fread(model, 1, modelSize, fp);
 		fclose(fp);
@@ -1402,7 +1407,7 @@ void ConvertDModelFileToOBJ(const char* filename, const char* outputFilename)
 		return;
 	}
 
-	if(model->instance_number > 0)
+	if (model->instance_number > 0)
 	{
 		MsgError("This model points to instance '%d' and cannot be exported!\n", model->instance_number);
 		return;
@@ -1411,91 +1416,122 @@ void ConvertDModelFileToOBJ(const char* filename, const char* outputFilename)
 	ExportDMODELToOBJ(model, outputFilename, 0, modelSize);
 }
 
+//----------------------------------------------------------------------------------------
+
+void PrintCommandLineArguments()
+{
+	const char* argumentsMessage =
+		"Example: driver_psx_level <command> [arguments]\n\n\n"
+		"  -lev <filename.LEV> \t: Specify level file you want to input\n\n"
+		"  -format <n> \t\t: Specify level file format. 1 = Driver 1 LEV, 2 = Driver 2 LEV\n\n"
+		"  -regformat <n> \t: Specify level region format. 1 = Driver 1, 2 = Driver 2 Demo (alpha 1.6), 3 = Driver 2 Retail\n\n"
+		"  -textures <1/0> \t: Export textures (TGA)\n\n"
+		"  -models <1/0> \t: Export models (OBJ\n\n"
+		"  -carmodels <1/0> \t: Export car models (OBJ)\n\n"
+		"  -world <1/0> \t\t: Export whole world regions (OBJ)\n\n"
+		"  -extractmodels \t: Extracts DMODEL files instead of exporting to OBJ\n\n"
+		"  -overmap <width> \t: Extract overlay map with specified width\n\n"
+		"  -explodetpages \t: Extracts textures as separate TIM files instead of whole texture page exporting as TGA\n\n"
+		"  -dmodel2obj <filename.DMODEL> <output> \t: converts DMODEL to OBJ file\n\n";
+
+	MsgInfo(argumentsMessage);
+}
+
 int main(int argc, char* argv[])
 {
 	Install_ConsoleSpewFunction();
 
 	Msg("---------------\ndriver_level - Driver 2 level loader\n---------------\n\n");
 
-	if(argc == 0)
+	if (argc == 0)
 	{
-		Usage();
+		PrintCommandLineArguments();
 		return 0;
 	}
 
 	std::string levName;
 
-	for(int i = 0; i < argc; i++)
+	for (int i = 1; i < argc; i++)
 	{
-		if(!stricmp(argv[i], "-format"))
+		if (!stricmp(argv[i], "-format"))
 		{
-			g_format = atoi(argv[i+1]);
+			g_format = atoi(argv[i + 1]);
 
-			if(g_format == 1)
+			if (g_format == 1)
 			{
 				g_region_format = 1;
 			}
 			else
 			{
-				if(g_region_format == 1)
+				if (g_region_format == 1)
 					g_region_format = 3;
 			}
 			i++;
 		}
-		else if(!stricmp(argv[i], "-regformat"))
+		else if (!stricmp(argv[i], "-regformat"))
 		{
-			g_region_format = atoi(argv[i+1]);
+			g_region_format = atoi(argv[i + 1]);
 			i++;
 		}
-		else if(!stricmp(argv[i], "-textures"))
+		else if (!stricmp(argv[i], "-textures"))
 		{
-			g_export_textures = atoi(argv[i+1]) > 0;
+			g_export_textures = atoi(argv[i + 1]) > 0;
 			i++;
 		}
-		else if(!stricmp(argv[i], "-world"))
+		else if (!stricmp(argv[i], "-world"))
 		{
-			g_export_world = atoi(argv[i+1]) > 0;
+			g_export_world = atoi(argv[i + 1]) > 0;
 			i++;
 		}
-		else if(!stricmp(argv[i], "-models"))
+		else if (!stricmp(argv[i], "-models"))
 		{
-			g_export_models = atoi(argv[i+1]) > 0;
+			g_export_models = atoi(argv[i + 1]) > 0;
 			i++;
 		}
-		else if(!stricmp(argv[i], "-carmodels"))
+		else if (!stricmp(argv[i], "-carmodels"))
 		{
-			g_export_carmodels = atoi(argv[i+1]) > 0;
+			g_export_carmodels = atoi(argv[i + 1]) > 0;
 			i++;
 		}
-		else if(!stricmp(argv[i], "-extractmodels"))
+		else if (!stricmp(argv[i], "-extractmodels"))
 		{
 			g_extract_dmodels = true;
 		}
-		else if(!stricmp(argv[i], "-explodetpages"))
+		else if (!stricmp(argv[i], "-explodetpages"))
 		{
 			g_explode_tpages = true;
 		}
-		else if(!stricmp(argv[i], "-lev"))
+		else if (!stricmp(argv[i], "-overmap"))
 		{
-			levName = argv[i+1];
+			g_export_overmap = true;
+			g_overlaymap_width = atoi(argv[i + 1]);
 			i++;
 		}
-		else if(!stricmp(argv[i], "-dmodel2obj"))
+		else if (!stricmp(argv[i], "-lev"))
 		{
-			ConvertDModelFileToOBJ(argv[i+1], argv[i+2]);
+			levName = argv[i + 1];
+			i++;
+		}
+		else if (!stricmp(argv[i], "-dmodel2obj"))
+		{
+			ConvertDModelFileToOBJ(argv[i + 1], argv[i + 2]);
+			return 0;
+		}
+		else
+		{
+			MsgWarning("Unknown command line parameter '%s'\n", argv[i]);
+			PrintCommandLineArguments();
 			return 0;
 		}
 	}
 
-	if(levName.length() == 0)
+	if (levName.length() == 0)
 	{
-		MsgError("Empty filename!\nDid you forgot -lev key?\n");
-		Usage();
+		PrintCommandLineArguments();
 		return 0;
 	}
 
-	ProcessLevFile( levName.c_str() );
+	ProcessLevFile(levName.c_str());
 
 	return 0;
 }
-

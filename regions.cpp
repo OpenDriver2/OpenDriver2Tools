@@ -38,6 +38,11 @@ void LoadMapLump(IVirtualStream* pFile)
 	Msg(" - num_regions: %d\n", g_mapInfo.num_regions);
 	Msg(" - region_size in cells: %d\n", g_mapInfo.region_size);
 
+	int dim_x = g_mapInfo.cells_across / g_mapInfo.region_size;
+	int dim_y = g_mapInfo.cells_down / g_mapInfo.region_size;
+
+	Msg("World size:\n [%dx%d] cells\n [%dx%d] regions\n", g_mapInfo.cells_across, g_mapInfo.cells_down, dim_x, dim_y);
+	
 	Msg(" - num_cell_objects : %d\n", g_mapInfo.num_cell_objects);
 	Msg(" - num_cell_data: %d\n", g_mapInfo.num_cell_data);
 

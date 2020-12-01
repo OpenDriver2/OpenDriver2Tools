@@ -60,6 +60,8 @@ extern TEXPAGE_POS*				g_texPagePos;
 extern int						g_numTexPages;
 extern int						g_numTexDetail;
 
+extern char*					g_overlayMapData;
+
 extern LEVELINFO				g_levInfo;
 extern OUT_CELL_FILE_HEADER		g_mapInfo;
 

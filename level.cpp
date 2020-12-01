@@ -8,11 +8,12 @@ int g_format = 0;
 
 std::string				g_levname = "MIAMI.LEV";
 
-IVirtualStream*			g_levStream = NULL;
+IVirtualStream* g_levStream = NULL;
+char* g_overlayMapData = NULL;
 
 std::vector<std::string>	g_model_names;
 std::vector<std::string>	g_texture_names;
-char*						g_textureNamesData = NULL;
+char* g_textureNamesData = NULL;
 
 ModelRef_t					g_levelModels[1536];		// level models
 
@@ -20,14 +21,14 @@ CarModelData_t			g_carModels[MAX_CAR_MODELS];
 
 MODEL* FindModelByIndex(int nIndex, RegionModels_t* models)
 {
-	if(nIndex >= 0 && nIndex < 1536)
+	if (nIndex >= 0 && nIndex < 1536)
 	{
 		// try searching in region datas
-		if(g_levelModels[nIndex].swap && models)
+		if (g_levelModels[nIndex].swap && models)
 		{
-			for(int i = 0; i < models->modelRefs.size(); i++)
+			for (int i = 0; i < models->modelRefs.size(); i++)
 			{
-				if(models->modelRefs[i].index == nIndex)
+				if (models->modelRefs[i].index == nIndex)
 					return models->modelRefs[i].model;
 			}
 		}
@@ -40,9 +41,9 @@ MODEL* FindModelByIndex(int nIndex, RegionModels_t* models)
 
 int GetModelIndexByName(const char* name)
 {
-	for(int i = 0; i < 1536; i++)
+	for (int i = 0; i < 1536; i++)
 	{
-		if(!strcmp(g_model_names[i].c_str(), name))
+		if (!strcmp(g_model_names[i].c_str(), name))
 			return i;
 	}
 
@@ -72,13 +73,13 @@ void LoadCarModelsLump(IVirtualStream* pFile, int ofs, int size)
 	pFile->Read(&pad, sizeof(int), 1);
 
 	// load car models
-	for(int i = 0; i < MAX_CAR_MODELS; i++)
+	for (int i = 0; i < MAX_CAR_MODELS; i++)
 	{
 		Msg("car model: %d %d %d\n", model_entries[i].cleanOffset != -1, model_entries[i].damOffset != -1, model_entries[i].lowOffset != -1);
 
-		if(model_entries[i].cleanOffset != -1)
+		if (model_entries[i].cleanOffset != -1)
 		{
-			pFile->Seek(r_ofs+model_entries[i].cleanOffset, VS_SEEK_SET);
+			pFile->Seek(r_ofs + model_entries[i].cleanOffset, VS_SEEK_SET);
 
 			pFile->Read(&g_carModels[i].cleanSize, 1, sizeof(int));
 
@@ -88,9 +89,9 @@ void LoadCarModelsLump(IVirtualStream* pFile, int ofs, int size)
 		else
 			g_carModels[i].cleanmodel = NULL;
 
-		if(model_entries[i].damOffset != -1)
+		if (model_entries[i].damOffset != -1)
 		{
-			pFile->Seek(r_ofs+model_entries[i].damOffset, VS_SEEK_SET);
+			pFile->Seek(r_ofs + model_entries[i].damOffset, VS_SEEK_SET);
 
 			pFile->Read(&g_carModels[i].damSize, 1, sizeof(int));
 
@@ -100,9 +101,9 @@ void LoadCarModelsLump(IVirtualStream* pFile, int ofs, int size)
 		else
 			g_carModels[i].dammodel = NULL;
 
-		if(model_entries[i].lowOffset != -1)
+		if (model_entries[i].lowOffset != -1)
 		{
-			pFile->Seek(r_ofs+model_entries[i].lowOffset, VS_SEEK_SET);
+			pFile->Seek(r_ofs + model_entries[i].lowOffset, VS_SEEK_SET);
 
 			pFile->Read(&g_carModels[i].lowSize, 1, sizeof(int));
 
@@ -131,16 +132,16 @@ void LoadModelNamesLump(IVirtualStream* pFile, int size)
 
 	do
 	{
-		char* str = modelnames+sz;
+		char* str = modelnames + sz;
 
 		len = strlen(str);
 
 		g_model_names.push_back(str);
 
-		sz += len + 1; 
-	}while(sz < size);
+		sz += len + 1;
+	} while (sz < size);
 
-	delete [] modelnames;
+	delete[] modelnames;
 
 	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
@@ -161,14 +162,14 @@ void LoadTextureNamesLump(IVirtualStream* pFile, int size)
 
 	do
 	{
-		char* str = g_textureNamesData+sz;
+		char* str = g_textureNamesData + sz;
 
 		len = strlen(str);
 
 		g_texture_names.push_back(str);
 
-		sz += len + 1; 
-	}while(sz < size);
+		sz += len + 1;
+	} while (sz < size);
 
 	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
@@ -185,13 +186,13 @@ void LoadLevelModelsLump(IVirtualStream* pFile)
 
 	MsgInfo("	model count: %d\n", modelCount);
 
-	for(int i = 0; i < modelCount; i++)
+	for (int i = 0; i < modelCount; i++)
 	{
 		int modelSize;
 
 		pFile->Read(&modelSize, sizeof(int), 1);
 
-		if(modelSize > 0)
+		if (modelSize > 0)
 		{
 			char* data = (char*)malloc(modelSize);
 
@@ -212,7 +213,7 @@ void LoadLevelModelsLump(IVirtualStream* pFile)
 			ref.swap = true;
 		}
 	}
-	 
+
 	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
@@ -234,9 +235,9 @@ struct PAL_INFO_D1
 };
 
 // [D]
-void ProcessPalletLump(IVirtualStream *pFile, int lump_size)
+void ProcessPalletLump(IVirtualStream* pFile, int lump_size)
 {
-	ushort *clutTablePtr;
+	ushort* clutTablePtr;
 	int total_cluts;
 	int l_ofs = pFile->Tell();
 
@@ -254,11 +255,11 @@ void ProcessPalletLump(IVirtualStream *pFile, int lump_size)
 	Msg("total_cluts: %d\n", total_cluts);
 
 	int added_cluts = 0;
-	while(true)
+	while (true)
 	{
 		PAL_INFO info;
-		
-		if(g_format == 1)
+
+		if (g_format == 1)
 		{
 			PAL_INFO_D1 infod1;
 			pFile->Read(&infod1, 1, sizeof(info) - sizeof(int));
@@ -281,15 +282,15 @@ void ProcessPalletLump(IVirtualStream *pFile, int lump_size)
 			data.texnum[data.texcnt++] = info.texnum;
 			data.tpage = info.tpage;
 			data.palette = info.palette;
-			
+
 			clutTablePtr = data.clut.colors;
-			
+
 			pFile->Read(clutTablePtr, 16, sizeof(ushort));
 
 			added_cluts++;
 
 			// only in D1 we need to check count
-			if(g_format == 1)
+			if (g_format == 1)
 			{
 				if (added_cluts >= total_cluts)
 					break;
@@ -298,7 +299,7 @@ void ProcessPalletLump(IVirtualStream *pFile, int lump_size)
 		else
 		{
 			//Msg("    reference clut: %d, tex %d\n", info.clut_number, info.texnum);
-			
+
 			extclutdata_t& data = g_extraPalettes[info.clut_number];
 
 			// add texture number to existing clut
@@ -312,6 +313,17 @@ void ProcessPalletLump(IVirtualStream *pFile, int lump_size)
 	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
+void LoadOverlayMapLump(IVirtualStream* pFile, int lumpSize)
+{
+	int l_ofs = pFile->Tell();
+
+	g_overlayMapData = new char[lumpSize];
+	pFile->Read(g_overlayMapData, 1, lumpSize);
+
+	// seek back
+	pFile->Seek(l_ofs, VS_SEEK_SET);
+}
+
 void ProcessLumps(IVirtualStream* pFile)
 {
 	int lump_count = 255; // Driver 2 difference: you not need to read lump count
@@ -321,25 +333,25 @@ void ProcessLumps(IVirtualStream* pFile)
 		pFile->Read(&lump_count, sizeof(int), 1);
 	}
 
-	if(g_format == 2)
+	if (g_format == 2)
 		g_region_format = 3; // driver 2 uses 3rd generation of region info format
-	else if(g_format == 1)
+	else if (g_format == 1)
 		g_region_format = 1; // driver 1 region info format
 
 	LUMP lump;
 
 	Msg("FILE OFS: %d bytes\n", pFile->Tell());
 
-	for(int i = 0; i < lump_count; i++)
+	for (int i = 0; i < lump_count; i++)
 	{
 		// read lump info
 		pFile->Read(&lump, sizeof(LUMP), 1);
 
 		// stop marker
-		if(lump.type == 255)
+		if (lump.type == 255)
 			break;
 
-		switch(lump.type)
+		switch (lump.type)
 		{
 			case LUMP_MODELS:
 				MsgWarning("LUMP_MODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
@@ -368,6 +380,7 @@ void ProcessLumps(IVirtualStream* pFile)
 				break;
 			case LUMP_OVERLAYMAP:
 				MsgWarning("LUMP_OVERLAYMAP ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				LoadOverlayMapLump(pFile, lump.size);
 				break;
 			case LUMP_PALLET:
 				MsgWarning("LUMP_PALLET ofs=%d size=%d\n", pFile->Tell(), lump.size);
@@ -414,13 +427,13 @@ void ProcessLumps(IVirtualStream* pFile)
 			}
 		}
 		*/
-		
+
 		// skip lump
 		pFile->Seek(lump.size, VS_SEEK_CUR);
 
 		// position alignment
-        if((pFile->Tell()%4) != 0)
-			pFile->Seek(4-(pFile->Tell()%4),VS_SEEK_CUR);
+		if ((pFile->Tell() % 4) != 0)
+			pFile->Seek(4 - (pFile->Tell() % 4), VS_SEEK_CUR);
 	}
 }
 
@@ -429,7 +442,7 @@ void LoadLevelFile(const char* filename)
 	// try load driver2 lev file
 	FILE* pReadFile = fopen(filename, "rb");
 
-	if(!pReadFile)
+	if (!pReadFile)
 	{
 		MsgError("Failed to open LEV file!\n");
 		return;
@@ -439,7 +452,7 @@ void LoadLevelFile(const char* filename)
 	stream->Open(NULL, VS_OPEN_WRITE | VS_OPEN_READ, 0);
 
 	// read file into stream
-	if( stream->ReadFromFileStream(pReadFile) )
+	if (stream->ReadFromFileStream(pReadFile))
 	{
 		fclose(pReadFile);
 		g_levStream = stream;
@@ -457,7 +470,7 @@ void LoadLevelFile(const char* filename)
 
 	std::string fileName = filename;
 
-	size_t lastindex = fileName.find_last_of("."); 
+	size_t lastindex = fileName.find_last_of(".");
 	fileName = fileName.substr(0, lastindex);
 
 	//-------------------------------------------------------------------
@@ -466,10 +479,10 @@ void LoadLevelFile(const char* filename)
 
 	g_levStream->Read(&curLump, sizeof(curLump), 1);
 
-	if(curLump.type != LUMP_LUMPDESC)
+	if (curLump.type != LUMP_LUMPDESC)
 	{
 		// assume we're loading 4.11 level file
-		if(g_format == 0)
+		if (g_format == 0)
 		{
 			g_levStream->Seek(0, VS_SEEK_SET);
 			ProcessLumps(g_levStream);
@@ -498,15 +511,15 @@ void LoadLevelFile(const char* filename)
 	Msg("spooldata_size = %d\n", g_levInfo.spooldata_size);
 
 	// read cells
-	
+
 	//-----------------------------------------------------
 	// seek to section 1 - lump data 1
-	g_levStream->Seek( g_levInfo.levdesc_offset, VS_SEEK_SET );
+	g_levStream->Seek(g_levInfo.levdesc_offset, VS_SEEK_SET);
 
 	// read lump
-	g_levStream->Read( &curLump, sizeof(curLump), 1 );
+	g_levStream->Read(&curLump, sizeof(curLump), 1);
 
-	if(curLump.type != LUMP_LEVELDESC)
+	if (curLump.type != LUMP_LEVELDESC)
 	{
 		MsgError("Not a LUMP_LEVELDESC!\n");
 	}
@@ -514,7 +527,7 @@ void LoadLevelFile(const char* filename)
 	MsgInfo("entering LUMP_LEVELDESC size = %d\n--------------\n", curLump.size);
 
 	// read sublumps
-	ProcessLumps( g_levStream );
+	ProcessLumps(g_levStream);
 
 	//-----------------------------------------------------
 	// read global textures
@@ -523,12 +536,12 @@ void LoadLevelFile(const char* filename)
 
 	//-----------------------------------------------------
 	// seek to section 3 - lump data 2
-	g_levStream->Seek( g_levInfo.levdata_offset, VS_SEEK_SET );
+	g_levStream->Seek(g_levInfo.levdata_offset, VS_SEEK_SET);
 
 	// read lump
 	g_levStream->Read(&curLump, sizeof(curLump), 1);
 
-	if(curLump.type != LUMP_LEVELDATA)
+	if (curLump.type != LUMP_LEVELDATA)
 	{
 		MsgError("Not a lump 0x24!\n");
 	}
@@ -536,40 +549,41 @@ void LoadLevelFile(const char* filename)
 	MsgInfo("entering LUMP_LEVELDATA size = %d\n--------------\n", curLump.size);
 
 	// read sublumps
-	ProcessLumps( g_levStream );
+	ProcessLumps(g_levStream);
 }
 
 void FreeLevelData()
 {
 	MsgWarning("FreeLevelData() ...\n");
 
-	if(g_levStream)
+	if (g_levStream)
 		delete g_levStream;
 	g_levStream = NULL;
 
 	FreeSpoolData();
 
-	for(int i = 0; i < 1536; i++)
+	for (int i = 0; i < 1536; i++)
 	{
-		if(g_levelModels[i].model)
+		if (g_levelModels[i].model)
 			free(g_levelModels[i].model);
 	}
 
-	delete [] g_textureNamesData;
+	delete[] g_textureNamesData;
 
 	// delete texture data
-	for(int i = 0; i < g_numTexPages; i++)
+	for (int i = 0; i < g_numTexPages; i++)
 	{
-		if(g_pageDatas[i].data)
-			delete [] g_pageDatas[i].data;
+		if (g_pageDatas[i].data)
+			delete[] g_pageDatas[i].data;
 
-		delete [] g_texPages[i].details;
+		delete[] g_texPages[i].details;
 	}
 
-	delete [] g_pageDatas;
-	delete [] g_texPagePos;
-	delete [] g_texPages;
+	delete[] g_pageDatas;
+	delete[] g_texPagePos;
+	delete[] g_texPages;
 	delete[] g_extraPalettes;
+	delete[] g_overlayMapData;
 
 	g_pageDatas = NULL;
 	g_texPagePos = NULL;

@@ -4,7 +4,6 @@
 #include <malloc.h>
 #include <unordered_set>
 
-
 #include "core/cmdlib.h"
 
 //--------------------------------------------------------------------------------
@@ -26,7 +25,7 @@ void PrintUnknownPolys()
 		return;
 
 	MsgError("Unknown polygons: \n");
-	std::unordered_set<int>::iterator itr; 
+	std::unordered_set<int>::iterator itr;
 	for (itr = g_UnknownPolyTypes.begin(); itr != g_UnknownPolyTypes.end(); itr++)
 	{
 		MsgWarning("%d (sz=%d), ", *itr, PolySizes[*itr]);
@@ -57,7 +56,7 @@ int decode_poly(const char* polyList, dpoly_t* out)
 	*(uint*)&out->color[2] = 0;
 	*(uint*)&out->color[3] = 0;
 
-	switch (ptype) 
+	switch (ptype)
 	{
 		case 0:
 		case 8:
@@ -68,8 +67,8 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			*(uint*)out->vindices = *(uint*)&polyList[1];
 
 			// FIXME: read colours
-			
-			out->flags = FACE_RGB; // RGB?			
+
+			out->flags = FACE_RGB; // RGB?
 			break;
 		}
 		case 1:
@@ -79,9 +78,9 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			*(uint*)out->vindices = *(uint*)&polyList[1];
 
 			// FIXME: read colours
-			
+
 			out->flags = FACE_RGB; // RGB?
-			
+
 			break;
 		}
 		case 10:
@@ -98,7 +97,7 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			out->detail = pft3->texture_id;
 
 			out->flags = FACE_TEXTURED;
-			
+
 			break;
 		}
 		case 5:
@@ -114,7 +113,7 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			*(ushort*)out->uv[1] = *(uint*)&pft4->uv1;
 			*(ushort*)out->uv[2] = *(uint*)&pft4->uv2;
 			*(ushort*)out->uv[3] = *(uint*)&pft4->uv3;
-			
+
 			*(uint*)out->color = *(uint*)&pft4->color;
 			out->page = pft4->texture_set;
 			out->detail = pft4->texture_id;
@@ -122,7 +121,7 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			//SwapValues(out->vindices[2], out->vindices[3]);
 
 			out->flags = FACE_IS_QUAD | FACE_TEXTURED;
-			
+
 			break;
 		}
 		case 22:
@@ -134,12 +133,11 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			*(ushort*)out->uv[0] = *(uint*)&pgt3->uv0;
 			*(ushort*)out->uv[1] = *(uint*)&pgt3->uv1;
 			*(ushort*)out->uv[2] = *(uint*)&pgt3->uv2;
-			
 
 			*(uint*)out->color = *(uint*)&pgt3->color;
 			out->page = pgt3->texture_set;
 			out->detail = pgt3->texture_id;
-			
+
 			out->flags = FACE_VERT_NORMAL | FACE_TEXTURED;
 			break;
 		}
@@ -168,8 +166,7 @@ int decode_poly(const char* polyList, dpoly_t* out)
 		{
 			g_UnknownPolyTypes.insert(ptype);
 		}
-		
 	}
-	
+
 	return PolySizes[ptype];
 }
