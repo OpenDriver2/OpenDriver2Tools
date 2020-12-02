@@ -6,18 +6,18 @@ int g_format = 0;
 
 //--------------------------------------------------------------------------------------------------------------------------
 
-std::string				g_levname = "MIAMI.LEV";
+std::string					g_levname = "MIAMI.LEV";
 
-IVirtualStream* g_levStream = NULL;
-char* g_overlayMapData = NULL;
+IVirtualStream*				g_levStream = NULL;
+char*						g_overlayMapData = NULL;
 
 std::vector<std::string>	g_model_names;
 std::vector<std::string>	g_texture_names;
-char* g_textureNamesData = NULL;
+char*						g_textureNamesData = NULL;
 
 ModelRef_t					g_levelModels[1536];		// level models
 
-CarModelData_t			g_carModels[MAX_CAR_MODELS];
+CarModelData_t				g_carModels[MAX_CAR_MODELS];
 
 MODEL* FindModelByIndex(int nIndex, RegionModels_t* models)
 {

@@ -2,6 +2,7 @@
 #define UTIL_H
 #include <vector>
 
+char* varargs(const char* fmt, ...);
 
 // -----------------------------------------------------------------
 // Partition exchange sort

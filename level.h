@@ -47,9 +47,11 @@
 
 //-----------------------------------------------------------------
 
-#define MAX_MODELS				2048	// maximum models (this is limited by PACKED_CELL_OBJECT)
+#define MAX_MODELS				1536	// maximum models (this is limited by PACKED_CELL_OBJECT)
 
 //-----------------------------------------------------------------
+
+struct MODEL;
 
 typedef struct slump_t
 {
@@ -206,17 +208,54 @@ typedef struct dclut_t
 }TEXCLUT;
 
 //------------------------------------------------------------------------------------------------------------
+// functions
 
+struct ModelRef_t
+{
+	ModelRef_t()
+	{
+		model = NULL;
+		userData = NULL;
+	}
+
+	MODEL*	model;
+	int		index;
+	int		size;
+	bool	swap;
+
+	void*	userData;
+};
+
+struct RegionModels_t
+{
+	std::vector<ModelRef_t> modelRefs;
+};
+
+struct CarModelData_t
+{
+	MODEL* cleanmodel;
+	MODEL* dammodel;
+	MODEL* lowmodel;
+
+	int cleanSize;
+	int damSize;
+	int lowSize;
+};
+
+//------------------------------------------------------------------------------------------------------------
 // functions
 
 class IVirtualStream;
 
-int GetCarPalIndex(int tpage);
+int		GetCarPalIndex(int tpage);
 
-void LoadModelNamesLump(IVirtualStream* pFile, int size);
-void LoadTextureNamesLump(IVirtualStream* pFile, int size);
+MODEL*	FindModelByIndex(int nIndex, RegionModels_t* models);
+int		GetModelIndexByName(const char* name);
 
-void LoadLevelFile(const char* filename);
-void FreeLevelData();
+void	LoadModelNamesLump(IVirtualStream* pFile, int size);
+void	LoadTextureNamesLump(IVirtualStream* pFile, int size);
+
+void	LoadLevelFile(const char* filename);
+void	FreeLevelData();
 
 #endif // LEVEL_H

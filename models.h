@@ -136,8 +136,7 @@ enum EFaceFlags_e
 	FACE_IS_QUAD			= (1 << 0),
 	FACE_RGB				= (1 << 1),	// this face has a color data
 	FACE_TEXTURED			= (1 << 2),	// face is textured
-	FACE_NORMAL				= (1 << 3), // no culling
-	FACE_VERT_NORMAL		= (1 << 4),
+	FACE_VERT_NORMAL		= (1 << 3),
 };
 
 //------------------------------------------------------------------------------------------------------------
@@ -149,7 +148,7 @@ typedef struct dvertex_t
 	short y;
 	short z;
 	short w;
-}SVERTEX;
+}SVECTOR;
 
 enum ModelFlags1	// collision flags?
 {
@@ -193,31 +192,36 @@ enum ModelFlags2	// effect flags?
 
 struct MODEL
 {
-   short	shape_flags;
-   short	flags2;
-   short	instance_number;
+	short	shape_flags;
+	short	flags2;
+	short	instance_number;
 
-   ubyte	tri_verts;
-   ubyte	zBias;
+	ubyte	tri_verts;
+	ubyte	zBias;
 
-   short	bounding_sphere;
-   short	num_point_normals;
+	short	bounding_sphere;
+	short	num_point_normals;
 
-   short	num_vertices;
-   short	num_polys;
+	short	num_vertices;
+	short	num_polys;
 
-   int		vertices;
-   int		poly_block;
-   int		normals;
-   int		point_normals;
-   int		collision_block;
+	int		vertices;
+	int		poly_block;
+	int		normals;
+	int		point_normals;
+	int		collision_block;
 
-	inline dvertex_t* pVertex(int i) const 
+	dvertex_t* pVertex(int i) const 
 	{
 		return (dvertex_t *)(((ubyte *)this) + vertices) + i; 
 	}
 
-	inline char* pPolyAt(int ofs) const 
+	dvertex_t* pNormal(int i) const 
+	{
+		return (dvertex_t *)(((ubyte *)this) + point_normals) + i; 
+	}
+
+	char* pPolyAt(int ofs) const 
 	{
 		return (char *)(((ubyte *)this) + poly_block + ofs); 
 	}

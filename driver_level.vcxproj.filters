@@ -50,6 +50,21 @@
     <ClCompile Include="rnc2.cpp">
       <Filter>Файлы исходного кода</Filter>
     </ClCompile>
+    <ClCompile Include="ini.cpp">
+      <Filter>Файлы исходного кода</Filter>
+    </ClCompile>
+    <ClCompile Include="export_textures.cpp">
+      <Filter>Файлы исходного кода</Filter>
+    </ClCompile>
+    <ClCompile Include="export_models.cpp">
+      <Filter>Файлы исходного кода</Filter>
+    </ClCompile>
+    <ClCompile Include="export_regions.cpp">
+      <Filter>Файлы исходного кода</Filter>
+    </ClCompile>
+    <ClCompile Include="util.cpp">
+      <Filter>Файлы исходного кода\core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="textures.h">
@@ -95,6 +110,9 @@
       <Filter>Файлы исходного кода\core</Filter>
     </ClInclude>
     <ClInclude Include="rnc2.h">
+      <Filter>Файлы исходного кода</Filter>
+    </ClInclude>
+    <ClInclude Include="ini.h">
       <Filter>Файлы исходного кода</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,7 +1,4 @@
 #include "models.h"
-
-#include <corecrt_math.h>
-#include <malloc.h>
 #include <unordered_set>
 
 #include "core/cmdlib.h"
@@ -51,6 +48,8 @@ int decode_poly(const char* polyList, dpoly_t* out)
 
 	out->page = 0xFF;
 	out->detail = 0xFF;
+	out->flags = 0;
+
 	*(uint*)&out->color[0] = 0;
 	*(uint*)&out->color[1] = 0;
 	*(uint*)&out->color[2] = 0;
@@ -58,6 +57,10 @@ int decode_poly(const char* polyList, dpoly_t* out)
 
 	switch (ptype)
 	{
+		case 1:
+			// what a strange face type
+			*(uint*)out->vindices = *(uint*)&polyList[3];
+			break;
 		case 0:
 		case 8:
 		case 16:
@@ -71,7 +74,6 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			out->flags = FACE_RGB; // RGB?
 			break;
 		}
-		case 1:
 		case 19:
 		{
 			// F4

@@ -9,44 +9,12 @@
 #include "models.h"
 #include "textures.h"
 #include "regions.h"
+#include "math/Matrix.h"
 
 //----------------------------------------------------------
 
-struct ModelRef_t
-{
-	ModelRef_t()
-	{
-		model = NULL;
-		userData = NULL;
-	}
-
-	MODEL*	model;
-	int		index;
-	int		size;
-	bool	swap;
-
-	void*	userData;
-};
-
-struct RegionModels_t
-{
-	std::vector<ModelRef_t> modelRefs;
-};
-
-struct CarModelData_t
-{
-	MODEL* cleanmodel;
-	MODEL* dammodel;
-	MODEL* lowmodel;
-
-	int cleanSize;
-	int damSize;
-	int lowSize;
-
-	// TODO: denting and car params
-};
-
-extern CarModelData_t			g_carModels[MAX_CAR_MODELS];
+#define ONE						(4096.0f)
+#define EXPORT_SCALING			(1.0f / ONE)
 
 extern int g_format;
 
@@ -77,7 +45,9 @@ extern std::string				g_levname;
 
 extern char*					g_textureNamesData;
 
-extern ModelRef_t				g_levelModels[1536];
+extern ModelRef_t				g_levelModels[MAX_MODELS];
+
+extern CarModelData_t			g_carModels[MAX_CAR_MODELS];
 
 extern AreaDataStr*				g_areaData;	// region model/texture data descriptors
 extern AreaTPage_t*				g_regionPages;		// region texpage usage table
@@ -98,7 +68,24 @@ extern int						g_numRegionSpools;
 
 //----------------------------------------------------------
 
-MODEL*							FindModelByIndex(int nIndex, RegionModels_t* models);
-int								GetModelIndexByName(const char* name);
+void							ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, int modelSize);
+void							WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int model_index, const char* name_prefix,
+									bool debugInfo = true,
+									const Matrix4x4& translation = identity4(),
+									int* first_v = NULL,
+									int* first_t = NULL,
+									RegionModels_t* regModels = NULL);
+
+//----------------------------------------------------------
+// main functions
+
+void ExportAllModels();
+void ExportAllCarModels();
+
+void ExportRegions();
+
+void ExportAllTextures();
+void ExportOverlayMap();
+
 
 #endif

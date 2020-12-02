@@ -103,6 +103,10 @@
     <ClCompile Include="core\cmdlib.cpp" />
     <ClCompile Include="core\VirtualStream.cpp" />
     <ClCompile Include="driver_level.cpp" />
+    <ClCompile Include="export_models.cpp" />
+    <ClCompile Include="export_regions.cpp" />
+    <ClCompile Include="export_textures.cpp" />
+    <ClCompile Include="ini.cpp" />
     <ClCompile Include="level.cpp" />
     <ClCompile Include="math\Matrix.cpp" />
     <ClCompile Include="math\Vector.cpp" />
@@ -110,12 +114,14 @@
     <ClCompile Include="regions.cpp" />
     <ClCompile Include="rnc2.cpp" />
     <ClCompile Include="textures.cpp" />
+    <ClCompile Include="util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core\cmdlib.h" />
     <ClInclude Include="core\IVirtualStream.h" />
     <ClInclude Include="core\util.h" />
     <ClInclude Include="core\VirtualStream.h" />
+    <ClInclude Include="ini.h" />
     <ClInclude Include="level.h" />
     <ClInclude Include="driver_level.h" />
     <ClInclude Include="math\Matrix.h" />
