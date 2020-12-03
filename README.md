@@ -1,5 +1,4 @@
 # OpenDriver2Tools - Driver 1 and Driver 2 tools
-============
 
 Project targets to provide most accurate and clean code for Driver 1/2 format loading and manipulation.
 
