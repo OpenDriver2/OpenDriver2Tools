@@ -2,6 +2,8 @@
 
 Project targets to provide most accurate and clean code for Driver 1/2 format loading and manipulation.
 
+[![Build status](https://ci.appveyor.com/api/projects/status/59t58wq3etym653n/branch/master?svg=true)](https://ci.appveyor.com/project/SoapyMan/opendriver2tools/branch/master)
+
 ### Features:
  - loading and extracting models to separate DMODEL files, converting to OBJ
  - loading and extracting textures separate TIM files, converting to TGA files
