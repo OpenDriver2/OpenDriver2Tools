@@ -1,4 +1,5 @@
 // string util
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
@@ -20,4 +21,35 @@ char* varargs(const char* fmt, ...)
 	va_end(argptr);
 
 	return buf;
+}
+
+int xstrsplitws(char* str, char **pointer_array)
+{
+	char c = *str;
+
+	int num_indices = 0;
+
+	bool bAdd = true;
+
+	while(c != '\0')
+	{
+		c = *str;
+
+		if(bAdd)
+		{
+			pointer_array[num_indices] = str;
+			num_indices++;
+			bAdd = false;
+		}
+
+		if( isspace(c) )
+		{
+			bAdd = true;
+			*str = '\0'; // make null-string
+		}
+
+		str++;
+	}
+
+	return num_indices;
 }

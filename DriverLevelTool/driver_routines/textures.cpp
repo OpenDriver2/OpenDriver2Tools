@@ -236,6 +236,7 @@ void LoadTextureInfoLump(IVirtualStream* pFile)
 	for(int i = 0; i < numPages; i++) 
 	{
 		TexPage_t& tp = g_texPages[i];
+		tp.id = i;
 
 		pFile->Read(&tp.numDetails, 1, sizeof(int));
 

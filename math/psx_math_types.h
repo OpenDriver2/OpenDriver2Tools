@@ -29,6 +29,13 @@ struct CVECTOR
 	ubyte pad;
 };
 
+struct CVECTOR_NOPAD
+{
+	ubyte r;
+	ubyte g;
+	ubyte b;
+};
+
 struct XYPAIR {
 	int x; // size=0, offset=0
 	int y; // size=0, offset=4

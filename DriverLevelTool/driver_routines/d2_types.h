@@ -91,6 +91,30 @@ struct carmodelentry_t
 	int lowOffset;
 };
 
+// FIXME: it's guessed
+struct POLYF3
+{
+	unsigned char id;
+	unsigned char v0;
+	unsigned char v1;
+	unsigned char v2;
+	unsigned char pad;
+	CVECTOR_NOPAD color;
+	char pad2[4];
+};
+
+// FIXME: it's guessed
+struct POLYF4
+{
+	unsigned char id;
+	unsigned char v0;
+	unsigned char v1;
+	unsigned char v2;
+	unsigned char v3;
+	CVECTOR_NOPAD color;
+	char pad[8];
+};
+
 struct POLYFT3
 {
 	unsigned char id;

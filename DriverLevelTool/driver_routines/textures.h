@@ -16,6 +16,7 @@ class IVirtualStream;
 struct TexPage_t
 {
 	TEXINF*			details;
+	int				id;
 	int				numDetails;
 };
 

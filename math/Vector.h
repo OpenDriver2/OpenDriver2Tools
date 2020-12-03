@@ -483,31 +483,31 @@ TVec4D<T>	sign(const TVec4D<T> &v);
 
 // clamps value (v) to min (c0) and max (c1)
 template <typename T, typename T2>
-T			clamp(const T v, const T2 c0, const T2 c1);
+T			clamp(const T v, const T2 color, const T2 c1);
 
 // clamps vector2 value (v) to min (c0) and max (c1)
 template <typename T, typename T2>
-TVec2D<T>	clamp(const TVec2D<T> &v, const T2 c0, const T2 c1);
+TVec2D<T>	clamp(const TVec2D<T> &v, const T2 color, const T2 c1);
 
 // clamps vector2 value (v) to min vector2 (c0) and max vector2 (c1)
 template <typename T>
-TVec2D<T>	clamp(const TVec2D<T> &v, const TVec2D<T> &c0, const TVec2D<T> &c1);
+TVec2D<T>	clamp(const TVec2D<T> &v, const TVec2D<T> &color, const TVec2D<T> &c1);
 
 // clamps vector3 value (v) to min (c0) and max (c1)
 template <typename T, typename T2>
-TVec3D<T>	clamp(const TVec3D<T> &v, const T2 c0, const T2 c1);
+TVec3D<T>	clamp(const TVec3D<T> &v, const T2 color, const T2 c1);
 
 // clamps vector3 value (v) to min vector3 (c0) and max vector3 (c1)
 template <typename T>
-TVec3D<T>	clamp(const TVec3D<T> &v, const TVec3D<T> &c0, const TVec3D<T> &c1);
+TVec3D<T>	clamp(const TVec3D<T> &v, const TVec3D<T> &color, const TVec3D<T> &c1);
 
 // clamps vector2 value (v) to min (c0) and max (c1)
 template <typename T, typename T2>
-TVec4D<T>	clamp(const TVec4D<T> &v, const T2 c0, const T2 c1);
+TVec4D<T>	clamp(const TVec4D<T> &v, const T2 color, const T2 c1);
 
 // clamps vector4 value (v) to min vector4 (c0) and max vector4 (c1)
 template <typename T>
-TVec4D<T>	clamp(const TVec4D<T> &v, const TVec4D<T> &c0, const TVec4D<T> &c1);
+TVec4D<T>	clamp(const TVec4D<T> &v, const TVec4D<T> &color, const TVec4D<T> &c1);
 
 // OpenGL-like function
 #define		saturate(x) clamp(x, 0.0f, 1.0f)
