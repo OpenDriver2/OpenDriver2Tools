@@ -12,8 +12,7 @@ image:
 - Ubuntu
 
 environment:
-  data_folder: '%APPVEYOR_BUILD_FOLDER%\data'
-  project_folder: '%APPVEYOR_BUILD_FOLDER%\\src'
+  project_folder: '%APPVEYOR_BUILD_FOLDER%'
   # Dependency URLs
   windows_premake_url: 'https://github.com/premake/premake-core/releases/download/v5.0.0-alpha15/premake-5.0.0-alpha15-windows.zip'
   linux_premake_url: 'https://github.com/premake/premake-core/releases/download/v5.0.0-alpha15/premake-5.0.0-alpha15-linux.tar.gz'
@@ -32,11 +31,18 @@ after_build:
   - sh: '${APPVEYOR_BUILD_FOLDER}/.appveyor/AfterBuild.sh'
 
 cache:
-  - 'src\obj\'
-  
+  - 'DriverLevelTool\obj\'
+  - 'DriverSoundTool\obj\'
+    
 artifacts:
-  - path: src\bin\*\*.zip
-    name: Windows Binaries
+  - path: DriverLevelTool\bin\*\*.zip
+    name: DriverLevelTool Windows Binaries
+    
+  - path: DriverSoundTool\bin\*\*.zip
+    name: DriverSoundTool Windows Binaries
 
-  - path: src\bin\*\*.tar.gz
-    name: Linux Binaries
+  - path: DriverLevelTool\bin\*\*.tar.gz
+    name: DriverLevelTool Linux Binaries
+    
+  - path: DriverSoundTool\bin\*\*.tar.gz
+    name: DriverSoundTool Linux Binaries

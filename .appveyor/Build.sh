@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -ex
 
-cd "$APPVEYOR_BUILD_FOLDER/src"
+cd "$APPVEYOR_BUILD_FOLDER"
 
 ./premake5 gmake2
 

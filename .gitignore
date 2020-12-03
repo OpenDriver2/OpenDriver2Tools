@@ -47,5 +47,8 @@ Icon
 *.vcxproj
 *.vcxproj.filters
 *.sln
-src/bin/*
-src/obj/*
+*.exe
+DriverLevelTool/bin/*
+DriverLevelTool/obj/*
+DriverSoundTool/bin/*
+DriverSoundTool/obj/*
