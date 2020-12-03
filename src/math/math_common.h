@@ -127,8 +127,6 @@ inline float sincf( const float x )
 	return (x == 0)? 1 : sinf(x) / x;
 }
 
-#define roundf(x) floorf((x) + 0.5f)
-
 #ifndef min
 #define min(x, y) ((x < y)? x : y)
 #endif
@@ -136,13 +134,6 @@ inline float sincf( const float x )
 #ifndef max
 #define max(x, y) ((x > y)? x : y)
 #endif
-
-inline float intAdjustf(const float x, const float diff = 0.01f)
-{
-	float f = roundf(x);
-
-	return (fabsf(f - x) < diff)? f : x;
-}
 
 inline unsigned int getClosestPowerOfTwo(const unsigned int x)
 {
@@ -168,17 +159,6 @@ inline unsigned int getLowerPowerOfTwo(const unsigned int x)
 
 	return i >> 1;
 }
-
-#if !defined(_MSC_VER) || _MSC_VER < 1800
-inline int round(float x)
-{
-	if (x > 0){
-		return int(x + 0.5f);
-	} else {
-		return int(x - 0.5f);
-	}
-}
-#endif // _MSC_VER
 
 inline bool fsimilar( float a, float b, float cmp = F_EPS )
 {
