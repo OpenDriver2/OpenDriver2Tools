@@ -26,7 +26,7 @@ project "DriverLevelTool"
     targetdir "bin/%{cfg.buildcfg}"
 	
 	includedirs {
-		"."
+		"./"
 	}
 
     files {
