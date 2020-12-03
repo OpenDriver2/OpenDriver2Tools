@@ -16,9 +16,6 @@ bool g_export_overmap = false;
 
 int g_overlaymap_width = 1;
 
-extern int g_region_format;
-extern int g_format;
-
 //---------------------------------------------------------------------------------------------------------------------------------
 
 std::string			g_levname_moddir;
@@ -147,7 +144,7 @@ int main(int argc, char* argv[])
 {
 	Install_ConsoleSpewFunction();
 
-	Msg("---------------\ndriver_level - Driver 2 level loader\n---------------\n\n");
+	Msg("---------------\nDriverLevelTool - PSX Driver level utilities\n---------------\n\n");
 
 	if (argc == 0)
 	{

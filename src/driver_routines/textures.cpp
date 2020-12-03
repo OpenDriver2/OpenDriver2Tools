@@ -5,25 +5,25 @@
 #include "core/IVirtualStream.h"
 #include "math/Vector.h"
 
-
-
 //-------------------------------------------------------------------------------
 
+std::vector<std::string>	g_texture_names;
+char*						g_textureNamesData = NULL;
 
-TEXPAGE_POS*		g_texPagePos = NULL;
+TEXPAGE_POS*				g_texPagePos = NULL;
 
-int					g_numTexPages = 0;
-int					g_numTexDetails = 0;
+int							g_numTexPages = 0;
+int							g_numTexDetails = 0;
 
-int					g_numPermanentPages = 0;
-int					g_numSpecPages = 0;
+int							g_numPermanentPages = 0;
+int							g_numSpecPages = 0;
 
-XYPAIR				g_permsList[16];
-XYPAIR				g_specList[16];
-texdata_t*			g_pageDatas = NULL;
-TexPage_t*			g_texPages = NULL;
-extclutdata_t*		g_extraPalettes = NULL;
-int					g_numExtraPalettes = 0;
+XYPAIR						g_permsList[16];
+XYPAIR						g_specList[16];
+texdata_t*					g_pageDatas = NULL;
+TexPage_t*					g_texPages = NULL;
+extclutdata_t*				g_extraPalettes = NULL;
+int							g_numExtraPalettes = 0;
 
 // legacy format converter
 TVec4D<ubyte> bgr5a1_ToRGBA8(ushort color)

@@ -11,45 +11,6 @@ std::string					g_levname = "MIAMI.LEV";
 IVirtualStream*				g_levStream = NULL;
 char*						g_overlayMapData = NULL;
 
-std::vector<std::string>	g_model_names;
-std::vector<std::string>	g_texture_names;
-char*						g_textureNamesData = NULL;
-
-ModelRef_t					g_levelModels[1536];		// level models
-
-CarModelData_t				g_carModels[MAX_CAR_MODELS];
-
-MODEL* FindModelByIndex(int nIndex, RegionModels_t* models)
-{
-	if (nIndex >= 0 && nIndex < 1536)
-	{
-		// try searching in region datas
-		if (g_levelModels[nIndex].swap && models)
-		{
-			for (int i = 0; i < models->modelRefs.size(); i++)
-			{
-				if (models->modelRefs[i].index == nIndex)
-					return models->modelRefs[i].model;
-			}
-		}
-
-		return g_levelModels[nIndex].model;
-	}
-
-	return NULL;
-}
-
-int GetModelIndexByName(const char* name)
-{
-	for (int i = 0; i < 1536; i++)
-	{
-		if (!strcmp(g_model_names[i].c_str(), name))
-			return i;
-	}
-
-	return -1;
-}
-
 //-------------------------------------------------------------
 // parses model lumps and exports models to OBJ
 //-------------------------------------------------------------

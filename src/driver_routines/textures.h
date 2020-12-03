@@ -6,16 +6,12 @@
 
 #include "level.h"
 #include "math/vector.h"
+#include "math/psx_math_types.h"
 
 // forward
 class IVirtualStream;
 
 //---------------------------------------------------------------------------------------------------------------------------------
-
-struct XYPAIR {
-	int x; // size=0, offset=0
-	int y; // size=0, offset=4
-};
 
 struct TexPage_t
 {
@@ -40,6 +36,23 @@ struct extclutdata_t
 	int palette;
 	int tpage;
 };
+
+//---------------------------------------------------------------------------------------------------------------------------------
+
+extern texdata_t*				g_pageDatas;
+extern TexPage_t*				g_texPages;
+extern extclutdata_t*			g_extraPalettes;
+extern int						g_numExtraPalettes;
+
+extern std::vector<std::string>	g_texture_names;
+extern char*					g_textureNamesData;
+
+extern TEXPAGE_POS*				g_texPagePos;
+
+extern int						g_numTexPages;
+extern int						g_numTexDetail;
+
+extern char*					g_overlayMapData;
 
 //---------------------------------------------------------------------------------------------------------------------------------
 

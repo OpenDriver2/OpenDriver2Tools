@@ -13,4 +13,31 @@ struct USVECTOR_NOPAD {
 	unsigned short vz; // size=0, offset=4
 };
 
+struct SVECTOR
+{
+	short x;
+	short y;
+	short z;
+	short pad;
+};
+
+struct CVECTOR
+{
+	ubyte r;
+	ubyte g;
+	ubyte b;
+	ubyte pad;
+};
+
+struct XYPAIR {
+	int x; // size=0, offset=0
+	int y; // size=0, offset=4
+};
+
+struct UV_INFO
+{
+	unsigned char u;
+	unsigned char v;
+};
+
 #endif // PSX_MATH_TYPES_H
