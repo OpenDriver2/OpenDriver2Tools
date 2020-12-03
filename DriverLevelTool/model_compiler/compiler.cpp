@@ -125,6 +125,8 @@ int FindTextureDetailByUV(int tpage, UV_INFO* uvs, int num_uv)
 	if (!tpinfo)
 		return 255;
 
+#define UV_ASSIGN_TOLERANCE 1
+	
 	for(int i = 0; i < tpinfo->numDetails; i++)
 	{
 		// make rectangle coords
@@ -135,34 +137,28 @@ int FindTextureDetailByUV(int tpage, UV_INFO* uvs, int num_uv)
 		rx2 = tpinfo->details[i].width;
 		ry2 = tpinfo->details[i].height;
 
-		if (rx2 == 0)
-			rx2 = 256;
-
-		if (ry2 == 0)
-			ry2 = 256;
-
 		rx2 += rx1;
 		ry2 += ry1;
 
 		int numInside = 0;
 		
 		// check each UV
-		// FIXME: check mid point inside?
+		// FIXME: check mid point inside too?
 		for (int j = 0; j < num_uv; j++)
 		{
 			int x, y;
 			x = uvs[j].u;
 			y = uvs[j].v;
 			
-			if (x >= rx1 && x <= rx2 && 
-				y >= ry1 && y <= ry2)
+			if (x >= rx1-UV_ASSIGN_TOLERANCE && x <= rx2+UV_ASSIGN_TOLERANCE && 
+				y >= ry1-UV_ASSIGN_TOLERANCE && y <= ry2+UV_ASSIGN_TOLERANCE)
 			{
 				numInside++;
 			}
 		}
-
+		
 		// definitely inside
-		if(numInside > 0)
+		if(numInside > 2)
 		{
 			// return our detail
 			return i;
@@ -177,12 +173,12 @@ int FindTextureDetailByUV(int tpage, UV_INFO* uvs, int num_uv)
 //--------------------------------------------------------------------------
 void ConvertPolyUVs(UV_INFO* dest, Vector2D* src, const smdpoly_t& poly)
 {
-	float tpage_texel = 1.0f / 256.0f * 0.5f;
+	//float tpage_texel = 1.0f / 256.0f * 0.5f;
 	
 	for(int i = 0; i < poly.vcount; i++)
 	{
-		int x = ((src[poly.tindices[i]].x + tpage_texel) * 255.0f);
-		int y = ((src[poly.tindices[i]].y + tpage_texel) * 255.0f);
+		int x = src[poly.tindices[i]].x * 255.0f + 1;
+		int y = src[poly.tindices[i]].y * 255.0f + 1;
 		
 		dest[i].u = x;
 		dest[i].v = y;
