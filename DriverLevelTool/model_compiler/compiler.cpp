@@ -392,30 +392,30 @@ MODEL* CompileDMODEL(CMemoryStream* stream, smdmodel_t* model, int& resultSize)
 	modelData->bounding_sphere = CalculateBoundingSphere(modelData->pVertex(0), modelData->num_vertices);
 	Msg("Bounding sphere: %d\n", modelData->bounding_sphere);
 	
+	// hmmm
+	modelData->normals = stream->Tell();
+
+	// write point normals
+	modelData->point_normals = stream->Tell();
+	for(int i = 0; i < model->normals.numElem(); i++)
+	{
+		Vector3D& srcvert = model->normals[i];
+		SVECTOR dstvert;
+		ConvertVertexToDriver(&dstvert, &srcvert);
+		
+		stream->Write(&dstvert, 1 ,sizeof(SVECTOR));
+	}
+
 	modelData->poly_block = stream->Tell();
 
 	Msg("Generating polygons\n");
-	
+
 	// save polygons
 	for(int i = 0; i < model->groups.numElem(); i++)
 	{
 		int numPolygons = WriteGroupPolygons(stream, model, model->groups[i]);
 		Msg("Group %d num polygons: %d\n", i, numPolygons);
 		modelData->num_polys += numPolygons;
-	}
-
-	// hmmm
-	modelData->normals = stream->Tell();
-
-	// write point normals
-	modelData->point_normals = stream->Tell();
-	for(int i = 0; i < model->verts.numElem(); i++)
-	{
-		Vector3D& srcvert = model->verts[i];
-		SVECTOR dstvert;
-		ConvertVertexToDriver(&dstvert, &srcvert);
-		
-		stream->Write(&dstvert, 1 ,sizeof(SVECTOR));
 	}
 
 	// save to output file
