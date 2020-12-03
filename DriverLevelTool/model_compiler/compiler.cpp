@@ -181,8 +181,11 @@ void ConvertPolyUVs(UV_INFO* dest, Vector2D* src, const smdpoly_t& poly)
 	
 	for(int i = 0; i < poly.vcount; i++)
 	{
-		dest[i].u = ((src[poly.tindices[i]].x + tpage_texel) * 255.0f);
-		dest[i].v = ((src[poly.tindices[i]].y + tpage_texel) * 255.0f);
+		int x = ((src[poly.tindices[i]].x + tpage_texel) * 255.0f);
+		int y = ((src[poly.tindices[i]].y + tpage_texel) * 255.0f);
+		
+		dest[i].u = x;
+		dest[i].v = y;
 	}
 }
 
@@ -221,18 +224,18 @@ int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* grou
 					pgt4.id = 23;
 					pgt4.texture_set = tpage_number;
 					pgt4.texture_id = FindTextureDetailByUV(tpage_number, uvs, 4);
-					pgt4.v0 = poly.vindices[0];
-					pgt4.v1 = poly.vindices[1];
-					pgt4.v2 = poly.vindices[2];
-					pgt4.v3 = poly.vindices[3];
-					pgt4.uv0 = uvs[0];
-					pgt4.uv1 = uvs[1];
-					pgt4.uv2 = uvs[2];
-					pgt4.uv3 = uvs[3];
-					pgt4.n0 = poly.nindices[0];
-					pgt4.n1 = poly.nindices[1];
-					pgt4.n2 = poly.nindices[2];
-					pgt4.n3 = poly.nindices[3];
+					pgt4.v0 = poly.vindices[3];
+					pgt4.v1 = poly.vindices[2];
+					pgt4.v2 = poly.vindices[1];
+					pgt4.v3 = poly.vindices[0];
+					pgt4.uv0 = uvs[3];
+					pgt4.uv1 = uvs[2];
+					pgt4.uv2 = uvs[1];
+					pgt4.uv3 = uvs[0];
+					pgt4.n0 = poly.nindices[3];
+					pgt4.n1 = poly.nindices[2];
+					pgt4.n2 = poly.nindices[1];
+					pgt4.n3 = poly.nindices[0];
 
 					pgt4.color = { 128,128,128,0 };
 					
@@ -244,14 +247,14 @@ int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* grou
 					pft4.id = 21;
 					pft4.texture_set = tpage_number;
 					pft4.texture_id = FindTextureDetailByUV(tpage_number, uvs, 4);
-					pft4.v0 = poly.vindices[0];
-					pft4.v1 = poly.vindices[1];
-					pft4.v2 = poly.vindices[2];
-					pft4.v3 = poly.vindices[3];
-					pft4.uv0 = uvs[0];
-					pft4.uv1 = uvs[1];
-					pft4.uv2 = uvs[2];
-					pft4.uv3 = uvs[3];
+					pft4.v0 = poly.vindices[3];
+					pft4.v1 = poly.vindices[2];
+					pft4.v2 = poly.vindices[1];
+					pft4.v3 = poly.vindices[0];
+					pft4.uv0 = uvs[3];
+					pft4.uv1 = uvs[2];
+					pft4.uv2 = uvs[1];
+					pft4.uv3 = uvs[0];
 					pft4.color = { 128,128,128,0 };
 					
 					dest->Write(&pft4, 1, sizeof(pft4));
@@ -261,10 +264,10 @@ int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* grou
 			{
 				POLYF4 pf4;
 				pf4.id = 19;
-				pf4.v0 = poly.vindices[0];
-				pf4.v1 = poly.vindices[1];
-				pf4.v2 = poly.vindices[2];
-				pf4.v3 = poly.vindices[3];
+				pf4.v0 = poly.vindices[3];
+				pf4.v1 = poly.vindices[2];
+				pf4.v2 = poly.vindices[1];
+				pf4.v3 = poly.vindices[0];
 				pf4.color = { 0,0,0 };
 
 				dest->Write(&pf4, 1, sizeof(pf4));
@@ -280,15 +283,16 @@ int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* grou
 					pgt3.id = 22;
 					pgt3.texture_set = tpage_number;
 					pgt3.texture_id = FindTextureDetailByUV(tpage_number, uvs, 3);
-					pgt3.v0 = poly.vindices[0];
+					pgt3.v0 = poly.vindices[2];
 					pgt3.v1 = poly.vindices[1];
-					pgt3.v2 = poly.vindices[2];
-					pgt3.n0 = poly.nindices[0];
+					pgt3.v2 = poly.vindices[0];
+					
+					pgt3.n0 = poly.nindices[2];
 					pgt3.n1 = poly.nindices[1];
-					pgt3.n2 = poly.nindices[2];
-					pgt3.uv0 = uvs[0];
+					pgt3.n2 = poly.nindices[0];
+					pgt3.uv0 = uvs[2];
 					pgt3.uv1 = uvs[1];
-					pgt3.uv2 = uvs[2];
+					pgt3.uv2 = uvs[0];
 					pgt3.color = { 128,128,128,0 };
 					
 					dest->Write(&pgt3, 1, sizeof(pgt3));
@@ -299,12 +303,12 @@ int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* grou
 					pft3.id = 20;
 					pft3.texture_set = tpage_number;
 					pft3.texture_id = FindTextureDetailByUV(tpage_number, uvs, 3);
-					pft3.v0 = poly.vindices[0];
+					pft3.v0 = poly.vindices[2];
 					pft3.v1 = poly.vindices[1];
-					pft3.v2 = poly.vindices[2];
-					pft3.uv0 = uvs[0];
+					pft3.v2 = poly.vindices[0];
+					pft3.uv0 = uvs[2];
 					pft3.uv1 = uvs[1];
-					pft3.uv2 = uvs[2];
+					pft3.uv2 = uvs[0];
 					pft3.color = { 128,128,128,0 };
 					
 					dest->Write(&pft3, 1, sizeof(pft3));
@@ -314,9 +318,9 @@ int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* grou
 			{
 				POLYF3 pf3;
 				pf3.id = 18;
-				pf3.v0 = poly.vindices[0];
+				pf3.v0 = poly.vindices[2];
 				pf3.v1 = poly.vindices[1];
-				pf3.v2 = poly.vindices[2];
+				pf3.v2 = poly.vindices[0];
 				pf3.color = { 0,0,0 };
 
 				dest->Write(&pf3, 1, sizeof(pf3));

@@ -271,8 +271,8 @@ bool LoadOBJ(smdmodel_t* model, const char* filename)
 				n.y = readFloat(tok);
 				n.z = readFloat(tok);
 
-				if(blend_to_eq)
-					n = Vector3D(n.z, n.y, n.x);
+				//if(blend_to_eq)
+				//	n = Vector3D(n.z, n.y, n.x);
 
 				normals.append(n);
 			}
@@ -285,8 +285,8 @@ bool LoadOBJ(smdmodel_t* model, const char* filename)
 				v.y = readFloat( tok );
 				v.z = readFloat( tok );
 
-				if(blend_to_eq)
-					v = Vector3D(v.z, v.y, v.x);
+				//if(blend_to_eq)
+				//	v = Vector3D(v.z, v.y, v.x);
 
 				vertices.append(v);
 			}
