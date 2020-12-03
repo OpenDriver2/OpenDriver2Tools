@@ -1,0 +1,42 @@
+version: 1.6.{build}
+
+branches:
+  only:
+  - master
+  - appveyor
+  
+skip_tags: true
+
+image:
+- Visual Studio 2019
+- Ubuntu
+
+environment:
+  data_folder: '%APPVEYOR_BUILD_FOLDER%\data'
+  project_folder: '%APPVEYOR_BUILD_FOLDER%\\src'
+  # Dependency URLs
+  windows_premake_url: 'https://github.com/premake/premake-core/releases/download/v5.0.0-alpha15/premake-5.0.0-alpha15-windows.zip'
+  linux_premake_url: 'https://github.com/premake/premake-core/releases/download/v5.0.0-alpha15/premake-5.0.0-alpha15-linux.tar.gz'
+
+
+install:
+  - cmd: '%APPVEYOR_BUILD_FOLDER%\.appveyor\Install.bat'
+  - sh: '${APPVEYOR_BUILD_FOLDER}/.appveyor/Install.sh'
+
+build_script:
+  - cmd: '%APPVEYOR_BUILD_FOLDER%\.appveyor\Build.bat'
+  - sh: '${APPVEYOR_BUILD_FOLDER}/.appveyor/Build.sh'
+
+after_build:
+  - cmd: '%APPVEYOR_BUILD_FOLDER%\.appveyor\AfterBuild.bat'
+  - sh: '${APPVEYOR_BUILD_FOLDER}/.appveyor/AfterBuild.sh'
+
+cache:
+  - 'src\obj\'
+  
+artifacts:
+  - path: src\bin\*\*.zip
+    name: Windows Binaries
+
+  - path: src\bin\*\*.tar.gz
+    name: Linux Binaries
