@@ -56,7 +56,7 @@ void LoadMapLump(IVirtualStream* pFile)
 	// InitCellData actually here, but...
 
 	// read straddlers
-	if(g_format == 2)
+	if(g_format >= LEV_FORMAT_DRIVER2_ALPHA16)
 	{
 		// Driver 2 PCO
 		g_straddlers = malloc(sizeof(PACKED_CELL_OBJECT)*g_numStraddlers);

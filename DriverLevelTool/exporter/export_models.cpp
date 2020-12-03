@@ -291,12 +291,10 @@ void ExportCarModel(MODEL* model, int size, int index, const char* name_suffix)
 }
 
 //-------------------------------------------------------------
-// Exports all models from level
+// Saves OBJ material file
 //-------------------------------------------------------------
-void ExportAllModels()
+void SaveModelPagesMTL()
 {
-	MsgInfo("Eexporting all models...\n");
-	
 	// create material file
 	FILE* pMtlFile = fopen(varargs("%s/MODELPAGES.mtl", g_levname_moddir.c_str()), "wb");
 
@@ -310,8 +308,14 @@ void ExportAllModels()
 
 		fclose(pMtlFile);
 	}
-	
-	MsgInfo("Exporting models...\n");
+}
+
+//-------------------------------------------------------------
+// Exports all models from level
+//-------------------------------------------------------------
+void ExportAllModels()
+{
+	MsgInfo("Exporting all models...\n");
 
 	for (int i = 0; i < 1536; i++)
 	{

@@ -35,6 +35,7 @@ void							WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int mode
 //----------------------------------------------------------
 // main functions
 
+void SaveModelPagesMTL();
 void ExportAllModels();
 void ExportAllCarModels();
 

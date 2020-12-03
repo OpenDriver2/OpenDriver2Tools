@@ -9,8 +9,6 @@
 
 #define SPOOL_CD_BLOCK_SIZE 2048
 
-extern int						g_region_format;
-extern int						g_format;
 extern bool						g_export_models;
 extern std::string				g_levname_moddir;
 extern std::vector<std::string>	g_model_names;
@@ -214,7 +212,7 @@ void ExportRegions()
 	int lobj_first_t = 0;
 
 	// copy straddlers to cell objects
-	if (g_format == 2)
+	if (g_format >= LEV_FORMAT_DRIVER2_ALPHA16)
 	{
 		memcpy(g_packed_cell_objects, g_straddlers, sizeof(PACKED_CELL_OBJECT) * g_numStraddlers);
 	}
@@ -271,7 +269,7 @@ void ExportRegions()
 
 			memset(g_cells_d1, 0, sizeof(g_cells_d1));
 
-			if (g_format == 2)	// Driver 2
+			if (g_format >= LEV_FORMAT_DRIVER2_ALPHA16)	// any Driver 2
 			{
 				//
 				// Driver 2 use PACKED_CELL_OBJECTS - 8 bytes. not wasting, but tricky
@@ -284,14 +282,14 @@ void ExportRegions()
 				int cellObjectsOffset;
 				int pvsDataOffset;
 
-				if (g_region_format == 3) // retail
+				if (g_format == LEV_FORMAT_DRIVER2_RETAIL) // retail
 				{
 					cellPointersOffset = spool->offset; // SKIP PVS buffers, no need rn...
 					cellDataOffset = cellPointersOffset + spool->cell_data_size[1];
 					cellObjectsOffset = cellDataOffset + spool->cell_data_size[0];
 					pvsDataOffset = cellObjectsOffset + spool->cell_data_size[2];
 				}
-				else if (g_region_format == 2) // 1.6 alpha
+				else // 1.6 alpha
 				{
 					cellPointersOffset = spool->offset + spool->roadm_size;
 					cellDataOffset = cellPointersOffset + spool->cell_data_size[1];
@@ -314,7 +312,7 @@ void ExportRegions()
 				g_levStream->Seek(g_levInfo.spooldata_offset + cellObjectsOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
 				g_levStream->Read(g_packed_cell_objects + g_numStraddlers, spool->cell_data_size[2] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
 			}
-			else if (g_format == 1) // Driver 1
+			else if (g_format == LEV_FORMAT_DRIVER1) // Driver 1
 			{
 				//
 				// Driver 1 use CELL_OBJECTS directly - 16 bytes, wasteful in RAM
@@ -375,7 +373,7 @@ void ExportRegions()
 
 			int numRegionObjects = 0;
 
-			if (g_format == 2)	// Driver 2
+			if (g_format >= LEV_FORMAT_DRIVER2_ALPHA16)	// any Driver 2
 			{
 				CELL_DATA* celld;
 				PACKED_CELL_OBJECT* pcop;
@@ -425,7 +423,7 @@ void ExportRegions()
 					}
 				}
 			}
-			else // Driver 1
+			else if (g_format == LEV_FORMAT_DRIVER1) // Driver 1
 			{
 				CELL_DATA_D1* celld;
 

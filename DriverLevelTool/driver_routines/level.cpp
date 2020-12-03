@@ -2,8 +2,7 @@
 #include "core/VirtualStream.h"
 #include <vector>
 
-int g_region_format = 3;
-int g_format = 0;
+ELevelFormat g_format = LEV_FORMAT_AUTODETECT;
 
 //--------------------------------------------------------------------------------------------------------------------------
 
@@ -196,15 +195,14 @@ struct PAL_INFO_D1
 	int tpage;
 };
 
-// [D]
+//-------------------------------------------------------------
+// Loads car and pedestrians palletes
+//-------------------------------------------------------------
 void ProcessPalletLump(IVirtualStream* pFile, int lump_size)
 {
 	ushort* clutTablePtr;
 	int total_cluts;
 	int l_ofs = pFile->Tell();
-
-	//if (g_format == 1)
-	//	return; // TODO: Driver 1 support
 
 	pFile->Read(&total_cluts, 1, sizeof(int));
 
@@ -221,7 +219,7 @@ void ProcessPalletLump(IVirtualStream* pFile, int lump_size)
 	{
 		PAL_INFO info;
 
-		if (g_format == 1)
+		if (g_format == LEV_FORMAT_DRIVER1)
 		{
 			PAL_INFO_D1 infod1;
 			pFile->Read(&infod1, 1, sizeof(info) - sizeof(int));
@@ -252,7 +250,7 @@ void ProcessPalletLump(IVirtualStream* pFile, int lump_size)
 			added_cluts++;
 
 			// only in D1 we need to check count
-			if (g_format == 1)
+			if (g_format == LEV_FORMAT_DRIVER1)
 			{
 				if (added_cluts >= total_cluts)
 					break;
@@ -275,6 +273,9 @@ void ProcessPalletLump(IVirtualStream* pFile, int lump_size)
 	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
+//-------------------------------------------------------------
+// Loads overhead map lump
+//-------------------------------------------------------------
 void LoadOverlayMapLump(IVirtualStream* pFile, int lumpSize)
 {
 	int l_ofs = pFile->Tell();
@@ -286,24 +287,92 @@ void LoadOverlayMapLump(IVirtualStream* pFile, int lumpSize)
 	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
-void ProcessLumps(IVirtualStream* pFile)
+//-------------------------------------------------------------
+// Auto-detects level format
+//-------------------------------------------------------------
+void DetectLevelFormat(IVirtualStream* pFile)
 {
-	int lump_count = 255; // Driver 2 difference: you not need to read lump count
-
-	if (g_format == 1)
-	{
-		pFile->Read(&lump_count, sizeof(int), 1);
-	}
-
-	if (g_format == 2)
-		g_region_format = 3; // driver 2 uses 3rd generation of region info format
-	else if (g_format == 1)
-		g_region_format = 1; // driver 1 region info format
+	long curPos = pFile->Tell();
+	int lump_count = 255;
 
 	LUMP lump;
 
-	Msg("FILE OFS: %d bytes\n", pFile->Tell());
+	for (int i = 0; i < lump_count; i++)
+	{
+		// read lump info
+		pFile->Read(&lump, sizeof(LUMP), 1);
 
+		// stop marker
+		if (lump.type == 255)
+			break;
+
+		switch (lump.type)
+		{
+			case LUMP_MODELS:
+			case LUMP_MAP:
+			case LUMP_TEXTURENAMES:
+			case LUMP_MODELNAMES:
+			case LUMP_SUBDIVISION:
+			case LUMP_LOWDETAILTABLE:
+			case LUMP_MOTIONCAPTURE:
+			case LUMP_OVERLAYMAP:
+			case LUMP_PALLET:
+			case LUMP_SPOOLINFO:
+			case LUMP_CURVES2:
+			case LUMP_JUNCTIONS2:
+			{
+				MsgInfo("Assuming it's a 'Driver 2 DEMO' 1.6 alpha LEV file\n");
+				g_format = LEV_FORMAT_DRIVER2_ALPHA16; // as it is an old junction format - it's clearly a alpha 1.6 level
+				break;
+			}
+			case LUMP_JUNCTIONS2_NEW:
+			{
+				MsgInfo("Assuming it's a 'Driver 2' final LEV file\n");
+				g_format = LEV_FORMAT_DRIVER2_RETAIL; // most recent LEV file
+				break;
+			}
+			case LUMP_CHAIR:
+			case LUMP_CAR_MODELS:
+			case LUMP_TEXTUREINFO:
+			default:
+			{
+				MsgInfo("Assuming it's a 'Driver 1' LEV file\n");
+				g_format = LEV_FORMAT_DRIVER1;
+				break;
+			}
+		}
+		
+		// dun
+		if (g_format != LEV_FORMAT_AUTODETECT)
+			break;
+
+		// skip lump
+		pFile->Seek(lump.size, VS_SEEK_CUR);
+
+		// position alignment
+		if ((pFile->Tell() % 4) != 0)
+			pFile->Seek(4 - (pFile->Tell() % 4), VS_SEEK_CUR);
+	}
+
+	pFile->Seek(curPos, VS_SEEK_SET);
+}
+
+//-------------------------------------------------------------
+// Iterates LEV file lumps and loading data from them
+//-------------------------------------------------------------
+void ProcessLumps(IVirtualStream* pFile)
+{
+	// perform auto-detection if format is not specified
+	if(g_format == LEV_FORMAT_AUTODETECT)
+		DetectLevelFormat(pFile);
+	
+	int lump_count = 255; // Driver 2 difference: you not need to read lump count
+
+	// Driver 1 has lump count
+	if (g_format == LEV_FORMAT_DRIVER1)
+		pFile->Read(&lump_count, sizeof(int), 1);
+
+	LUMP lump;
 	for (int i = 0; i < lump_count; i++)
 	{
 		// read lump info
@@ -361,6 +430,9 @@ void ProcessLumps(IVirtualStream* pFile)
 			case LUMP_JUNCTIONS2:
 				MsgWarning("LUMP_JUNCTIONS2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
+			case LUMP_JUNCTIONS2_NEW:
+				MsgWarning("LUMP_JUNCTIONS2_NEW ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				break;
 			case LUMP_CHAIR:
 				MsgWarning("LUMP_CHAIR ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
@@ -375,20 +447,6 @@ void ProcessLumps(IVirtualStream* pFile)
 			default:
 				MsgInfo("LUMP type: %d (0x%X) ofs=%d size=%d\n", lump.type, lump.type, pFile->Tell(), lump.size);
 		}
-
-		/*
-		if(g_format == 0)
-		{
-			if(lump.type == 0)
-			{
-				LUMP test;
-				// read lump info
-				pFile->Read(&test, sizeof(LUMP), 1);
-
-				Msg("FILE OFS: %d bytes\n", pFile->Tell());
-			}
-		}
-		*/
 
 		// skip lump
 		pFile->Seek(lump.size, VS_SEEK_CUR);
@@ -443,17 +501,7 @@ void LoadLevelFile(const char* filename)
 
 	if (curLump.type != LUMP_LUMPDESC)
 	{
-		// assume we're loading 4.11 level file
-		if (g_format == 0)
-		{
-			g_levStream->Seek(0, VS_SEEK_SET);
-			ProcessLumps(g_levStream);
-		}
-		else
-		{
-			MsgError("Not a LEV file!\n");
-		}
-
+		MsgError("Not a LEV file!\n");
 		return;
 	}
 

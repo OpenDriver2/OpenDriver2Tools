@@ -36,6 +36,9 @@ void ExportLevelData()
 {
 	Msg("-------------\nExporting level data\n-------------\n");
 
+	if (g_export_models || g_export_carmodels)
+		SaveModelPagesMTL();
+	
 	if (g_export_models)
 		ExportAllModels();
 
@@ -128,8 +131,7 @@ void PrintCommandLineArguments()
 	const char* argumentsMessage =
 		"Example: DriverLevelTool <command> [arguments]\n\n\n"
 		"  -lev <filename.LEV> \t: Specify level file you want to input\n\n"
-		"  -format <n> \t\t: Specify level file format. 1 = Driver 1 LEV, 2 = Driver 2 LEV\n\n"
-		"  -regformat <n> \t: Specify level region format. 1 = Driver 1, 2 = Driver 2 Demo (alpha 1.6), 3 = Driver 2 Retail\n\n"
+		"  -format <n> \t: Specify level format. 1 = Driver 1, 2 = Driver 2 Demo (alpha 1.6), 3 = Driver 2 Retail\n\n"
 		"  -textures <1/0> \t: Export textures (TGA)\n\n"
 		"  -models <1/0> \t: Export models (OBJ\n\n"
 		"  -carmodels <1/0> \t: Export car models (OBJ)\n\n"
@@ -160,22 +162,7 @@ int main(int argc, char* argv[])
 	{
 		if (!stricmp(argv[i], "-format"))
 		{
-			g_format = atoi(argv[i + 1]);
-
-			if (g_format == 1)
-			{
-				g_region_format = 1;
-			}
-			else
-			{
-				if (g_region_format == 1)
-					g_region_format = 3;
-			}
-			i++;
-		}
-		else if (!stricmp(argv[i], "-regformat"))
-		{
-			g_region_format = atoi(argv[i + 1]);
+			g_format = (ELevelFormat)atoi(argv[i + 1]);
 			i++;
 		}
 		else if (!stricmp(argv[i], "-textures"))
