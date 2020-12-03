@@ -4,6 +4,8 @@
 #include "core/VirtualStream.h"
 #include "core/cmdlib.h"
 #include "math/dktypes.h"
+#include "util/util.h"
+
 
 // WAV file header and smpl-chunk template - Quick and dirty solution because I'm lazy
 int wavHeader[11] = {
@@ -426,23 +428,9 @@ int LoadSoundBank(SAMPLE_DATA* out_sample_info, PCMSample* out_samples, FILE* fp
 
 #define _MAX_PATH 300
 
-int DoConvertSBK(const char* sbkFileName)
+void ExportSBK(FILE* sbkFp, const char* sbkFileName)
 {
 	char tmpString[_MAX_PATH];
-	snprintf(tmpString, _MAX_PATH, "%s_dec", sbkFileName);
-
-	MsgWarning("Loading '%s'...\n", sbkFileName);
-
-	FILE* sbkFp = fopen(sbkFileName, "rb");
-
-	if (!sbkFp)
-	{
-		MsgError("No such file '%s'!", sbkFileName);
-		return -1;
-	}
-
-	_mkdir(tmpString);
-
 	PCMSample pcmSamples[80];
 	SAMPLE_DATA sampleDescs[80];
 	memset(pcmSamples, 0, sizeof(PCMSample) * 80);
@@ -450,12 +438,15 @@ int DoConvertSBK(const char* sbkFileName)
 
 	int numBankSamples = LoadSoundBank(sampleDescs, pcmSamples, sbkFp);
 
+	if(numBankSamples)
+		_mkdir(sbkFileName);
+
 	for (int i = 0; i < numBankSamples; i++)
 	{
 		PCMSample& sample = pcmSamples[i];
 		SAMPLE_DATA& sampleDesc = sampleDescs[i];
 
-		snprintf(tmpString, _MAX_PATH, "%s_dec\\%d.wav", sbkFileName, i);
+		snprintf(tmpString, _MAX_PATH, "%s/%d.wav", sbkFileName, i);
 
 		FILE* wavfp = fopen(tmpString, "wb");
 
@@ -485,8 +476,67 @@ int DoConvertSBK(const char* sbkFileName)
 		}
 		else
 			MsgError("Unable to create file %s\n", tmpString);
-
 	}
+}
+
+int DoConvertBLK(const char* sbkFileName)
+{
+	char tmpString[_MAX_PATH];
+	snprintf(tmpString, _MAX_PATH, "%s_dec", sbkFileName);
+
+	MsgWarning("Loading '%s'...\n", sbkFileName);
+
+	FILE* blkFp = fopen(sbkFileName, "rb");
+
+	if (!blkFp)
+	{
+		MsgError("No such file '%s'!", sbkFileName);
+		return -1;
+	}
+
+	_mkdir(tmpString);
+
+	// read count
+	int numSoundBanks = 0;
+	fread(&numSoundBanks, 1, sizeof(int), blkFp);
+
+	// really it's a collection of offsets
+	numSoundBanks >>= 2;
+	numSoundBanks -= 1;
+
+	// read offsets
+	int blockLimit[128];
+	fread(blockLimit, numSoundBanks, sizeof(int), blkFp);
+
+	MsgWarning("Sound bank count: %d...\n", numSoundBanks);
+
+	for (int i = 0; i < numSoundBanks; i++)
+	{
+		fseek(blkFp, blockLimit[i], SEEK_SET);
+		ExportSBK(blkFp, varargs("%s/Bank_%d", tmpString, i));
+	}
+
+	fclose(blkFp);
+}
+
+int DoConvertSBK(const char* sbkFileName)
+{
+	char tmpString[_MAX_PATH];
+	snprintf(tmpString, _MAX_PATH, "%s_dec", sbkFileName);
+
+	MsgWarning("Loading '%s'...\n", sbkFileName);
+
+	FILE* sbkFp = fopen(sbkFileName, "rb");
+
+	if (!sbkFp)
+	{
+		MsgError("No such file '%s'!", sbkFileName);
+		return -1;
+	}
+
+	ExportSBK(sbkFp, sbkFileName);
+
+	fclose(sbkFp);
 
 	return 0;
 }
@@ -693,7 +743,8 @@ int DoExtractMusicFile(const char* fileName)
 
 void PrintCommandLineArguments()
 {
-	MsgInfo("usage:\n");
+	MsgInfo("Example usage:\n");
+	MsgInfo("\tDriverSoundTool -blk2wav VOICES2.BLK\n");
 	MsgInfo("\tDriverSoundTool -bin2xm MUSIC.BIN\n");
 	MsgInfo("\tDriverSoundTool -psx2xm FETUNE.XM\n");
 	MsgInfo("\tDriverSoundTool -sbk2wav SOUNDS.SBK\n");
@@ -726,6 +777,13 @@ int main(int argc, char** argv)
 				DoConvertXMAndSBK(argv[i + 1]);
 			else
 				MsgWarning("-psx2xm must have an argument!");
+		}
+		else if (!_stricmp(argv[i], "-blk2wav"))
+		{
+			if (i + 1 <= argc)
+				DoConvertBLK(argv[i + 1]);
+			else
+				MsgWarning("-blk2wav must have an argument!");
 		}
 		else if (!_stricmp(argv[i], "-sbk2wav"))
 		{
