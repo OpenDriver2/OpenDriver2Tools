@@ -2,15 +2,14 @@
 #define REGIONS_H
 
 #include "math/dktypes.h"
-#include "math/psx_math_types.h"
 #include "models.h"
-#include <vector>
+#include "util/DkList.h"
 
 //------------------------------------------------------------------------------------------------------------
 
 struct RegionModels_t
 {
-	std::vector<ModelRef_t> modelRefs;
+	DkList<ModelRef_t> modelRefs;
 };
 
 //-----------------------------------------------------------------------------------------

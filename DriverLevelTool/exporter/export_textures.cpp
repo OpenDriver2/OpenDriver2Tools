@@ -143,14 +143,14 @@ int clutSortFunc(extclutdata_t* const& i, extclutdata_t* const& j)
 	return (i->palette - j->palette);
 }
 
-void GetTPageDetailPalettes(std::vector<TEXCLUT*>& out, int nPage, int detail)
+void GetTPageDetailPalettes(DkList<TEXCLUT*>& out, int nPage, int detail)
 {
 	texdata_t* page = &g_pageDatas[nPage];
 
 	// ofc, add default
-	out.push_back(&page->clut[detail]);
+	out.append(&page->clut[detail]);
 
-	std::vector<extclutdata_t*> extra_cluts;
+	DkList<extclutdata_t*> extra_cluts;
 
 	for (int i = 0; i < g_numExtraPalettes; i++)
 	{
@@ -169,13 +169,13 @@ void GetTPageDetailPalettes(std::vector<TEXCLUT*>& out, int nPage, int detail)
 		}
 
 		if (found)
-			extra_cluts.push_back(&g_extraPalettes[i]);
+			extra_cluts.append(&g_extraPalettes[i]);
 	}
 
-	quickSort(extra_cluts, clutSortFunc, 0, extra_cluts.size() - 1);
+	extra_cluts.sort(clutSortFunc);
 
-	for (int i = 0; i < extra_cluts.size(); i++)
-		out.push_back(&extra_cluts[i]->clut);
+	for (int i = 0; i < extra_cluts.numElem(); i++)
+		out.append(&extra_cluts[i]->clut);
 }
 
 //-------------------------------------------------------------
@@ -202,7 +202,7 @@ void ExportTIM(int nPage, int detail)
 	if (h == 0)
 		h = 256;
 
-	std::vector<TEXCLUT*> palettes;
+	DkList<TEXCLUT*> palettes;
 	GetTPageDetailPalettes(palettes, nPage, detail);
 
 	char* textureName = g_textureNamesData + g_texPages[nPage].details[detail].nameoffset;
@@ -219,7 +219,7 @@ void ExportTIM(int nPage, int detail)
 
 	// copy image
 	ubyte* image_data = new ubyte[img_size];
-	TEXCLUT* clut_data = new TEXCLUT[palettes.size()];
+	TEXCLUT* clut_data = new TEXCLUT[palettes.numElem()];
 
 	for (int y = oy; y < tp_hy; y++)
 	{
@@ -249,7 +249,7 @@ void ExportTIM(int nPage, int detail)
 	}
 
 	// copy cluts
-	for (int i = 0; i < palettes.size(); i++)
+	for (int i = 0; i < palettes.numElem(); i++)
 	{
 		memcpy(&clut_data[i], palettes[i], sizeof(TEXCLUT));
 	}
@@ -268,7 +268,7 @@ void ExportTIM(int nPage, int detail)
 	cluthdr.origin_y = 0;
 
 	cluthdr.width = 16;					// CLUTs always 16 bit color
-	cluthdr.height = palettes.size();
+	cluthdr.height = palettes.numElem();
 	cluthdr.len = (cluthdr.width * cluthdr.height * sizeof(ushort)) + sizeof(TIMIMAGEHDR);
 
 	datahdr.origin_x = ox;

@@ -1,6 +1,6 @@
 #include "driver_level.h"
 #include "core/VirtualStream.h"
-#include <vector>
+#include "util/DkList.h"
 
 ELevelFormat g_format = LEV_FORMAT_AUTODETECT;
 
@@ -11,7 +11,7 @@ std::string					g_levname = "MIAMI.LEV";
 IVirtualStream*				g_levStream = NULL;
 char*						g_overlayMapData = NULL;
 
-extern std::vector<std::string>	g_model_names;
+extern DkList<std::string>	g_model_names;
 
 //-------------------------------------------------------------
 // parses model lumps and exports models to OBJ
@@ -99,7 +99,7 @@ void LoadModelNamesLump(IVirtualStream* pFile, int size)
 
 		len = strlen(str);
 
-		g_model_names.push_back(str);
+		g_model_names.append(str);
 
 		sz += len + 1;
 	} while (sz < size);

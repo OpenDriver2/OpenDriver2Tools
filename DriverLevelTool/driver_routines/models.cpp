@@ -1,5 +1,6 @@
 #include "models.h"
 #include "regions.h"
+#include "util/DkList.h"
 #include <unordered_set>
 
 #include "core/cmdlib.h"
@@ -7,25 +8,25 @@
 
 //--------------------------------------------------------------------------------
 
-std::vector<std::string>	g_model_names;
+DkList<std::string>	g_model_names;
 ModelRef_t					g_levelModels[1536];		// level models
 CarModelData_t				g_carModels[MAX_CAR_MODELS];
 
-MODEL* FindModelByIndex(int nIndex, RegionModels_t* models)
+ModelRef_t* FindModelByIndex(int nIndex, RegionModels_t* models)
 {
 	if (nIndex >= 0 && nIndex < 1536)
 	{
 		// try searching in region datas
 		if (g_levelModels[nIndex].swap && models)
 		{
-			for (int i = 0; i < models->modelRefs.size(); i++)
+			for (int i = 0; i < models->modelRefs.numElem(); i++)
 			{
 				if (models->modelRefs[i].index == nIndex)
-					return models->modelRefs[i].model;
+					return &models->modelRefs[i];
 			}
 		}
 
-		return g_levelModels[nIndex].model;
+		return &g_levelModels[nIndex];
 	}
 
 	return NULL;
@@ -124,6 +125,7 @@ int decode_poly(const char* polyList, dpoly_t* out)
 
 			break;
 		}
+		case 4:
 		case 10:
 		case 20:
 		{
@@ -208,6 +210,6 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			g_UnknownPolyTypes.insert(ptype);
 		}
 	}
-
+	
 	return PolySizes[ptype];
 }

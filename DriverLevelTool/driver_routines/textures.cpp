@@ -7,7 +7,7 @@
 
 //-------------------------------------------------------------------------------
 
-std::vector<std::string>	g_texture_names;
+DkList<std::string>	g_texture_names;
 char*						g_textureNamesData = NULL;
 
 TEXPAGE_POS*				g_texPagePos = NULL;

@@ -67,15 +67,15 @@ extern CarModelData_t			g_carModels[MAX_CAR_MODELS];
 //------------------------------------------------------------------------------------------------------------
 
 struct RegionModels_t;
-MODEL*	FindModelByIndex(int nIndex, RegionModels_t* models);
-int		GetModelIndexByName(const char* name);
+ModelRef_t*		FindModelByIndex(int nIndex, RegionModels_t* models);
+int				GetModelIndexByName(const char* name);
 
-void PrintUnknownPolys();
-int decode_poly(const char* face, dpoly_t* out);
+void			PrintUnknownPolys();
+int				decode_poly(const char* face, dpoly_t* out);
 
 //-------------------------------------------------------------------------------
 
 // research function
-void DumpFaceTypes();
+void			DumpFaceTypes();
 
 #endif // MODEL_H

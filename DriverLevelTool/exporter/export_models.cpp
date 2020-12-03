@@ -2,6 +2,7 @@
 
 #include "driver_routines/models.h"
 #include "util/util.h"
+#include "util/DkList.h"
 #include "core/VirtualStream.h"
 #include <string>
 
@@ -11,12 +12,12 @@
 extern bool						g_extract_dmodels;
 extern std::string				g_levname_moddir;
 extern std::string				g_levname_texdir;
-extern std::vector<std::string>	g_model_names;
+extern DkList<std::string>	g_model_names;
 
 //-------------------------------------------------------------
 // writes Wavefront OBJ into stream
 //-------------------------------------------------------------
-void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int model_index, const char* name_prefix,
+void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize, int model_index, const char* name_prefix,
 	bool debugInfo,
 	const Matrix4x4& translation,
 	int* first_v,
@@ -42,13 +43,15 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int model_inde
 	{
 		pStream->Print("#vertex data ref model: %d (count = %d)\r\n", model->instance_number, model->num_vertices);
 
-		vertex_ref = FindModelByIndex(model->instance_number, regModels);
+		ModelRef_t* ref = FindModelByIndex(model->instance_number, regModels);
 
-		if (!vertex_ref)
+		if (!ref)
 		{
 			Msg("vertex ref not found %d\n", model->instance_number);
 			return;
 		}
+
+		vertex_ref = ref->model;
 	}
 
 	// store vertices
@@ -105,15 +108,30 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int model_inde
 	for (int i = 0; i < model->num_polys; i++)
 	{
 		char* facedata = model->pPolyAt(face_ofs);
-		int face_size = decode_poly(facedata, &dec_face);
 
+		// check offset
+		if((ubyte*)facedata >= (ubyte*)model+modelSize)
+		{
+			MsgError("poly id=%d type=%d ofs=%d bad offset!\n", i, *facedata & 31, model->poly_block + face_ofs);
+			break;
+		}
+		
+		int poly_size = decode_poly(facedata, &dec_face);
+
+		// check poly size
+		if (poly_size == 0)
+		{
+			MsgError("poly id=%d type=%d ofs=%d zero size!\n", i, *facedata & 31, model->poly_block + face_ofs);
+			break;
+		}
+		
 		if (debugInfo)
-			pStream->Print("# ft=%d ofs=%d size=%d\r\n", dec_face.flags, model->poly_block + face_ofs, face_size);
+			pStream->Print("# ft=%d ofs=%d size=%d\r\n", *facedata & 31, model->poly_block + face_ofs, poly_size);
 
 		volatile int numPolyVerts = (dec_face.flags & FACE_IS_QUAD) ? 4 : 3;
 		bool bad_face = false;
 
-		// perform checks
+		// perform vertex checks
 		for(int v = 0; v < numPolyVerts; v++)
 		{
 			if(dec_face.vindices[v] >= vertex_ref->num_vertices)
@@ -137,7 +155,7 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int model_inde
 		if(bad_face)
 		{
 			MsgError("poly id=%d type=%d ofs=%d has invalid indices (or format is unknown)\n", i, *facedata & 31, model->poly_block + face_ofs);
-			face_ofs += face_size;
+			face_ofs += poly_size;
 			continue;
 		}
 
@@ -216,7 +234,7 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int model_inde
 		// end the vertex
 		pStream->Print("%s\r\n", formatted_vertex);
 
-		face_ofs += face_size;
+		face_ofs += poly_size;
 	}
 
 	if (first_t)
@@ -272,7 +290,7 @@ void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, in
 
 		fstr.Print("mtllib MODELPAGES.mtl\r\n");
 
-		WriteMODELToObjStream(&fstr, model, model_index, model_name, true);
+		WriteMODELToObjStream(&fstr, model, modelSize, model_index, model_name, true);
 
 		// success
 		fclose(mdlFile);

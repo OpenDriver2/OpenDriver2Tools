@@ -1,4 +1,7 @@
 #include "regions.h"
+
+#include <malloc.h>
+
 #include "textures.h"
 
 #include "core/IVirtualStream.h"
@@ -110,7 +113,7 @@ void LoadRegionData(IVirtualStream* pFile, RegionModels_t* models, AreaDataStr* 
 
 	pFile->Seek(modelsOffset,VS_SEEK_SET);
 
-	bool needModels = !models->modelRefs.size();
+	bool needModels = !models->modelRefs.numElem();
 
 	for(int i = 0; i < numModels; i++)
 	{
@@ -131,7 +134,7 @@ void LoadRegionData(IVirtualStream* pFile, RegionModels_t* models, AreaDataStr* 
 				ref.model = (MODEL*)data;
 				ref.size = modelSize;
 				
-				models->modelRefs.push_back(ref);
+				models->modelRefs.append(ref);
 			}
 		}
 	}
@@ -257,9 +260,9 @@ void FreeSpoolData()
 
 	if(g_regionModels)
 	{
-		for(int i = 0; i < g_regionModels[i].modelRefs.size(); i++)
+		for(int i = 0; i < g_numAreas; i++)
 		{
-			for(int j = 0; j < g_regionModels[i].modelRefs.size(); j++)
+			for(int j = 0; j < g_regionModels[i].modelRefs.numElem(); j++)
 				free(g_regionModels[i].modelRefs[j].model);
 		}
 

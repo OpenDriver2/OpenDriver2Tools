@@ -11,8 +11,9 @@
 
 extern bool						g_export_models;
 extern std::string				g_levname_moddir;
-extern std::vector<std::string>	g_model_names;
 extern std::string				g_levname;
+
+extern DkList<std::string>		g_model_names;
 
 char g_packed_cell_pointers[8192];
 ushort g_cell_ptrs[8192];
@@ -349,14 +350,14 @@ void ExportRegions()
 			{
 				regModels = &g_regionModels[spool->super_region];
 
-				bool isNew = (regModels->modelRefs.size() == 0);
+				bool isNew = (regModels->modelRefs.numElem() == 0);
 
 				LoadRegionData(g_levStream, regModels, &g_areaData[spool->super_region], &g_regionPages[spool->super_region]);
 
 				if (g_export_models && isNew)
 				{
 					// export region models
-					for (int i = 0; i < regModels->modelRefs.size(); i++)
+					for (int i = 0; i < regModels->modelRefs.numElem(); i++)
 					{
 						int mod_indxex = regModels->modelRefs[i].index;
 
@@ -404,9 +405,9 @@ void ExportRegions()
 									cellsFileStream.Print("v %g %g %g\r\n", absCellPosition.x, absCellPosition.y, absCellPosition.z);
 								}
 
-								MODEL* model = FindModelByIndex(co.type, regModels);
+								ModelRef_t* mdref = FindModelByIndex(co.type, regModels);
 
-								if (model)
+								if (mdref)
 								{
 									// transform objects and save
 									Matrix4x4 transform = translate(absCellPosition);
@@ -414,7 +415,7 @@ void ExportRegions()
 
 									const char* modelNamePrefix = varargs("reg%d", sPosIdx);
 
-									WriteMODELToObjStream(&levelFileStream, model, co.type, modelNamePrefix, false, transform, &lobj_first_v, &lobj_first_t, regModels);
+									WriteMODELToObjStream(&levelFileStream, mdref->model, mdref->size, co.type, modelNamePrefix, false, transform, &lobj_first_v, &lobj_first_t, regModels);
 								}
 
 								numRegionObjects++;
@@ -463,9 +464,9 @@ void ExportRegions()
 								cellsFileStream.Print("v %g %g %g\r\n", absCellPosition.x, absCellPosition.y, absCellPosition.z);
 							}
 
-							MODEL* model = FindModelByIndex(co.type, regModels);
+							ModelRef_t* mdref = FindModelByIndex(co.type, regModels);
 
-							if (model)
+							if (mdref)
 							{
 								// transform objects and save
 								Matrix4x4 transform = translate(absCellPosition);
@@ -473,7 +474,7 @@ void ExportRegions()
 
 								const char* modelNamePrefix = varargs("reg%d", sPosIdx);
 
-								WriteMODELToObjStream(&levelFileStream, model, co.type, modelNamePrefix, false, transform, &lobj_first_v, &lobj_first_t, regModels);
+								WriteMODELToObjStream(&levelFileStream, mdref->model, mdref->size, co.type, modelNamePrefix, false, transform, &lobj_first_v, &lobj_first_t, regModels);
 							}
 
 							numRegionObjects++;
