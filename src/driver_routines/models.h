@@ -4,7 +4,7 @@
 #include "math/dktypes.h"
 #include "math/psx_math_types.h"
 #include "d2_types.h"
-#include <vector>
+
 
 //------------------------------------------------------------------------------------------------------------
 
@@ -45,11 +45,6 @@ struct ModelRef_t
 	void*	userData;
 };
 
-struct RegionModels_t
-{
-	std::vector<ModelRef_t> modelRefs;
-};
-
 //------------------------------------------------------------------------------------------------------------
 
 #define MAX_MODELS				1536	// maximum models (this is limited by PACKED_CELL_OBJECT)
@@ -65,11 +60,15 @@ struct CarModelData_t
 	int lowSize;
 };
 
-extern std::vector<std::string>	g_model_names;
+
 extern ModelRef_t				g_levelModels[MAX_MODELS];
 extern CarModelData_t			g_carModels[MAX_CAR_MODELS];
 
 //------------------------------------------------------------------------------------------------------------
+
+struct RegionModels_t;
+MODEL*	FindModelByIndex(int nIndex, RegionModels_t* models);
+int		GetModelIndexByName(const char* name);
 
 void PrintUnknownPolys();
 int decode_poly(const char* face, dpoly_t* out);

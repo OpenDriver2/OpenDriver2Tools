@@ -8,9 +8,10 @@
 #include "driver_level.h"
 #include "math/Matrix.h"
 
-extern bool					g_extract_dmodels;
-extern std::string			g_levname_moddir;
-extern std::string			g_levname_texdir;
+extern bool						g_extract_dmodels;
+extern std::string				g_levname_moddir;
+extern std::string				g_levname_texdir;
+extern std::vector<std::string>	g_model_names;
 
 //-------------------------------------------------------------
 // writes Wavefront OBJ into stream

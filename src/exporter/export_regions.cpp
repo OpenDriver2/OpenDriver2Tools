@@ -9,10 +9,12 @@
 
 #define SPOOL_CD_BLOCK_SIZE 2048
 
-extern int			g_region_format;
-extern int			g_format;
-extern bool			g_export_models;
-extern std::string	g_levname_moddir;
+extern int						g_region_format;
+extern int						g_format;
+extern bool						g_export_models;
+extern std::string				g_levname_moddir;
+extern std::vector<std::string>	g_model_names;
+extern std::string				g_levname;
 
 char g_packed_cell_pointers[8192];
 ushort g_cell_ptrs[8192];

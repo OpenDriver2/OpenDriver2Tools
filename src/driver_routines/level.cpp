@@ -1,5 +1,6 @@
 #include "driver_level.h"
 #include "core/VirtualStream.h"
+#include <vector>
 
 int g_region_format = 3;
 int g_format = 0;
@@ -10,6 +11,8 @@ std::string					g_levname = "MIAMI.LEV";
 
 IVirtualStream*				g_levStream = NULL;
 char*						g_overlayMapData = NULL;
+
+extern std::vector<std::string>	g_model_names;
 
 //-------------------------------------------------------------
 // parses model lumps and exports models to OBJ
@@ -126,8 +129,6 @@ void LoadTextureNamesLump(IVirtualStream* pFile, int size)
 		char* str = g_textureNamesData + sz;
 
 		len = strlen(str);
-
-		g_texture_names.push_back(str);
 
 		sz += len + 1;
 	} while (sz < size);

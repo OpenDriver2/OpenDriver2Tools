@@ -18,13 +18,15 @@ int g_overlaymap_width = 1;
 
 //---------------------------------------------------------------------------------------------------------------------------------
 
-std::string			g_levname_moddir;
-std::string			g_levname_texdir;
+std::string				g_levname_moddir;
+std::string				g_levname_texdir;
 
-int					g_levSize = 0;
+extern std::string		g_levname;
 
-const float			texelSize = 1.0f / 256.0f;
-const float			halfTexelSize = texelSize * 0.5f;
+int						g_levSize = 0;
+
+const float				texelSize = 1.0f / 256.0f;
+const float				halfTexelSize = texelSize * 0.5f;
 
 
 //-------------------------------------------------------------

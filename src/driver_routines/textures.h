@@ -44,7 +44,6 @@ extern TexPage_t*				g_texPages;
 extern extclutdata_t*			g_extraPalettes;
 extern int						g_numExtraPalettes;
 
-extern std::vector<std::string>	g_texture_names;
 extern char*					g_textureNamesData;
 
 extern TEXPAGE_POS*				g_texPagePos;
@@ -57,6 +56,8 @@ extern char*					g_overlayMapData;
 //---------------------------------------------------------------------------------------------------------------------------------
 
 TVec4D<ubyte>	bgr5a1_ToRGBA8(ushort color);
+
+int				GetCarPalIndex(int tpage);
 
 //---------------------------------------------------------------------------------------------------------------------------------
 

@@ -8,6 +8,7 @@
 
 extern std::string			g_levname_moddir;
 extern std::string			g_levname_texdir;
+extern std::string			g_levname;
 
 extern bool g_export_textures;
 extern bool g_export_overmap;

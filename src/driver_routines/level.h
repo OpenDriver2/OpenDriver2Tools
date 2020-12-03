@@ -53,18 +53,11 @@
 extern int g_region_format;
 extern int g_format;
 
-extern std::string				g_levname;
-
 //------------------------------------------------------------------------------------------------------------
 // functions
 
 class IVirtualStream;
 struct RegionModels_t;
-
-int		GetCarPalIndex(int tpage);
-
-MODEL*	FindModelByIndex(int nIndex, RegionModels_t* models);
-int		GetModelIndexByName(const char* name);
 
 void	LoadModelNamesLump(IVirtualStream* pFile, int size);
 void	LoadTextureNamesLump(IVirtualStream* pFile, int size);
