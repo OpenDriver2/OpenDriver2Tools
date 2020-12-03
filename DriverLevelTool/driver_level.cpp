@@ -139,8 +139,8 @@ void PrintCommandLineArguments()
 		"  -extractmodels \t: Extracts DMODEL files instead of exporting to OBJ\n\n"
 		"  -overmap <width> \t: Extract overlay map with specified width\n\n"
 		"  -explodetpages \t: Extracts textures as separate TIM files instead of whole texture page exporting as TGA\n\n"
-		"  -dmodel2obj <filename.DMODEL> <output> \t: converts DMODEL to OBJ file\n\n";
-
+		"  -dmodel2obj <filename.DMODEL> <output.OBJ> \t: converts DMODEL to OBJ file\n\n";
+		"  -compiledmodel <filename.OBJ> <output.DMODEL> \t: compiles OBJ to DMODEL file\n\n";
 	MsgInfo(argumentsMessage);
 }
 
@@ -207,6 +207,11 @@ int main(int argc, char* argv[])
 		else if (!stricmp(argv[i], "-dmodel2obj"))
 		{
 			ConvertDModelFileToOBJ(argv[i + 1], argv[i + 2]);
+			return 0;
+		}
+		else if (!stricmp(argv[i], "-compiledmodel"))
+		{
+			CompileOBJModelToDMODEL(argv[i + 1], argv[i + 2]);
 			return 0;
 		}
 		else
