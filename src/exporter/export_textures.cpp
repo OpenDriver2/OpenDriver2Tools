@@ -1,9 +1,10 @@
 #include <direct.h>
 
 #include "driver_level.h"
-#include "rnc2.h"
 #include "core/cmdlib.h"
-#include "core/util.h"
+
+#include "util/util.h"
+#include "util/rnc2.h"
 
 extern std::string			g_levname_moddir;
 extern std::string			g_levname_texdir;

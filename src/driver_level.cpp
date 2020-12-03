@@ -127,7 +127,7 @@ void ConvertDModelFileToOBJ(const char* filename, const char* outputFilename)
 void PrintCommandLineArguments()
 {
 	const char* argumentsMessage =
-		"Example: driver_psx_level <command> [arguments]\n\n\n"
+		"Example: DriverLevelTool <command> [arguments]\n\n\n"
 		"  -lev <filename.LEV> \t: Specify level file you want to input\n\n"
 		"  -format <n> \t\t: Specify level file format. 1 = Driver 1 LEV, 2 = Driver 2 LEV\n\n"
 		"  -regformat <n> \t: Specify level region format. 1 = Driver 1, 2 = Driver 2 Demo (alpha 1.6), 3 = Driver 2 Retail\n\n"

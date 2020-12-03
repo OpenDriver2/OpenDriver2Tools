@@ -6,7 +6,7 @@
 #define LEVEL_H
 
 #include "math/dktypes.h"
-#include "psx_math_types.h"
+#include "math/psx_math_types.h"
 
 // known lumps indexes
 #define LUMP_MODELS				1		// level models

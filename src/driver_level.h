@@ -4,11 +4,11 @@
 #include <vector>
 #include <string>
 
-#include "level.h"
+#include "driver_routines/level.h"
+#include "driver_routines/models.h"
+#include "driver_routines/textures.h"
+#include "driver_routines/regions.h"
 
-#include "models.h"
-#include "textures.h"
-#include "regions.h"
 #include "math/Matrix.h"
 
 //----------------------------------------------------------

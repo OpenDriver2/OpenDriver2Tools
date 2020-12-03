@@ -1,10 +1,3 @@
-//////////////////////////////////////////////////////////////////////////////////
-// Copyright © Inspiration Byte
-// 2009-2015
-//////////////////////////////////////////////////////////////////////////////////
-// Description: Base debug interface for console programs handler
-//////////////////////////////////////////////////////////////////////////////////
-
 #include "cmdlib.h"
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -189,7 +182,7 @@ void fnConDebugSpew(SpewType_t type,const char* text)
 			old = SetConsoleTextColor( 1, 1, 1, 1 );
 		}
 
-		OutputDebugString( text );
+		OutputDebugStringA( text );
 		printf( "%s", text );
 
 		RestoreConsoleTextColor( old );

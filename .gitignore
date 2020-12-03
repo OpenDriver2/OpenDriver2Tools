@@ -43,3 +43,9 @@ Icon
 *.cache
 *.pdb
 *.log
+*.vs
+*.vcxproj
+*.vcxproj.filters
+*.sln
+src/bin/*
+src/obj/*

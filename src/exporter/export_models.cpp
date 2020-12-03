@@ -1,7 +1,7 @@
 #include <stdio.h>
 
-#include "models.h"
-#include "core/util.h"
+#include "driver_routines/models.h"
+#include "util/util.h"
 #include "core/VirtualStream.h"
 #include <string>
 

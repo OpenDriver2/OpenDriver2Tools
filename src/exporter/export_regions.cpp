@@ -1,8 +1,10 @@
 #include "driver_level.h"
-#include "level.h"
+#include "driver_routines/level.h"
+
 #include "core/cmdlib.h"
-#include "core/util.h"
 #include "core/VirtualStream.h"
+#include "util/util.h"
+
 #include "math/Matrix.h"
 
 #define SPOOL_CD_BLOCK_SIZE 2048
