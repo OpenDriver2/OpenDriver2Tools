@@ -393,7 +393,11 @@ MODEL* CompileDMODEL(CMemoryStream* stream, smdmodel_t* model, int& resultSize)
 	// TODO: proper values
 	modelData->flags2 = 0;
 	modelData->shape_flags = 0;
-	
+
+	modelData->zBias = 0;
+	modelData->instance_number = -1;
+	modelData->tri_verts = 3;
+
 	modelData->num_vertices = model->verts.numElem();
 	modelData->num_point_normals = model->normals.numElem();
 	modelData->num_polys = 0;
