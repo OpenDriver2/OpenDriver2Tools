@@ -30,12 +30,6 @@ int readInt(Tokenizer &tok)
 	return atoi(str);
 }
 
-Vector3D NormalOfTriangle(const Vector3D& v0, const Vector3D& v1, const Vector3D& v2)
-{
-	//Calculate vectors along polygon sides
-	return fastNormalize(cross(v2 - v1, v0 - v1));
-}
-
 int strchcount( char *str, char ch )
 {
 	int count = 0;
