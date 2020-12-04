@@ -3,6 +3,8 @@
 #include "core/VirtualStream.h"
 #include <direct.h>
 
+#include "model_compiler/compiler.h"
+
 bool g_export_carmodels = false;
 bool g_export_models = false;
 bool g_extract_dmodels = false;
@@ -73,13 +75,13 @@ void ProcessLevFile(const char* filename)
 	g_levSize = ftell(levTest);
 	fclose(levTest);
 
-	g_levname = filename;
+	std::string lev_no_ext = filename;
+	
+	size_t lastindex = lev_no_ext.find_last_of(".");
+	lev_no_ext = lev_no_ext.substr(0, lastindex);
 
-	size_t lastindex = g_levname.find_last_of(".");
-	g_levname = g_levname.substr(0, lastindex);
-
-	g_levname_moddir = g_levname + "_models";
-	g_levname_texdir = g_levname + "_textures";
+	g_levname_moddir = lev_no_ext + "_models";
+	g_levname_texdir = lev_no_ext + "_textures";
 
 	_mkdir(g_levname_moddir.c_str());
 	_mkdir(g_levname_texdir.c_str());
@@ -156,8 +158,6 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
-	std::string levName;
-
 	for (int i = 1; i < argc; i++)
 	{
 		if (!stricmp(argv[i], "-format"))
@@ -201,7 +201,7 @@ int main(int argc, char* argv[])
 		}
 		else if (!stricmp(argv[i], "-lev"))
 		{
-			levName = argv[i + 1];
+			g_levname = argv[i + 1];
 			i++;
 		}
 		else if (!stricmp(argv[i], "-dmodel2obj"))
@@ -222,13 +222,13 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	if (levName.length() == 0)
+	if (g_levname.length() == 0)
 	{
 		PrintCommandLineArguments();
 		return 0;
 	}
 
-	ProcessLevFile(levName.c_str());
+	ProcessLevFile(g_levname.c_str());
 
 	return 0;
 }

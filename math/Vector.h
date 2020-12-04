@@ -659,6 +659,12 @@ ColorRGB	rgbeToRGB(unsigned char *rgbe);
 uint		rgbToRGBE8(const ColorRGB &rgb);
 uint		rgbToRGB9E5(const ColorRGB &rgb);
 
+inline Vector3D NormalOfTriangle(const Vector3D& v0, const Vector3D& v1, const Vector3D& v2)
+{
+	//Calculate vectors along polygon sides
+	return fastNormalize(cross(v2 - v1, v0 - v1));
+}
+
 // as quake's vec3_origin, but for all vector types
 #define vec2_zero TVec2D<float>(0.0f)
 #define vec3_zero TVec3D<float>(0.0f)

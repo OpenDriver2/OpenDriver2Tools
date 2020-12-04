@@ -32,8 +32,6 @@ void	WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 			int* first_t = NULL,
 			RegionModels_t* regModels = NULL);
 
-void	CompileOBJModelToDMODEL(const char* filename, const char* outputName);
-
 //----------------------------------------------------------
 // main functions
 

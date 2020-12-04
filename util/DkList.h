@@ -236,11 +236,6 @@ inline int DkList<T>::getGranularity( void ) const
 template< class T >
 inline const T &DkList<T>::operator[]( int index ) const
 {
-#ifdef DEBUG_CHECK_LIST_BOUNDS
-	ASSERT( index >= 0 );
-	ASSERT( index < m_nNumElem );
-#endif // DEBUG_CHECK_LIST_BOUNDS
-
 	return m_pListPtr[ index ];
 }
 

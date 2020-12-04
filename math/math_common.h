@@ -162,12 +162,12 @@ inline unsigned int getLowerPowerOfTwo(const unsigned int x)
 
 inline bool fsimilar( float a, float b, float cmp = F_EPS )
 {
-	return fabs(a-b) < cmp;
+	return fabs(a-b) <= cmp;
 }
 
 inline bool dsimilar( double a, double b, double cmp = F_EPS )
 {
-	return fabs(a-b) < cmp;
+	return fabs(a-b) <= cmp;
 }
 
 // Note: returns true for 0

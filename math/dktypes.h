@@ -106,6 +106,13 @@ private:
 	char s_szError[ERROR_BUFFER_LENGTH];
 };
 
-
+// quick swap function
+template< class T >
+inline void QuickSwap(T& a, T& b)
+{
+	T c = a;
+	a = b;
+	b = c;
+}
 
 #endif // DKTYPES_H

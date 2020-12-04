@@ -6,7 +6,7 @@ ELevelFormat g_format = LEV_FORMAT_AUTODETECT;
 
 //--------------------------------------------------------------------------------------------------------------------------
 
-std::string					g_levname = "MIAMI.LEV";
+std::string					g_levname;
 
 IVirtualStream*				g_levStream = NULL;
 char*						g_overlayMapData = NULL;
