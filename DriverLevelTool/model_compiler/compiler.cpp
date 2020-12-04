@@ -1,3 +1,5 @@
+#include "compiler.h"
+
 #include "obj_loader.h"
 #include "driver_routines/d2_types.h"
 #include <malloc.h>
@@ -7,9 +9,10 @@
 #include "util/ini.h"
 #include "util/util.h"
 
+extern std::string		g_levname;
 
-TexPage_t*	g_compilerTPages = NULL;
-int			g_numCompilerTPages = 0;
+TexPage_t*				g_compilerTPages = NULL;
+int						g_numCompilerTPages = 0;
 
 void ConvertVertexToDriver(SVECTOR* dest, Vector3D* src)
 {
@@ -49,7 +52,7 @@ void InitTextureDetailsForModel(smdmodel_t* model)
 		int tpage_number = -1;
 		sscanf(group->texture, "page_%d", &tpage_number);
 
-		if (tpage_number != -1)
+		if (tpage_number != -1 && tpage_ids.findIndex(tpage_number) == -1)
 		{
 			tpage_ids.append(tpage_number);
 			textured_groups.append(group);
@@ -58,18 +61,21 @@ void InitTextureDetailsForModel(smdmodel_t* model)
 
 	g_compilerTPages = new TexPage_t[textured_groups.numElem()];
 	g_numCompilerTPages = textured_groups.numElem();
+
+	size_t lastindex = g_levname.find_last_of(".");
+	g_levname = g_levname.substr(0, lastindex);
 	
 	// load INI files
 	for(int i = 0; i < textured_groups.numElem(); i++)
 	{
-		ini_t* tpage_ini = ini_load(varargs("%s.ini", textured_groups[i]->texture));
+		ini_t* tpage_ini = ini_load(varargs("%s_textures/%s.ini", g_levname.c_str(), textured_groups[i]->texture));
 
 		if (!tpage_ini)
 		{
 			g_compilerTPages[i].details = NULL;
 			g_compilerTPages[i].numDetails = 0;
 			
-			MsgError("Unable to open '%s.ini'! Texture coordinates might be messed up\n", textured_groups[i]->texture);
+			MsgError("Unable to open '%s_textures/%s.ini'! Texture coordinates might be messed up\n", g_levname.c_str(), textured_groups[i]->texture);
 			continue;
 		}
 		
@@ -328,6 +334,27 @@ int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* grou
 }
 
 //--------------------------------------------------------------------------
+// Writes polygon normals
+//--------------------------------------------------------------------------
+void WritePolygonNormals(IVirtualStream* stream, smdmodel_t* model, smdgroup_t* group)
+{
+	int numPolys = group->polygons.numElem();
+	for (int i = 0; i < numPolys; i++)
+	{
+		const smdpoly_t& poly = group->polygons[i];
+		Vector3D normal = NormalOfTriangle(model->verts[poly.vindices[0]], model->verts[poly.vindices[1]], model->verts[poly.vindices[2]]);
+
+		// Invert normals
+		normal *= -1.0f;
+		
+		SVECTOR dstvert;
+		ConvertVertexToDriver(&dstvert, &normal);
+
+		stream->Write(&dstvert, 1, sizeof(SVECTOR));
+	}
+}
+
+//--------------------------------------------------------------------------
 // Computes bounding sphere, primarily takes MAX vertex coordinate values
 //--------------------------------------------------------------------------
 int CalculateBoundingSphere(SVECTOR* verts, int count)
@@ -388,16 +415,24 @@ MODEL* CompileDMODEL(CMemoryStream* stream, smdmodel_t* model, int& resultSize)
 	modelData->bounding_sphere = CalculateBoundingSphere(modelData->pVertex(0), modelData->num_vertices);
 	Msg("Bounding sphere: %d\n", modelData->bounding_sphere);
 	
-	// hmmm
+	// polygon normals
 	modelData->normals = stream->Tell();
+	for (int i = 0; i < model->groups.numElem(); i++)
+	{
+		WritePolygonNormals(stream, model, model->groups[i]);
+	}
 
 	// write point normals
 	modelData->point_normals = stream->Tell();
 	for(int i = 0; i < model->normals.numElem(); i++)
 	{
-		Vector3D& srcvert = model->normals[i];
+		Vector3D normal = model->normals[i];
+
+		// Invert normals
+		normal *= -1.0f;
+
 		SVECTOR dstvert;
-		ConvertVertexToDriver(&dstvert, &srcvert);
+		ConvertVertexToDriver(&dstvert, &normal);
 		
 		stream->Write(&dstvert, 1 ,sizeof(SVECTOR));
 	}
@@ -430,10 +465,30 @@ void CompileOBJModelToDMODEL(const char* filename, const char* outputName)
 {
 	smdmodel_t model;
 
+	if(g_levname.length() == 0)
+	{
+		MsgError("Level name must be specified!\n");
+		return;
+	}
+
 	MsgInfo("Compiling '%s' to '%s'...\n", filename, outputName);
 	
 	if (!LoadOBJ(&model, filename))
 		return;
+
+	OptimizeModel(model);
+
+	if(model.verts.numElem() > 256)
+	{
+		MsgError("Cannot continue - model exceeds 256 vertices\n");
+		return;
+	}
+
+	if (model.normals.numElem() > 256)
+	{
+		MsgError("Cannot continue - model exceeds 256 vertex normals\n");
+		return;
+	}
 
 	InitTextureDetailsForModel(&model);
 
