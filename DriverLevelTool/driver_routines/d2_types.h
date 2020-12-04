@@ -106,13 +106,16 @@ struct POLYF3
 // FIXME: it's guessed
 struct POLYF4
 {
-	unsigned char id;
-	unsigned char v0;
+	unsigned char id; // 0
+	unsigned char pad1;
+	unsigned char pad2;
+	unsigned char spare;
+	unsigned char v0; //4
 	unsigned char v1;
 	unsigned char v2;
 	unsigned char v3;
 	CVECTOR_NOPAD color;
-	char pad[8];
+	char pad[5];
 };
 
 struct POLYFT3
