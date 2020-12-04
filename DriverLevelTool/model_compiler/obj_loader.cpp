@@ -318,7 +318,13 @@ bool LoadOBJ(smdmodel_t* model, const char* filename)
 			char string[512];
 			string[0] = '\0';
 
-			strcpy(string, tok.nextLine()+1);
+			char* ofs = tok.nextLine() + 1;
+
+			// trim white space in the beginning
+			while (*ofs == ' ')
+				ofs++;
+			
+			strcpy(string, ofs);
 
 			char* str_idxs[32] = {NULL};
 			xstrsplitws(string, str_idxs);

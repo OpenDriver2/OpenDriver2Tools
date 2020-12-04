@@ -342,6 +342,7 @@ void WritePolygonNormals(IVirtualStream* stream, smdmodel_t* model, smdgroup_t* 
 	for (int i = 0; i < numPolys; i++)
 	{
 		const smdpoly_t& poly = group->polygons[i];
+
 		Vector3D normal = NormalOfTriangle(model->verts[poly.vindices[0]], model->verts[poly.vindices[1]], model->verts[poly.vindices[2]]);
 
 		// Invert normals
