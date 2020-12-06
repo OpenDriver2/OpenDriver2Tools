@@ -30,6 +30,8 @@ struct Denting_t
 //--------------------------------------------------------------------------
 int GetSideDamageZoneByVerts(smdmodel_t& model, const smdpoly_t& poly, int internalZoneType)
 {
+	float poly_side = 0;
+	
 	for (int i = 0; i < poly.vcount; i++)
 	{
 		Vector3D& vert = model.verts[poly.vindices[i]];
@@ -40,22 +42,33 @@ int GetSideDamageZoneByVerts(smdmodel_t& model, const smdpoly_t& poly, int inter
 		
 		if(temp.x < 0) // left
 		{
-			if (internalZoneType == ZONE_FRONT)
-				return ZONE_FRONT_LEFT;
-			else if (internalZoneType == ZONE_REAR)
-				return ZONE_REAR_LEFT;
-			else if (internalZoneType == ZONE_SIDE)
-				return ZONE_SIDE_LEFT;
+			poly_side -= 1.0f;
 		}
 		else // right
 		{
-			if (internalZoneType == ZONE_FRONT)
-				return ZONE_FRONT_RIGHT;
-			else if (internalZoneType == ZONE_REAR)
-				return ZONE_REAR_RIGHT;
-			else if (internalZoneType == ZONE_SIDE)
-				return ZONE_SIDE_RIGHT;
+			poly_side += 1.0f;
 		}
+	}
+
+	poly_side /= poly.vcount;
+	
+	if(poly_side > 0.0f)
+	{
+		if (internalZoneType == ZONE_FRONT)
+			return ZONE_FRONT_RIGHT;
+		else if (internalZoneType == ZONE_REAR)
+			return ZONE_REAR_RIGHT;
+		else if (internalZoneType == ZONE_SIDE)
+			return ZONE_SIDE_RIGHT;
+	}
+	else
+	{
+		if (internalZoneType == ZONE_FRONT)
+			return ZONE_FRONT_LEFT;
+		else if (internalZoneType == ZONE_REAR)
+			return ZONE_REAR_LEFT;
+		else if (internalZoneType == ZONE_SIDE)
+			return ZONE_SIDE_LEFT;
 	}
 
 	// no need in conversions
@@ -134,33 +147,33 @@ bool ProcessDentingForGroup(Denting_t& outDenting, smdmodel_t& model, smdgroup_t
 
 			// damage level is stored for each model polygon
 			outDenting.dentDamageLevels[outDenting.polygonCount] = level;
+
+			int realZone = GetSideDamageZoneByVerts(model, poly, zone);
+
+			if (realZone >= NUM_DAMAGE_ZONES)
+			{
+				MsgError("Invalid damage zone index %d\n", realZone);
+				return false;
+			}
 			
 			if(zone == ZONE_FRONT)
 			{
-				outDenting.dentZonePolys[ZONE_FRONT_LEFT][outDenting.numDentPolys[ZONE_FRONT_LEFT]++] = outDenting.polygonCount;
-				outDenting.dentZonePolys[ZONE_FRONT_RIGHT][outDenting.numDentPolys[ZONE_FRONT_RIGHT]++] = outDenting.polygonCount;
+				// polygons has to be added to their zones
+				outDenting.dentZonePolys[realZone][outDenting.numDentPolys[realZone]++] = outDenting.polygonCount;
 
 				AddDentingVerts(outDenting, ZONE_FRONT_LEFT, poly);
 				AddDentingVerts(outDenting, ZONE_FRONT_RIGHT, poly);
 			}
 			else if (zone == ZONE_REAR)
 			{
-				outDenting.dentZonePolys[ZONE_REAR_LEFT][outDenting.numDentPolys[ZONE_REAR_LEFT]++] = outDenting.polygonCount;
-				outDenting.dentZonePolys[ZONE_REAR_RIGHT][outDenting.numDentPolys[ZONE_REAR_RIGHT]++] = outDenting.polygonCount;
+				// polygons has to be added to their zones
+				outDenting.dentZonePolys[realZone][outDenting.numDentPolys[realZone]++] = outDenting.polygonCount;
 				
 				AddDentingVerts(outDenting, ZONE_REAR_LEFT, poly);
 				AddDentingVerts(outDenting, ZONE_REAR_RIGHT, poly);
 			}
 			else
 			{
-				int realZone = GetSideDamageZoneByVerts(model, poly, zone);
-
-				if (realZone >= NUM_DAMAGE_ZONES)
-				{
-					MsgError("Invalid damage zone index %d\n", realZone);
-					return false;
-				}
-				
 				outDenting.dentZonePolys[realZone][outDenting.numDentPolys[realZone]++] = outDenting.polygonCount;	// zone polygons are for each zone
 				AddDentingVerts(outDenting, realZone, poly);
 			}
