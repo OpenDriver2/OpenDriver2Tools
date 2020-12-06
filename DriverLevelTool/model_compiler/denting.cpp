@@ -115,12 +115,19 @@ void GenerateDenting(smdmodel_t& model, const char* outputName)
 {
 	// replace extension with .den
 	std::string den_filename = outputName;
-	den_filename = den_filename.substr(0, den_filename.find_last_of(".")) + ".den";
 
-	MsgInfo("Generating denting '%s'\n", outputName);
+	size_t str_idx = den_filename.find("_clean");
+	if(str_idx == -1)
+		str_idx = den_filename.find_last_of(".");
+	
+	den_filename = den_filename.substr(0, str_idx) + ".den";
+
+	MsgInfo("Generating denting '%s'\n", den_filename.c_str());
 
 	Denting_t newDenting;
 	memset(&newDenting, 0, sizeof(newDenting));
+	memset(newDenting.dentZoneVertices, 0xFF, sizeof(newDenting.dentZoneVertices));
+	memset(newDenting.dentZonePolys, 0xFF, sizeof(newDenting.dentZonePolys));
 
 	for (int i = 0; i < model.groups.numElem(); i++)
 	{
