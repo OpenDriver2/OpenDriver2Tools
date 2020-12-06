@@ -159,6 +159,7 @@ int main(int argc, char* argv[])
 	}
 
 	bool generate_denting = false;
+	bool do_main_routine = true;
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -209,7 +210,8 @@ int main(int argc, char* argv[])
 		else if (!stricmp(argv[i], "-dmodel2obj"))
 		{
 			ConvertDModelFileToOBJ(argv[i + 1], argv[i + 2]);
-			return 0;
+			do_main_routine = false;
+			i += 2;
 		}
 		else if (!stricmp(argv[i], "-denting"))
 		{
@@ -218,7 +220,9 @@ int main(int argc, char* argv[])
 		else if (!stricmp(argv[i], "-compiledmodel"))
 		{
 			CompileOBJModelToDMODEL(argv[i + 1], argv[i + 2], generate_denting);
-			return 0;
+			do_main_routine = false;
+			generate_denting = false; // disable denting compiler after it's job done
+			i += 2;
 		}
 		else
 		{
@@ -234,7 +238,8 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
-	ProcessLevFile(g_levname.c_str());
+	if(do_main_routine)
+		ProcessLevFile(g_levname.c_str());
 
 	return 0;
 }

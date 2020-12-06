@@ -14,6 +14,24 @@ extern std::string		g_levname;
 TexPage_t*				g_compilerTPages = NULL;
 int						g_numCompilerTPages = 0;
 
+//--------------------------------------------------------------------------
+
+inline int GetDamageZoneId(const char* zoneName)
+{
+	if (zoneName == NULL)
+		return 0xFFFF;
+
+	for(int i = 0; i < NUM_ZONE_TYPES; i++)
+	{
+		if(!stricmp(s_DamageZoneNames[i], zoneName))
+		{
+			return i;
+		}
+	}
+
+	return 0xFFFF;
+}
+
 void ConvertVertexToDriver(SVECTOR* dest, Vector3D* src)
 {
 	dest->x = -src->x * ONE;
@@ -106,13 +124,14 @@ void InitTextureDetailsForModel(smdmodel_t* model)
 			detail.width = w;
 			detail.height = h;
 
-			int damage_zone = 0xFFFF;
 			int damage_level = 0;
-			ini_sget(tpage_ini, varargs("detail_%d", j), "damagezone", "%d", &damage_zone);
+			
+			const char* damageZoneName = ini_get(tpage_ini, varargs("detail_%d", j), "damagezone");
+
 			ini_sget(tpage_ini, varargs("detail_%d", j), "damagelevel", "%d", &damage_level);
 
 			// store damage zone in ID and damage level in nameoffset
-			detail.id = damage_zone;
+			detail.id = GetDamageZoneId(damageZoneName);
 			detail.nameoffset = damage_level;
 		}
 
