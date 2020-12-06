@@ -13,6 +13,8 @@ struct smdpoly_t
 	int nindices[4];
 
 	int smooth;		// if smooth is not off - uses nindices
+	int flags;		// extra poly flags
+	int extraData;
 };
 
 // texture group

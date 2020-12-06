@@ -301,7 +301,8 @@ bool LoadOBJ(smdmodel_t* model, const char* filename)
 			}
 
 			smdpoly_t poly;
-			poly.vcount = 0;
+			memset(&poly, 0, sizeof(poly));
+
 			poly.smooth = smoothEnabled;
 			
 			int* vindices = poly.vindices;

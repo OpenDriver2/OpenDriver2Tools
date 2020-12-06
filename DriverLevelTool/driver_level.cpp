@@ -158,6 +158,8 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
+	bool generate_denting = false;
+
 	for (int i = 1; i < argc; i++)
 	{
 		if (!stricmp(argv[i], "-format"))
@@ -209,9 +211,13 @@ int main(int argc, char* argv[])
 			ConvertDModelFileToOBJ(argv[i + 1], argv[i + 2]);
 			return 0;
 		}
+		else if (!stricmp(argv[i], "-denting"))
+		{
+			generate_denting = true;
+		}
 		else if (!stricmp(argv[i], "-compiledmodel"))
 		{
-			CompileOBJModelToDMODEL(argv[i + 1], argv[i + 2]);
+			CompileOBJModelToDMODEL(argv[i + 1], argv[i + 2], generate_denting);
 			return 0;
 		}
 		else

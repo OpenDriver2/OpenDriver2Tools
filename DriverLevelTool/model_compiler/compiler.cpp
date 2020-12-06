@@ -88,10 +88,10 @@ void InitTextureDetailsForModel(smdmodel_t* model)
 		
 		for(int j = 0; j < numDetails; j++)
 		{
-			const char* xywh_values = ini_get(tpage_ini, varargs("detail_%d", j), "xywh");
+			TEXINF& detail = g_compilerTPages[i].details[j];
 
 			int x, y, w, h;
-			
+			const char* xywh_values = ini_get(tpage_ini, varargs("detail_%d", j), "xywh");
 			sscanf(xywh_values, "%d,%d,%d,%d", &x, &y, &w, &h);
 
 			// this is how game handles it
@@ -100,11 +100,20 @@ void InitTextureDetailsForModel(smdmodel_t* model)
 			
 			if (h >= 256)
 				h -= 256;
-			
-			g_compilerTPages[i].details[j].x = x;
-			g_compilerTPages[i].details[j].y = y;
-			g_compilerTPages[i].details[j].width = w;
-			g_compilerTPages[i].details[j].height = h;
+
+			detail.x = x;
+			detail.y = y;
+			detail.width = w;
+			detail.height = h;
+
+			int damage_zone = 0xFFFF;
+			int damage_level = 0;
+			ini_sget(tpage_ini, varargs("detail_%d", j), "damagezone", "%d", &damage_zone);
+			ini_sget(tpage_ini, varargs("detail_%d", j), "damagelevel", "%d", &damage_level);
+
+			// store damage zone in ID and damage level in nameoffset
+			detail.id = damage_zone;
+			detail.nameoffset = damage_level;
 		}
 
 		ini_free(tpage_ini);
@@ -115,7 +124,7 @@ void InitTextureDetailsForModel(smdmodel_t* model)
 // searches for texture detail by checking UV coordinates ownership to each
 // texture detail rectangle
 //--------------------------------------------------------------------------
-int FindTextureDetailByUV(int tpage, UV_INFO* uvs, int num_uv)
+int FindTextureDetailByUV(int tpage, UV_INFO* uvs, int num_uv, TEXINF** detail)
 {
 	// first find tpage
 	TexPage_t* tpinfo = NULL;
@@ -166,6 +175,9 @@ int FindTextureDetailByUV(int tpage, UV_INFO* uvs, int num_uv)
 		// definitely inside
 		if(numInside > 2)
 		{
+			if (detail)
+				*detail = &tpinfo->details[i];
+			
 			// return our detail
 			return i;
 		}
@@ -179,12 +191,10 @@ int FindTextureDetailByUV(int tpage, UV_INFO* uvs, int num_uv)
 //--------------------------------------------------------------------------
 void ConvertPolyUVs(UV_INFO* dest, Vector2D* src, const smdpoly_t& poly)
 {
-	//float tpage_texel = 1.0f / 256.0f * 0.5f;
-	
 	for(int i = 0; i < poly.vcount; i++)
 	{
-		int x = src[poly.tindices[i]].x * 255.0f + 1;
-		int y = src[poly.tindices[i]].y * 255.0f + 1;
+		int x = roundf(src[poly.tindices[i]].x * 255.0f);
+		int y = roundf(src[poly.tindices[i]].y * 255.0f + 0.5f);
 		
 		dest[i].u = x;
 		dest[i].v = y;
@@ -206,15 +216,29 @@ int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* grou
 		texture_name++;
 	
 	sscanf(texture_name, "page_%d", &tpage_number);
-	
+
 	int numPolys = group->polygons.numElem();
 	for(int i = 0; i < numPolys; i++)
 	{
-		const smdpoly_t& poly = group->polygons[i];
-
+		smdpoly_t& poly = group->polygons[i];
+		
 		UV_INFO uvs[4];
-
 		ConvertPolyUVs(uvs, model->texcoords.ptr(), poly);
+
+		int detail_id = 255;
+
+		if(tpage_number != -1)
+		{
+			TEXINF* detail;
+			detail_id = FindTextureDetailByUV(tpage_number, uvs, poly.vcount, &detail);
+
+			// Add polygon denting information
+			if(detail_id != -1 && detail->id != 0xFFFF)
+			{
+				poly.flags = POLY_EXTRA_DENTING;
+				poly.extraData = detail->id | (detail->nameoffset << 4);	// damage zone + damage level
+			}
+		}
 		
 		if(poly.vcount == 4)
 		{
@@ -225,7 +249,7 @@ int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* grou
 					POLYGT4 pgt4;
 					pgt4.id = 23;
 					pgt4.texture_set = tpage_number;
-					pgt4.texture_id = FindTextureDetailByUV(tpage_number, uvs, 4);
+					pgt4.texture_id = detail_id;
 					pgt4.v0 = poly.vindices[3];
 					pgt4.v1 = poly.vindices[2];
 					pgt4.v2 = poly.vindices[1];
@@ -248,7 +272,7 @@ int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* grou
 					POLYFT4 pft4;
 					pft4.id = 21;
 					pft4.texture_set = tpage_number;
-					pft4.texture_id = FindTextureDetailByUV(tpage_number, uvs, 4);
+					pft4.texture_id = detail_id;
 					pft4.v0 = poly.vindices[3];
 					pft4.v1 = poly.vindices[2];
 					pft4.v2 = poly.vindices[1];
@@ -284,7 +308,7 @@ int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* grou
 					POLYGT3 pgt3;
 					pgt3.id = 22;
 					pgt3.texture_set = tpage_number;
-					pgt3.texture_id = FindTextureDetailByUV(tpage_number, uvs, 3);
+					pgt3.texture_id = detail_id;
 					pgt3.v0 = poly.vindices[2];
 					pgt3.v1 = poly.vindices[1];
 					pgt3.v2 = poly.vindices[0];
@@ -304,7 +328,7 @@ int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* grou
 					POLYFT3 pft3;
 					pft3.id = 20;
 					pft3.texture_set = tpage_number;
-					pft3.texture_id = FindTextureDetailByUV(tpage_number, uvs, 3);
+					pft3.texture_id = detail_id;
 					pft3.v0 = poly.vindices[2];
 					pft3.v1 = poly.vindices[1];
 					pft3.v2 = poly.vindices[0];
@@ -345,7 +369,7 @@ void WritePolygonNormals(IVirtualStream* stream, smdmodel_t* model, smdgroup_t* 
 
 		Vector3D normal = NormalOfTriangle(model->verts[poly.vindices[0]], model->verts[poly.vindices[1]], model->verts[poly.vindices[2]]);
 
-		// Invert normals
+		// Invert normals (REQUIRED)
 		normal *= -1.0f;
 		
 		SVECTOR dstvert;
@@ -433,7 +457,7 @@ MODEL* CompileDMODEL(CMemoryStream* stream, smdmodel_t* model, int& resultSize)
 	{
 		Vector3D normal = model->normals[i];
 
-		// Invert normals
+		// Invert normals (REQUIRED)
 		normal *= -1.0f;
 
 		SVECTOR dstvert;
@@ -466,7 +490,7 @@ MODEL* CompileDMODEL(CMemoryStream* stream, smdmodel_t* model, int& resultSize)
 //--------------------------------------------------------------------------
 // Compiler function
 //--------------------------------------------------------------------------
-void CompileOBJModelToDMODEL(const char* filename, const char* outputName)
+void CompileOBJModelToDMODEL(const char* filename, const char* outputName, bool generate_denting)
 {
 	smdmodel_t model;
 
@@ -513,6 +537,10 @@ void CompileOBJModelToDMODEL(const char* filename, const char* outputName)
 			fclose(fp);
 		}
 	}
+
+	// additionally generate denting
+	if(generate_denting)
+		GenerateDenting(model, outputName);
 
 	FreeTextureDetails();
 }
