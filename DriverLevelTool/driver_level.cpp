@@ -143,6 +143,7 @@ void PrintCommandLineArguments()
 		"  -explodetpages \t: Extracts textures as separate TIM files instead of whole texture page exporting as TGA\n\n"
 		"  -dmodel2obj <filename.DMODEL> <output.OBJ> \t: converts DMODEL to OBJ file\n\n";
 		"  -compiledmodel <filename.OBJ> <output.DMODEL> \t: compiles OBJ to DMODEL file\n\n";
+		"  -denting \t: enables car denting file generation for next -compilemodel key\n\n";
 	MsgInfo(argumentsMessage);
 }
 
