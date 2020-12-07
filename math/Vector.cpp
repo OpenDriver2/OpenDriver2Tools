@@ -175,8 +175,8 @@ ColorRGB rgbeToRGB(unsigned char *rgbe)
 
 unsigned int rgbToRGBE8(const ColorRGB &rgb)
 {
-	float v = max(rgb.x, rgb.y);
-	v = max(v, rgb.z);
+	float v = MAX(rgb.x, rgb.y);
+	v = MAX(v, rgb.z);
 
 	if (v < 1e-32f)
 	{
@@ -198,8 +198,8 @@ unsigned int rgbToRGBE8(const ColorRGB &rgb)
 
 unsigned int rgbToRGB9E5(const ColorRGB &rgb)
 {
-	float v = max(rgb.x, rgb.y);
-	v = max(v, rgb.z);
+	float v = MAX(rgb.x, rgb.y);
+	v = MAX(v, rgb.z);
 
 	if (v < 1.52587890625e-5f)
 	{

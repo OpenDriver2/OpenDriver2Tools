@@ -20,8 +20,10 @@ project "DriverSoundTool"
             "-m32"
         }
         
-        cppdialect "C++11"
-
+        linkoptions {
+            "-m32"
+        }
+        
     filter "configurations:Debug"
 		targetsuffix "_dbg"
 		 symbols "On"

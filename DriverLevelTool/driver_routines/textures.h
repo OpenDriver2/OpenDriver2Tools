@@ -5,7 +5,7 @@
 #define TEXTURES_H
 
 #include "level.h"
-#include "math/vector.h"
+#include "math/Vector.h"
 #include "math/psx_math_types.h"
 
 // forward

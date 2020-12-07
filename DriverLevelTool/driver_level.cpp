@@ -149,7 +149,9 @@ void PrintCommandLineArguments()
 
 int main(int argc, char* argv[])
 {
+#ifdef _WIN32
 	Install_ConsoleSpewFunction();
+#endif
 
 	Msg("---------------\nDriverLevelTool - PSX Driver level utilities\n---------------\n\n");
 

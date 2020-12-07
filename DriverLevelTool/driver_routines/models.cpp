@@ -2,6 +2,7 @@
 #include "regions.h"
 #include "util/DkList.h"
 #include <unordered_set>
+#include <string>
 
 #include "core/cmdlib.h"
 #include "d2_types.h"

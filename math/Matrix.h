@@ -82,7 +82,9 @@ struct TMat3 // Matrix3x3
 		rows[2] = TVec3D<T>(m20, m21, m22);
 	}
 
+#if 0
 	TMat3<T>(const Quaternion &q);
+#endif
 
 	T* toRaw() {return (T *) rows;}
 
@@ -143,7 +145,9 @@ struct TMat4 // Matrix4x4
 		rows[3] = TVec4D<T>(m30, m31, m32, m33);
 	}
 
+#if 0
 	TMat4<T>(const Quaternion &q);
+#endif
 
 	TMat4<T>(const TVec3D<T> &axis, const float angle)
 	{

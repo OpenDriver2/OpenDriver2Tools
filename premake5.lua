@@ -18,6 +18,17 @@ workspace "OpenDriver2Tools"
 		"util/**.h",
     }
 
+    filter "system:linux"
+        buildoptions {
+            "-Wno-narrowing",
+            "-fpermissive",
+            "-m32"
+        }
+
+        linkoptions {
+            "-m32"
+        }
+
 	filter "system:Windows"
 		disablewarnings { "4996", "4554", "4244", "4101", "4838", "4309" }
 
