@@ -379,14 +379,21 @@ int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* grou
 //--------------------------------------------------------------------------
 // Writes polygon normals
 //--------------------------------------------------------------------------
-void WritePolygonNormals(IVirtualStream* stream, smdmodel_t* model, smdgroup_t* group)
+void WritePolygonNormals(IVirtualStream* stream, MODEL* model, smdgroup_t* group)
 {
 	int numPolys = group->polygons.numElem();
 	for (int i = 0; i < numPolys; i++)
 	{
 		const smdpoly_t& poly = group->polygons[i];
 
-		Vector3D normal = NormalOfTriangle(model->verts[poly.vindices[0]], model->verts[poly.vindices[1]], model->verts[poly.vindices[2]]);
+		SVECTOR* v1 = model->pVertex(poly.vindices[0]);
+		SVECTOR* v2 = model->pVertex(poly.vindices[1]);
+		SVECTOR* v3 = model->pVertex(poly.vindices[2]);
+		
+		Vector3D normal = NormalOfTriangle(
+			{ (float)v1->x, (float)v1->y, (float)v1->z }, 
+			{ (float)v2->x, (float)v2->y, (float)v2->z }, 
+			{ (float)v3->x, (float)v3->y, (float)v3->z });
 
 		// Invert normals (REQUIRED)
 		normal *= -1.0f;
@@ -462,14 +469,16 @@ MODEL* CompileDMODEL(CMemoryStream* stream, smdmodel_t* model, int& resultSize)
 
 	modelData->bounding_sphere = CalculateBoundingSphere(modelData->pVertex(0), modelData->num_vertices);
 	Msg("Bounding sphere: %d\n", modelData->bounding_sphere);
-	
+
+	Msg("Writing polygon normals...\n");
 	// polygon normals
 	modelData->normals = stream->Tell();
 	for (int i = 0; i < model->groups.numElem(); i++)
 	{
-		WritePolygonNormals(stream, model, model->groups[i]);
+		WritePolygonNormals(stream, modelData, model->groups[i]);
 	}
 
+	Msg("Writing point normals...\n");
 	// write point normals
 	modelData->point_normals = stream->Tell();
 	for(int i = 0; i < model->normals.numElem(); i++)
