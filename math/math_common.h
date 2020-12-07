@@ -127,12 +127,12 @@ inline float sincf( const float x )
 	return (x == 0)? 1 : sinf(x) / x;
 }
 
-#ifndef min
-#define min(x, y) ((x < y)? x : y)
+#ifndef MIN
+#define MIN(x, y) ((x < y)? x : y)
 #endif
 
-#ifndef max
-#define max(x, y) ((x > y)? x : y)
+#ifndef MAX
+#define MAX(x, y) ((x > y)? x : y)
 #endif
 
 inline unsigned int getClosestPowerOfTwo(const unsigned int x)

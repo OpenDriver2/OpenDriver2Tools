@@ -60,7 +60,7 @@ inline TMat2<T> operator ! (const TMat2<T> &m)
 }
 
 /* --------------------------------------------------------------------------------- */
-
+#if 0
 template <typename T>
 TMat3<T>::TMat3(const Quaternion &q)
 {
@@ -99,6 +99,7 @@ TMat3<T>::TMat3(const Quaternion &q)
 						1 - 2 * q.x * q.x - 2 * q.y * q.y);
 	*/
 }
+#endif
 
 template <typename T>
 inline TMat3<T> operator + (const TMat3<T> &m, const TMat3<T> &n)
@@ -158,7 +159,7 @@ inline TMat3<T> operator ! (const TMat3<T> &m)
 }
 
 /* --------------------------------------------------------------------------------- */
-
+#if 0
 template <typename T>
 TMat4<T>::TMat4(const Quaternion &q)
 {
@@ -204,6 +205,7 @@ TMat4<T>::TMat4(const Quaternion &q)
 	*/
 	rows[3] = TVec4D<T>(0, 0, 0, 1);
 }
+#endif
 
 template <typename T>
 inline TVec3D<T> TMat4<T>::getTranslationComponent() const

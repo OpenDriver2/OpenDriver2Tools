@@ -517,6 +517,7 @@ int DoConvertBLK(const char* sbkFileName)
 	}
 
 	fclose(blkFp);
+	return 0;
 }
 
 int DoConvertSBK(const char* sbkFileName)
@@ -545,7 +546,7 @@ int DoConvertXMAndSBK(const char* xmFilename)
 {
 	char tmpString[_MAX_PATH];
 	char sbkFileName[_MAX_PATH];
-	strcpy_s(sbkFileName, xmFilename);
+	strcpy(sbkFileName, xmFilename);
 
 	char* extStr = strchr(sbkFileName, '.');
 	if (extStr)
@@ -581,7 +582,7 @@ int DoConvertXMAndSBK(const char* xmFilename)
 		*extStr = 0;
 
 		Msg("--- XM song '%s' ---\n", sbkFileName);
-		sprintf_s(tmpString, "%s_orig.xm", sbkFileName);
+		sprintf(tmpString, "%s_orig.xm", sbkFileName);
 
 		FILE* xmFp = fopen(tmpString, "wb");
 
@@ -687,7 +688,7 @@ int DoExtractMusicFile(const char* fileName)
 		// restore XM and save to disk
 		{
 			Msg("--- XM song %d ---\n", i);
-			sprintf_s(tmpString, "%s_song%d.xm", fileName, i);
+			sprintf(tmpString, "%s_song%d.xm", fileName, i);
 
 			FILE* xmFp = fopen(tmpString, "wb");
 
@@ -748,7 +749,9 @@ void PrintCommandLineArguments()
 
 int main(int argc, char** argv)
 {
+#ifdef _WIN32
 	Install_ConsoleSpewFunction();
+#endif
 
 	Msg("---------------\nDriverSoundTool - PSX Driver sound utilities\n---------------\n\n");
 
@@ -760,35 +763,35 @@ int main(int argc, char** argv)
 
 	for (int i = 0; i < argc; i++)
 	{
-		if (!_stricmp(argv[i], "-bin2xm"))
+		if (!stricmp(argv[i], "-bin2xm"))
 		{
 			if (i + 1 <= argc)
 				DoExtractMusicFile(argv[i + 1]);
 			else
 				MsgWarning("-extract must have an argument!");
 		}
-		else if (!_stricmp(argv[i], "-psx2xm"))
+		else if (!stricmp(argv[i], "-psx2xm"))
 		{
 			if (i + 1 <= argc)
 				DoConvertXMAndSBK(argv[i + 1]);
 			else
 				MsgWarning("-psx2xm must have an argument!");
 		}
-		else if (!_stricmp(argv[i], "-blk2wav"))
+		else if (!stricmp(argv[i], "-blk2wav"))
 		{
 			if (i + 1 <= argc)
 				DoConvertBLK(argv[i + 1]);
 			else
 				MsgWarning("-blk2wav must have an argument!");
 		}
-		else if (!_stricmp(argv[i], "-sbk2wav"))
+		else if (!stricmp(argv[i], "-sbk2wav"))
 		{
 			if (i + 1 <= argc)
 				DoConvertSBK(argv[i + 1]);
 			else
 				MsgWarning("-sbk2wav must have an argument!");
 		}
-		else if (!_stricmp(argv[i], "-a") || !_stricmp(argv[i], "-assemble"))
+		else if (!stricmp(argv[i], "-a") || !stricmp(argv[i], "-assemble"))
 		{
 
 		}
