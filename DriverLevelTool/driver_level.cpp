@@ -1,9 +1,9 @@
 #include "driver_level.h"
 #include "core/cmdlib.h"
 #include "core/VirtualStream.h"
-#include <direct.h>
 
 #include "model_compiler/compiler.h"
+#include "util/util.h"
 
 bool g_export_carmodels = false;
 bool g_export_models = false;
@@ -83,8 +83,8 @@ void ProcessLevFile(const char* filename)
 	g_levname_moddir = lev_no_ext + "_models";
 	g_levname_texdir = lev_no_ext + "_textures";
 
-	_mkdir(g_levname_moddir.c_str());
-	_mkdir(g_levname_texdir.c_str());
+	mkdirRecursive(g_levname_moddir.c_str());
+	mkdirRecursive(g_levname_texdir.c_str());
 
 	LoadLevelFile(filename);
 

@@ -548,6 +548,7 @@ void CompileOBJModelToDMODEL(const char* filename, const char* outputName, bool 
 
 	if(resultModel)
 	{
+		mkdirRecursive(outputName, false);
 		FILE* fp = fopen(outputName, "wb");
 
 		if(fp)
@@ -555,11 +556,11 @@ void CompileOBJModelToDMODEL(const char* filename, const char* outputName, bool 
 			stream.WriteToFileStream(fp);
 			fclose(fp);
 		}
-	}
 
-	// additionally generate denting
-	if(generate_denting)
-		GenerateDenting(model, outputName);
+		// additionally generate denting
+		if (generate_denting)
+			GenerateDenting(model, outputName);
+	}
 
 	FreeTextureDetails();
 }

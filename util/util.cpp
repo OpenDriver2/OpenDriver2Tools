@@ -4,6 +4,65 @@
 #include <string.h>
 #include <stdarg.h>
 
+#ifdef _WIN32
+
+#include <direct.h>
+
+#define CORRECT_PATH_SEPARATOR			'\\'
+#define INCORRECT_PATH_SEPARATOR		'/'
+
+#else // POSIX
+
+#define CORRECT_PATH_SEPARATOR			'/'
+#define INCORRECT_PATH_SEPARATOR		'\\'
+
+#include <sys/stat.h>
+#define _mkdir(str) mkdir(str, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
+
+#endif
+
+void FixPathSlashes(char* pathbuff)
+{
+	while (*pathbuff)
+	{
+		if (*pathbuff == INCORRECT_PATH_SEPARATOR) // make unix-style path
+			*pathbuff = CORRECT_PATH_SEPARATOR;
+		pathbuff++;
+	}
+}
+
+bool mkdirRecursive(const char* path, bool includeDotPath)
+{
+	char temp[1024];
+	char folder[265];
+
+	strcpy(temp, path);
+	FixPathSlashes(temp);
+	
+	char* end = (char*)strchr(temp, CORRECT_PATH_SEPARATOR);
+
+	while (end != NULL)
+	{
+		int result;
+
+		strncpy(folder, temp, end - temp);
+		folder[end - temp ] = 0;
+
+		// stop on file extension?
+		if (strchr(folder, '.') != NULL && !includeDotPath)
+			break;
+		
+		result = _mkdir(folder); 
+		
+		if (result != 0 && result != EEXIST)
+			return false;
+
+		end = strchr(++end, CORRECT_PATH_SEPARATOR);
+	}
+
+	return true;
+}
+
 char* varargs(const char* fmt, ...)
 {
 	va_list		argptr;

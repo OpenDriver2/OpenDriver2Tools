@@ -1,5 +1,3 @@
-#include <direct.h>
-
 #include "driver_level.h"
 #include "core/cmdlib.h"
 
@@ -356,7 +354,7 @@ void ExportTexturePage(int nPage)
 		MsgInfo("Exploding texture '%s/PAGE_%d'\n", g_levname_texdir.c_str(), nPage);
 
 		// make folder and place all tims in there
-		_mkdir(varargs("%s/PAGE_%d", g_levname_texdir.c_str(), nPage));
+		mkdirRecursive(varargs("%s/PAGE_%d", g_levname_texdir.c_str(), nPage));
 
 		for (int i = 0; i < numDetails; i++)
 		{

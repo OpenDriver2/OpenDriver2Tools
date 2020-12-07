@@ -1,5 +1,5 @@
 ﻿#include <math.h>
-#include <direct.h>
+
 #include <malloc.h>
 #include "core/VirtualStream.h"
 #include "core/cmdlib.h"
@@ -439,7 +439,7 @@ void ExportSBK(FILE* sbkFp, const char* sbkFileName)
 	int numBankSamples = LoadSoundBank(sampleDescs, pcmSamples, sbkFp);
 
 	if(numBankSamples)
-		_mkdir(sbkFileName);
+		mkdirRecursive(sbkFileName);
 
 	for (int i = 0; i < numBankSamples; i++)
 	{
@@ -494,7 +494,7 @@ int DoConvertBLK(const char* sbkFileName)
 		return -1;
 	}
 
-	_mkdir(tmpString);
+	mkdirRecursive(tmpString);
 
 	// read count
 	int numSoundBanks = 0;
@@ -669,10 +669,6 @@ int DoExtractMusicFile(const char* fileName)
 		int songSize = offsets.bank_offset - offsets.xm_offset;
 
 		Msg("--- XM song %d at %d (size %d) ---\n", i, offsets.xm_offset, songSize);
-
-		// create folder for song
-		//sprintf_s(songPath, "%s_song_%d", fileName, i);
-		//CreateDirectoryA(songPath, NULL);  // Create the sound bank directory
 
 		// Read XM and store to separate file
 		fseek(fp, offsets.xm_offset, SEEK_SET);
