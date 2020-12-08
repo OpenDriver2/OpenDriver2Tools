@@ -116,10 +116,10 @@ struct song_t
 
 struct SAMPLE_DATA 
 {
-	unsigned long address;
-	unsigned long length;
-	unsigned long loop;
-	unsigned long samplerate;
+	uint address;
+	uint length;
+	uint loop;
+	uint samplerate;
 };
 
 struct PCMSample
@@ -132,11 +132,11 @@ struct PCMSample
 
 struct XM_Note
 {
-	unsigned char note;
-	unsigned char inst;
-	unsigned char volc;
-	unsigned char efft;
-	unsigned char effp;
+	uint8 note;
+	uint8 inst;
+	uint8 volc;
+	uint8 efft;
+	uint8 effp;
 };
 
 #pragma pack(push,1)
