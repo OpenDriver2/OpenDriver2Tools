@@ -8,10 +8,6 @@ cd "$APPVEYOR_BUILD_FOLDER"
 curl "$linux_premake_url" -Lo premake5.tar.gz
 tar xvf premake5.tar.gz
 
-sudo apt-get update -qq -y
-sudo apt-get install -qq aptitude -y
-
-# fix Ubuntu's broken mess of packages using aptitude
-sudo aptitude install --quiet=2 \
+sudo apt-get install -qq \
     g++-multilib -y
 
