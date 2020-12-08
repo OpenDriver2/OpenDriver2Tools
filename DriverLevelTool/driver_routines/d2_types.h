@@ -30,8 +30,8 @@ enum EPageStorage
 
 typedef struct texpage_pos_t
 {
-	unsigned long flags; // size=0, offset=0
-	unsigned long offset; // size=0, offset=4
+	uint flags; // size=0, offset=0
+	uint offset; // size=0, offset=4
 }TEXPAGE_POS;	// originally TP
 
 typedef struct dclut_t

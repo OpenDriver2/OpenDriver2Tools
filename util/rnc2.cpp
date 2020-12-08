@@ -7,17 +7,18 @@
 */
 
 #include "core/cmdlib.h"
+#include "math/dktypes.h"
 
 struct RNCheader
 {
-    unsigned long identifier;    //must contain 'R', 'N', 'C', method
-    unsigned long unpackSize;     //unpacked data size
-    unsigned long packSize;      //packed data size (excludes this header)
-    unsigned short unpackChecksum;  //unpacked data checksum
-    unsigned short packChecksum;   //packed data checksum
-    unsigned char leeway;         //not used
-    unsigned char blocks;    //number of sections
-    //unsigned char start;		//first byte of data
+    uint identifier;           //must contain 'R', 'N', 'C', method
+    uint unpackSize;           //unpacked data size
+    uint packSize;             //packed data size (excludes this header)
+    ushort unpackChecksum;     //unpacked data checksum
+    ushort packChecksum;       //packed data checksum
+    uint8 leeway;              //not used
+    uint8 blocks;              //number of sections
+    //uint8 start;		       //first byte of data
 };
 
 #define RNC_HEADER_LENGTH	18
