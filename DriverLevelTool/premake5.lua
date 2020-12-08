@@ -21,13 +21,8 @@ project "DriverLevelTool"
         buildoptions {
             "-Wno-narrowing",
             "-fpermissive",
-            "-m32"
         }
         
-        linkoptions {
-            "-m32"
-        }
-
         cppdialect "C++11"
 
     filter "configurations:Debug"

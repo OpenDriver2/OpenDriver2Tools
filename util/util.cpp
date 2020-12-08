@@ -19,29 +19,6 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-int _mkdir(const char* path)
-{
-	return mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-}
-
-int stricmp(const char* s1, const char* s2)
-{
-	int index = 0;
-	char c1, c2;
-
-	while (s1[index] != '\0')
-	{
-		c1 = tolower(s1[index]);
-		c2 = tolower(s2[index]);
-		if (c1 != c2 || c2 == '\0')
-			return 0;
-
-		index++;
-	}
-
-	return 1;
-}
-
 #endif
 
 void FixPathSlashes(char* pathbuff)
