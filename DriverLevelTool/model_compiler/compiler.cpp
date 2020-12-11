@@ -125,14 +125,16 @@ void InitTextureDetailsForModel(smdmodel_t* model)
 			detail.height = h;
 
 			int damage_level = 0;
+			int damage_split = 0;
 			
 			const char* damageZoneName = ini_get(tpage_ini, varargs("detail_%d", j), "damagezone");
 
 			ini_sget(tpage_ini, varargs("detail_%d", j), "damagelevel", "%d", &damage_level);
+			ini_sget(tpage_ini, varargs("detail_%d", j), "damagesplit", "%d", &damage_split);
 
 			// store damage zone in ID and damage level in nameoffset
 			detail.id = GetDamageZoneId(damageZoneName);
-			detail.nameoffset = damage_level;
+			detail.nameoffset = damage_level | (damage_split ? 0x8000 : 0);
 		}
 
 		ini_free(tpage_ini);
@@ -254,8 +256,8 @@ int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* grou
 			// Add polygon denting information
 			if(detail_id != -1 && detail->id != 0xFFFF)
 			{
-				poly.flags = POLY_EXTRA_DENTING;
-				poly.extraData = detail->id | (detail->nameoffset << 4);	// damage zone + damage level
+				poly.flags = POLY_EXTRA_DENTING | ((detail->nameoffset & 0x8000) ? POLY_DAMAGE_SPLIT : 0);
+				poly.extraData = detail->id | ((detail->nameoffset & 0xf) << 4);	// damage zone + damage level
 			}
 		}
 		

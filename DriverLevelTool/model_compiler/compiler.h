@@ -6,7 +6,8 @@
 
 enum EPolyExtraFlags
 {
-	POLY_EXTRA_DENTING = (1 << 0)
+	POLY_EXTRA_DENTING = (1 << 0),
+	POLY_DAMAGE_SPLIT = (1 << 1)
 };
 
 enum DamageZoneIds

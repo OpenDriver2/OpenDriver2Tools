@@ -40,7 +40,7 @@ int GetSideDamageZoneByVerts(smdmodel_t& model, const smdpoly_t& poly, int inter
 		SVECTOR temp;
 		ConvertVertexToDriver(&temp, &vert);
 		
-		if(temp.x < 0) // left
+		if(temp.x > 0) // left... WTF.. why it is at opposite side
 		{
 			poly_side -= 1.0f;
 		}
@@ -159,7 +159,15 @@ bool ProcessDentingForGroup(Denting_t& outDenting, smdmodel_t& model, smdgroup_t
 			if(zone == ZONE_FRONT)
 			{
 				// polygons has to be added to their zones
-				outDenting.dentZonePolys[realZone][outDenting.numDentPolys[realZone]++] = outDenting.polygonCount;
+				if(poly.flags & POLY_DAMAGE_SPLIT)
+				{
+					outDenting.dentZonePolys[realZone][outDenting.numDentPolys[realZone]++] = outDenting.polygonCount;	// zone polygons are for each zone
+				}
+				else
+				{
+					outDenting.dentZonePolys[ZONE_FRONT_LEFT][outDenting.numDentPolys[ZONE_FRONT_LEFT]++] = outDenting.polygonCount;
+					outDenting.dentZonePolys[ZONE_FRONT_RIGHT][outDenting.numDentPolys[ZONE_FRONT_RIGHT]++] = outDenting.polygonCount;
+				}
 
 				AddDentingVerts(outDenting, ZONE_FRONT_LEFT, poly);
 				AddDentingVerts(outDenting, ZONE_FRONT_RIGHT, poly);
@@ -167,7 +175,15 @@ bool ProcessDentingForGroup(Denting_t& outDenting, smdmodel_t& model, smdgroup_t
 			else if (zone == ZONE_REAR)
 			{
 				// polygons has to be added to their zones
-				outDenting.dentZonePolys[realZone][outDenting.numDentPolys[realZone]++] = outDenting.polygonCount;
+				if (poly.flags & POLY_DAMAGE_SPLIT)
+				{
+					outDenting.dentZonePolys[realZone][outDenting.numDentPolys[realZone]++] = outDenting.polygonCount;	// zone polygons are for each zone
+				}
+				else
+				{
+					outDenting.dentZonePolys[ZONE_REAR_LEFT][outDenting.numDentPolys[ZONE_REAR_LEFT]++] = outDenting.polygonCount;
+					outDenting.dentZonePolys[ZONE_REAR_RIGHT][outDenting.numDentPolys[ZONE_REAR_RIGHT]++] = outDenting.polygonCount;
+				}
 				
 				AddDentingVerts(outDenting, ZONE_REAR_LEFT, poly);
 				AddDentingVerts(outDenting, ZONE_REAR_RIGHT, poly);
