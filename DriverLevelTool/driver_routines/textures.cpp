@@ -31,7 +31,12 @@ TVec4D<ubyte> bgr5a1_ToRGBA8(ushort color)
 	ubyte b = (color & 0x1F) * 8;
 	ubyte g = ((color >> 5) & 0x1F) * 8;
 	ubyte r = ((color >> 10) & 0x1F) * 8;
-	ubyte a = (color >> 15)*255;
+	
+	ubyte a = (color >> 15);
+	
+	// restore source transparency key
+	if(a == 0 && r == 0 && g == 0 && b == 0)
+		return TVec4D<ubyte>(255, 0, 255, 0);
 
 	return TVec4D<ubyte>(r,g,b,a);
 }
