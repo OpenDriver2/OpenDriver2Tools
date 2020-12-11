@@ -7,7 +7,6 @@
 
 //-------------------------------------------------------------------------------
 
-DkList<std::string>	g_texture_names;
 char*						g_textureNamesData = NULL;
 
 TEXPAGE_POS*				g_texPagePos = NULL;
@@ -17,6 +16,8 @@ int							g_numTexDetails = 0;
 
 int							g_numPermanentPages = 0;
 int							g_numSpecPages = 0;
+
+bool						g_originalTransparencyKey = true;
 
 XYPAIR						g_permsList[16];
 XYPAIR						g_specList[16];
@@ -35,8 +36,10 @@ TVec4D<ubyte> bgr5a1_ToRGBA8(ushort color)
 	ubyte a = (color >> 15);
 	
 	// restore source transparency key
-	if(a == 0 && r == 0 && g == 0 && b == 0)
+	if(g_originalTransparencyKey && color == 0)
+	{
 		return TVec4D<ubyte>(255, 0, 255, 0);
+	}
 
 	return TVec4D<ubyte>(r,g,b,a);
 }

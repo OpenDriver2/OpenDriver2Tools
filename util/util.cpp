@@ -49,7 +49,7 @@ bool mkdirRecursive(const char* path, bool includeDotPath)
 		int result;
 
 		strncpy(folder, temp, end - temp);
-		folder[end - temp ] = 0;
+		folder[end - temp] = 0;
 
 		// stop on file extension?
 		if (strchr(folder, '.') != NULL && !includeDotPath)
@@ -57,10 +57,18 @@ bool mkdirRecursive(const char* path, bool includeDotPath)
 		
 		result = _mkdir(folder); 
 
-		if (result != 0 && result != EEXIST)
+		if (result > 0 && result != EEXIST)
 			return false;
 
-		end = strchr(++end, CORRECT_PATH_SEPARATOR);
+		if (*end == 0)
+			break;
+		
+		char* next = strchr(++end, CORRECT_PATH_SEPARATOR);
+		
+		if (next)
+			end = next;
+		else
+			end += strlen(end);
 	}
 
 	return true;
