@@ -85,57 +85,6 @@ void SaveTGA(const char* filename, ubyte* data, int w, int h, int c)
 	fclose(pFile);
 }
 
-//-------------------------------------------------------------
-// Conversion of indexed palettized texture to 32bit RGBA
-//-------------------------------------------------------------
-void ConvertIndexedTextureToRGBA(int nPage, uint* dest_color_data, int detail, TEXCLUT* clut)
-{
-	texdata_t* page = &g_pageDatas[nPage];
-
-	if (!(detail < g_texPages[nPage].numDetails))
-	{
-		MsgError("Cannot apply palette to non-existent detail! Programmer error?\n");
-		return;
-	}
-
-	int ox = g_texPages[nPage].details[detail].x;
-	int oy = g_texPages[nPage].details[detail].y;
-	int w = g_texPages[nPage].details[detail].width;
-	int h = g_texPages[nPage].details[detail].height;
-
-	if (w == 0)
-		w = 256;
-
-	if (h == 0)
-		h = 256;
-
-	char* textureName = g_textureNamesData + g_texPages[nPage].details[detail].nameoffset;
-	//MsgWarning("Applying detail %d '%s' (xywh: %d %d %d %d)\n", detail, textureName, ox, oy, w, h);
-
-	int tp_wx = ox + w;
-	int tp_hy = oy + h;
-
-	for (int y = oy; y < tp_hy; y++)
-	{
-		for (int x = ox; x < tp_wx; x++)
-		{
-			ubyte clindex = page->data[y * 128 + x / 2];
-
-			if (0 != (x & 1))
-				clindex >>= 4;
-
-			clindex &= 0xF;
-
-			TVec4D<ubyte> color = bgr5a1_ToRGBA8(clut->colors[clindex]);
-
-			// flip texture by Y because of TGA
-			int ypos = (TEXPAGE_SIZE_Y - y - 1) * TEXPAGE_SIZE_Y;
-
-			dest_color_data[ypos + x] = *(uint*)(&color);
-		}
-	}
-}
-
 int clutSortFunc(extclutdata_t* const& i, extclutdata_t* const& j)
 {
 	return (i->palette - j->palette);
@@ -143,7 +92,7 @@ int clutSortFunc(extclutdata_t* const& i, extclutdata_t* const& j)
 
 void GetTPageDetailPalettes(DkList<TEXCLUT*>& out, int nPage, int detail)
 {
-	texdata_t* page = &g_pageDatas[nPage];
+	texdata_t* page = &g_texPageData[nPage];
 
 	// ofc, add default
 	out.append(&page->clut[detail]);
@@ -181,7 +130,7 @@ void GetTPageDetailPalettes(DkList<TEXCLUT*>& out, int nPage, int detail)
 //-------------------------------------------------------------
 void ExportTIM(int nPage, int detail)
 {
-	texdata_t* page = &g_pageDatas[nPage];
+	texdata_t* page = &g_texPageData[nPage];
 
 	if (!(detail < g_texPages[nPage].numDetails))
 	{
@@ -308,7 +257,7 @@ void ExportTexturePage(int nPage)
 	// Also saving to LEVEL_texture/PAGE_*
 	//
 
-	texdata_t* page = &g_pageDatas[nPage];
+	texdata_t* page = &g_texPageData[nPage];
 
 	if (!page->data)
 		return;		// NO DATA

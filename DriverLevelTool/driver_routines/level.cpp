@@ -578,10 +578,22 @@ void FreeLevelData()
 
 	FreeSpoolData();
 
-	for (int i = 0; i < 1536; i++)
+	for (int i = 0; i < MAX_MODELS; i++)
 	{
 		if (g_levelModels[i].model)
 			free(g_levelModels[i].model);
+	}
+
+	for (int i = 0; i < MAX_CAR_MODELS; i++)
+	{
+		if (g_carModels[i].cleanmodel)
+			free(g_carModels[i].cleanmodel);
+
+		if (g_carModels[i].dammodel)
+			free(g_carModels[i].dammodel);
+
+		if (g_carModels[i].lowmodel)
+			free(g_carModels[i].lowmodel);
 	}
 
 	delete[] g_textureNamesData;
@@ -589,19 +601,19 @@ void FreeLevelData()
 	// delete texture data
 	for (int i = 0; i < g_numTexPages; i++)
 	{
-		if (g_pageDatas[i].data)
-			delete[] g_pageDatas[i].data;
+		if (g_texPageData[i].data)
+			delete[] g_texPageData[i].data;
 
 		delete[] g_texPages[i].details;
 	}
 
-	delete[] g_pageDatas;
+	delete[] g_texPageData;
 	delete[] g_texPagePos;
 	delete[] g_texPages;
 	delete[] g_extraPalettes;
 	delete[] g_overlayMapData;
 
-	g_pageDatas = NULL;
+	g_texPageData = NULL;
 	g_texPagePos = NULL;
 	g_texPagePos = NULL;
 	g_extraPalettes = NULL;

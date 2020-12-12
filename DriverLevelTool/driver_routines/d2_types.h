@@ -21,11 +21,9 @@ struct TEXINF {
 
 enum EPageStorage
 {
-	TPAGE_PERMANENT = (1 << 0),		// pre-loaded page.
-	TPAGE_AREADATA = (1 << 1),		// demand-loaded
-	TPAGE_SPECPAGES = (1 << 2),		// pre-loaded page  However, it doesn't indicate texture compression
-	PAGE_FLAG_UNK1 = (1 << 3),
-	PAGE_FLAG_UNK2 = (1 << 4),
+	TPAGE_PERMANENT = (1 << 0),		// permanently loaded into VRAM
+	TPAGE_AREADATA = (1 << 1),		// spooled and uncompressed
+	TPAGE_SPECPAGES = (1 << 2),		// special car texture page
 };
 
 typedef struct texpage_pos_t

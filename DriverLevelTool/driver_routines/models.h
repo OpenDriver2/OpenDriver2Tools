@@ -42,7 +42,7 @@ struct ModelRef_t
 	int		size;
 	bool	swap;
 
-	void*	userData;
+	void*	userData; // might contain a hardware model pointer
 };
 
 //------------------------------------------------------------------------------------------------------------

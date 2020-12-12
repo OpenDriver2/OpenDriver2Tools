@@ -40,7 +40,7 @@ struct extclutdata_t
 
 //---------------------------------------------------------------------------------------------------------------------------------
 
-extern texdata_t*				g_pageDatas;
+extern texdata_t*				g_texPageData;
 extern TexPage_t*				g_texPages;
 extern extclutdata_t*			g_extraPalettes;
 extern int						g_numExtraPalettes;
@@ -58,9 +58,11 @@ extern char*					g_overlayMapData;
 
 TVec4D<ubyte>	bgr5a1_ToRGBA8(ushort color);
 
-int				GetCarPalIndex(int tpage);
+void			ConvertIndexedTextureToRGBA(int nPage, uint* dest_color_data, int detail, TEXCLUT* clut, bool outputBGR = true);
 
 //---------------------------------------------------------------------------------------------------------------------------------
+
+int				GetCarPalIndex(int tpage);
 
 // unpacks compressed texture
 char*			unpackTexture(char* src, char* dest);

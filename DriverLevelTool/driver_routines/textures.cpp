@@ -21,12 +21,12 @@ bool						g_originalTransparencyKey = true;
 
 XYPAIR						g_permsList[16];
 XYPAIR						g_specList[16];
-texdata_t*					g_pageDatas = NULL;
+texdata_t*					g_texPageData = NULL;
 TexPage_t*					g_texPages = NULL;
 extclutdata_t*				g_extraPalettes = NULL;
 int							g_numExtraPalettes = 0;
 
-// legacy format converter
+// 16 bit color to BGRA
 TVec4D<ubyte> bgr5a1_ToRGBA8(ushort color)
 {
 	ubyte b = (color & 0x1F) * 8;
@@ -42,6 +42,77 @@ TVec4D<ubyte> bgr5a1_ToRGBA8(ushort color)
 	}
 
 	return TVec4D<ubyte>(r,g,b,a);
+}
+
+// 16 bit color to RGBA
+TVec4D<ubyte> rgb5a1_ToRGBA8(ushort color)
+{
+	ubyte r = (color & 0x1F) * 8;
+	ubyte g = ((color >> 5) & 0x1F) * 8;
+	ubyte b = ((color >> 10) & 0x1F) * 8;
+
+	ubyte a = (color >> 15);
+
+	// restore source transparency key
+	if (g_originalTransparencyKey && color == 0)
+	{
+		return TVec4D<ubyte>(255, 0, 255, 0);
+	}
+
+	return TVec4D<ubyte>(r, g, b, a);
+}
+
+//-------------------------------------------------------------
+// Conversion of indexed palettized texture to 32bit RGBA
+//-------------------------------------------------------------
+void ConvertIndexedTextureToRGBA(int nPage, uint* dest_color_data, int detail, TEXCLUT* clut, bool outputBGR)
+{
+	texdata_t* page = &g_texPageData[nPage];
+
+	if (!(detail < g_texPages[nPage].numDetails))
+	{
+		MsgError("Cannot apply palette to non-existent detail! Programmer error?\n");
+		return;
+	}
+
+	int ox = g_texPages[nPage].details[detail].x;
+	int oy = g_texPages[nPage].details[detail].y;
+	int w = g_texPages[nPage].details[detail].width;
+	int h = g_texPages[nPage].details[detail].height;
+
+	if (w == 0)
+		w = 256;
+
+	if (h == 0)
+		h = 256;
+
+	char* textureName = g_textureNamesData + g_texPages[nPage].details[detail].nameoffset;
+	//MsgWarning("Applying detail %d '%s' (xywh: %d %d %d %d)\n", detail, textureName, ox, oy, w, h);
+
+	int tp_wx = ox + w;
+	int tp_hy = oy + h;
+
+	for (int y = oy; y < tp_hy; y++)
+	{
+		for (int x = ox; x < tp_wx; x++)
+		{
+			ubyte clindex = page->data[y * 128 + x / 2];
+
+			if (0 != (x & 1))
+				clindex >>= 4;
+
+			clindex &= 0xF;
+
+			TVec4D<ubyte> color = outputBGR ?
+				bgr5a1_ToRGBA8(clut->colors[clindex]) :
+				rgb5a1_ToRGBA8(clut->colors[clindex]);
+
+			// flip texture by Y because of TGA
+			int ypos = (TEXPAGE_SIZE_Y - y - 1) * TEXPAGE_SIZE_Y;
+
+			dest_color_data[ypos + x] = *(uint*)(&color);
+		}
+	}
 }
 
 //-------------------------------------------------------------------------------
@@ -168,8 +239,8 @@ void LoadPermanentTPages(IVirtualStream* pFile)
 	pFile->Seek( g_levInfo.texdata_offset, VS_SEEK_SET );
 
 	// allocate page data
-	g_pageDatas = new texdata_t[g_numTexPages];
-	memset(g_pageDatas, 0, sizeof(texdata_t)*g_numTexPages);
+	g_texPageData = new texdata_t[g_numTexPages];
+	memset(g_texPageData, 0, sizeof(texdata_t)*g_numTexPages);
 
 	//-----------------------------------
 
@@ -190,7 +261,7 @@ void LoadPermanentTPages(IVirtualStream* pFile)
 		int tpage = g_permsList[i].x;
 
 		// permanents are also compressed
-		LoadTPageAndCluts(pFile, &g_pageDatas[tpage], tpage, true);
+		LoadTPageAndCluts(pFile, &g_texPageData[tpage], tpage, true);
 
 		pFile->Seek(curOfs + ((g_permsList[i].y + 2047) & -2048), VS_SEEK_SET);
 	}
@@ -208,9 +279,9 @@ void LoadPermanentTPages(IVirtualStream* pFile)
 	{
 		long curOfs = pFile->Tell();
 		int tpage = g_specList[i].x;
-		
+
 		// permanents are compressed
-		LoadTPageAndCluts(pFile, &g_pageDatas[tpage], tpage, true);
+		LoadTPageAndCluts(pFile, &g_texPageData[tpage], tpage, true);
 
 		pFile->Seek(curOfs + ((g_specList[i].y + 2047) & -2048), VS_SEEK_SET);
 	}
