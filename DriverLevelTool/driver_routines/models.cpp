@@ -197,9 +197,6 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			*(ushort*)out->uv[2] = *(uint*)&pgt4->uv2;
 			*(ushort*)out->uv[3] = *(uint*)&pgt4->uv3;
 
-			//SwapValues(out->vindices[2], out->vindices[3]);
-			//SwapValues(out->nindices[2], out->nindices[3]);
-
 			*(uint*)out->color = *(uint*)&pgt4->color;
 			out->page = pgt4->texture_set;
 			out->detail = pgt4->texture_id;

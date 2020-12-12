@@ -312,13 +312,16 @@ void DetectLevelFormat(IVirtualStream* pFile)
 			case LUMP_MAP:
 			case LUMP_TEXTURENAMES:
 			case LUMP_MODELNAMES:
-			case LUMP_SUBDIVISION:
 			case LUMP_LOWDETAILTABLE:
 			case LUMP_MOTIONCAPTURE:
 			case LUMP_OVERLAYMAP:
 			case LUMP_PALLET:
 			case LUMP_SPOOLINFO:
 			case LUMP_CURVES2:
+			case LUMP_CHAIR:
+			case LUMP_CAR_MODELS:
+			case LUMP_TEXTUREINFO:
+				break;
 			case LUMP_JUNCTIONS2:
 			{
 				MsgInfo("Assuming it's a 'Driver 2 DEMO' 1.6 alpha LEV file\n");
@@ -331,10 +334,13 @@ void DetectLevelFormat(IVirtualStream* pFile)
 				g_format = LEV_FORMAT_DRIVER2_RETAIL; // most recent LEV file
 				break;
 			}
-			case LUMP_CHAIR:
-			case LUMP_CAR_MODELS:
-			case LUMP_TEXTUREINFO:
-			default:
+			case LUMP_ROADMAP:
+			case LUMP_ROADS:
+			case LUMP_JUNCTIONS:
+			case LUMP_ROADSURF:
+			case LUMP_ROADBOUNDS:
+			case LUMP_JUNCBOUNDS:
+			case LUMP_SUBDIVISION:
 			{
 				MsgInfo("Assuming it's a 'Driver 1' LEV file\n");
 				g_format = LEV_FORMAT_DRIVER1;
