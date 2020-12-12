@@ -44,6 +44,14 @@ bool mkdirRecursive(const char* path, bool includeDotPath)
 	
 	char* end = (char*)strchr(temp, CORRECT_PATH_SEPARATOR);
 
+	// just do a fucking mkdir already
+	// FIXME: pls pls do a better code for it
+	if(end == NULL)
+	{
+		_mkdir(temp);
+		return true;
+	}
+	
 	while (end != NULL)
 	{
 		int result;
