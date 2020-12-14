@@ -439,7 +439,7 @@ void ExportSBK(FILE* sbkFp, const char* sbkFileName)
 	int numBankSamples = LoadSoundBank(sampleDescs, pcmSamples, sbkFp);
 
 	if(numBankSamples)
-		mkdirRecursive(sbkFileName);
+		mkdirRecursive(sbkFileName, true);
 
 	for (int i = 0; i < numBankSamples; i++)
 	{
