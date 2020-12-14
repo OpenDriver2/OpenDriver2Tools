@@ -38,46 +38,42 @@ bool mkdirRecursive(const char* path, bool includeDotPath)
 {
 	char temp[1024];
 	char folder[265];
+	char *end, *curend;
 
 	strcpy(temp, path);
 	FixPathSlashes(temp);
-	
-	char* end = (char*)strchr(temp, CORRECT_PATH_SEPARATOR);
 
-	// just do a fucking mkdir already
-	// FIXME: pls pls do a better code for it
-	if(end == NULL)
-	{
-		_mkdir(temp);
-		return true;
-	}
-	
-	while (end != NULL)
+	end = temp;
+
+	do
 	{
 		int result;
+
+		// skip any separators in the beginning
+		while (*end == CORRECT_PATH_SEPARATOR)
+			end++;
+
+		// get next string part
+		curend = (char*)strchr(end, CORRECT_PATH_SEPARATOR);
+	
+		if (curend)
+			end = curend;
+		else
+			end = temp + strlen(temp);
 
 		strncpy(folder, temp, end - temp);
 		folder[end - temp] = 0;
 
-		// stop on file extension?
-		if (strchr(folder, '.') != NULL && !includeDotPath)
+		// stop on file extension if needed
+		if (strchr(folder, '.') && !includeDotPath)
 			break;
-		
-		result = _mkdir(folder); 
+
+		result = _mkdir(folder);
 
 		if (result > 0 && result != EEXIST)
 			return false;
-
-		if (*end == 0)
-			break;
 		
-		char* next = strchr(++end, CORRECT_PATH_SEPARATOR);
-		
-		if (next)
-			end = next;
-		else
-			end += strlen(end);
-	}
+	} while (curend);
 
 	return true;
 }
