@@ -1,4 +1,7 @@
 -- premake5.lua
+
+-- you can redefine dependencies
+SDL2_DIR = os.getenv("SDL2_DIR") or "dependencies/SDL2"
 	
 workspace "OpenDriver2Tools"
     configurations { "Debug", "Release" }

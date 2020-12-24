@@ -65,7 +65,7 @@ bool mkdirRecursive(const char* path, bool includeDotPath)
 		folder[end - temp] = 0;
 
 		// stop on file extension if needed
-		if (strchr(folder, '.') && !includeDotPath)
+		if (!includeDotPath && strchr(folder, '.'))
 			break;
 
 		result = _mkdir(folder);

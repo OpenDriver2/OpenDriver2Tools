@@ -11,6 +11,7 @@ project "DriverLevelTool"
 	}
 
     files {
+		"**.c",
         "**.cpp",
         "**.h",
 		"driver_routines/**.cpp",
@@ -24,6 +25,18 @@ project "DriverLevelTool"
         }
         
         cppdialect "C++11"
+		
+	filter "system:windows"
+		includedirs {
+			SDL2_DIR.."/include"
+		}
+		links { 
+            "SDL2", 
+        }
+		libdirs { 
+			SDL2_DIR.."/lib/x86",
+		}
+
 
     filter "configurations:Debug"
 		targetsuffix "_dbg"

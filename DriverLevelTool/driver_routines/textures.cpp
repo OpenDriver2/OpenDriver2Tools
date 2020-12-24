@@ -31,7 +31,7 @@ TVec4D<ubyte> bgr5a1_ToRGBA8(ushort color)
 {
 	ubyte b = (color & 0x1F) * 8;
 	ubyte g = ((color >> 5) & 0x1F) * 8;
-	ubyte r = ((color >> 10) & 0x1F) * 8;
+	ubyte r = ((color >> 9) & 0x1F) * 8;
 	
 	ubyte a = (color >> 15);
 	
