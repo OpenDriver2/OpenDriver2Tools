@@ -1,6 +1,7 @@
 #include "driver_level.h"
 #include "core/cmdlib.h"
 
+#include "util/image.h"
 #include "util/util.h"
 #include "util/rnc2.h"
 
@@ -13,77 +14,6 @@ extern bool g_export_overmap;
 extern int g_overlaymap_width;
 extern bool g_explode_tpages;
 extern bool g_export_world;
-
-// Define targa header.
-#pragma pack( push, 1 )
-typedef struct
-{
-	int8	identsize;              // Size of ID field that follows header (0)
-	int8	colorMapType;           // 0 = None, 1 = paletted
-	int8	imageType;              // 0 = none, 1 = indexed, 2 = rgb, 3 = grey, +8=rle
-	unsigned short	colorMapStart;          // First colour map entry
-	unsigned short	colorMapLength;         // Number of colors
-	unsigned char 	colorMapBits;   // bits per palette entry
-	unsigned short	xstart;                 // image x origin
-	unsigned short	ystart;                 // image y origin
-	unsigned short	width;                  // width in pixels
-	unsigned short	height;                 // height in pixels
-	int8	bits;                   // bits per pixel (8 16, 24, 32)
-	int8	descriptor;             // image descriptor
-} TGAHEADER;
-#pragma pack( pop )
-
-struct TIMHDR
-{
-	int magic;
-	int flags;
-};
-
-struct TIMIMAGEHDR
-{
-	int len;
-	short origin_x;
-	short origin_y;
-	short width;
-	short height;
-};
-
-
-//-------------------------------------------------------------
-// Saves TGA file
-//-------------------------------------------------------------
-void SaveTGA(const char* filename, ubyte* data, int w, int h, int c)
-{
-	TGAHEADER tgaHeader;
-
-	// Initialize the Targa header
-	tgaHeader.identsize = 0;
-	tgaHeader.colorMapType = 0;
-	tgaHeader.imageType = 2;
-	tgaHeader.colorMapStart = 0;
-	tgaHeader.colorMapLength = 0;
-	tgaHeader.colorMapBits = 0;
-	tgaHeader.xstart = 0;
-	tgaHeader.ystart = 0;
-	tgaHeader.width = w;
-	tgaHeader.height = h;
-	tgaHeader.bits = c * 8;
-	tgaHeader.descriptor = 0;
-
-	int imageSize = w * h * c;
-
-	FILE* pFile = fopen(filename, "wb");
-	if (!pFile)
-		return;
-
-	// Write the header
-	fwrite(&tgaHeader, sizeof(TGAHEADER), 1, pFile);
-
-	// Write the image data
-	fwrite(data, imageSize, 1, pFile);
-
-	fclose(pFile);
-}
 
 int clutSortFunc(extclutdata_t* const& i, extclutdata_t* const& j)
 {
@@ -202,46 +132,9 @@ void ExportTIM(int nPage, int detail)
 	}
 
 	// compose TIMs
-	//
-	// prep headers
-	TIMHDR hdr;
-	hdr.magic = 0x10;
-	hdr.flags = 0x08; // for 4bpp
-
-	TIMIMAGEHDR cluthdr;
-	TIMIMAGEHDR datahdr;
-
-	cluthdr.origin_x = 0;
-	cluthdr.origin_y = 0;
-
-	cluthdr.width = 16;					// CLUTs always 16 bit color
-	cluthdr.height = palettes.numElem();
-	cluthdr.len = (cluthdr.width * cluthdr.height * sizeof(ushort)) + sizeof(TIMIMAGEHDR);
-
-	datahdr.origin_x = ox;
-	datahdr.origin_y = oy;
-
-	datahdr.width = (w >> 2);
-	datahdr.height = h;
-	datahdr.len = img_size + sizeof(TIMIMAGEHDR);
-
-	FILE* pFile = fopen(varargs("%s/PAGE_%d/%s_%d.TIM", g_levname_texdir.c_str(), nPage, textureName, detail), "wb");
-	if (!pFile)
-		return;
-
-	// write header
-	fwrite(&hdr, 1, sizeof(hdr), pFile);
-
-	// write clut
-	fwrite(&cluthdr, 1, sizeof(cluthdr), pFile);
-	fwrite(clut_data, 1, cluthdr.len - sizeof(TIMIMAGEHDR), pFile);
-
-	// write data
-	fwrite(&datahdr, 1, sizeof(datahdr), pFile);
-	fwrite(image_data, 1, datahdr.len - sizeof(TIMIMAGEHDR), pFile);
-
-	// dun
-	fclose(pFile);
+	SaveTIM_4bit(varargs("%s/PAGE_%d/%s_%d.TIM", g_levname_texdir.c_str(), nPage, textureName, detail), 
+		image_data, img_size, ox, oy, w, h, 
+		(ubyte*)clut_data, palettes.numElem() );
 
 	delete[] image_data;
 	delete[] clut_data;
