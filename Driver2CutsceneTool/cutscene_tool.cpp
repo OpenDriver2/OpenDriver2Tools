@@ -405,7 +405,7 @@ void PackCutsceneFile(const char* foldername)
 		header.data[i].offset = offset / 4;	// because it use shorts we have an multiplier
 		header.data[i].size = repsizes[replayId];
 
-		int sizeStep = (repsizes[replayId] / 2048) * 2048;
+		int sizeStep = ((repsizes[replayId] + 1024) / 2048) * 2048;
 
 		if (sizeStep < 2048)
 			sizeStep = 2048;
