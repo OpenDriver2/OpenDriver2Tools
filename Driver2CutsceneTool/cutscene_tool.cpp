@@ -12,6 +12,15 @@
 #define MAX_FILE_CUTSCENES			15
 #define REPLAY_BUFFER_MINSIZE		2280
 
+// replay definitions.
+// DO NOT EDIT, breaks compatibility!
+#define MAX_REPLAY_CAMERAS		60
+#define MAX_REPLAY_WAYPOINTS	150
+#define MAX_REPLAY_PINGS		400
+
+#define DRIVER2_REPLAY_MAGIC		0x14793209
+#define REDRIVER2_CHASE_MAGIC		(('D' << 24) | ('2' << 16) | ('C' << 8) | 'R' )
+
 // TODO: Cutscene.h
 
 struct CUTSCENE_INFO
@@ -25,6 +34,14 @@ struct CUTSCENE_HEADER
 	int maxsize;
 	CUTSCENE_INFO data[MAX_FILE_CUTSCENES];
 };
+
+typedef struct _PING_PACKET
+{
+	ushort frame;
+	char carId;
+	char cookieCount;
+} PING_PACKET;
+
 
 //----------------------------------------------------
 
@@ -108,6 +125,21 @@ struct PADRECORD
 	ubyte run;
 };
 
+struct PLAYBACKCAMERA
+{
+	VECTOR_NOPAD position;
+	SVECTOR angle;
+	int FrameCnt;
+	short CameraPosvy;
+	short scr_z;
+	short gCameraMaxDistance;
+	short gCameraAngle;
+	ubyte cameraview;
+	ubyte next;
+	ubyte prev;
+	ubyte idx;
+};
+
 struct STREAM_SOURCE
 {
 	ubyte type;
@@ -156,7 +188,7 @@ void UnpackCutsceneFile(const char* filename)
 	Msg("Max replay buffer size: %d\n", header.maxsize);
 
 	// make the folder
-	sprintf(folderPath, "%s_files", cut_name.c_str());
+	sprintf(folderPath, "%s", cut_name.c_str());
 	mkdirRecursive(folderPath, true);
 
 	buffer = (char*)malloc(0x200000);
@@ -203,7 +235,7 @@ void UnpackCutsceneFile(const char* filename)
 		}
 
 		// save separate file
-		sprintf(folderPath, "%s_files/%s_%d.D2RP", cut_name.c_str(), cut_name.c_str(), i);
+		sprintf(folderPath, "%s/%s_%d.D2RP", cut_name.c_str(), cut_name.c_str(), i);
 
 		FILE* wp = fopen(folderPath, "wb");
 		if (wp)
@@ -236,7 +268,7 @@ void PackCutsceneFile(const char* foldername)
 
 	for (int i = 0; i < MAX_FILE_CUTSCENES; i++)
 	{
-		sprintf(folderPath, "%s_files/%s_%d.D2RP", foldername, foldername, i);
+		sprintf(folderPath, "%s/%s_%d.D2RP", foldername, foldername, i);
 		FILE* fp = fopen(folderPath, "rb");
 		if (fp)
 		{
@@ -280,6 +312,21 @@ void PackCutsceneFile(const char* foldername)
 				{
 					header.maxsize = size * 2;
 				}
+			}
+
+			// optimize size for chases by removing camera block
+			if (i >= 2)
+			{
+				hdr->magic = REDRIVER2_CHASE_MAGIC;
+
+				char* bufptr = (char*)sheader;
+				char* pingBufferPtr = bufptr + sizeof(PLAYBACKCAMERA) * MAX_REPLAY_CAMERAS;
+
+				memmove(bufptr, pingBufferPtr, sizeof(PING_PACKET) * MAX_REPLAY_PINGS);
+				
+				// shrink size
+				repsizes[i] -= sizeof(PLAYBACKCAMERA) * MAX_REPLAY_CAMERAS;
+				MsgAccept("\Shinking '%s', now %d bytes\n", folderPath, repsizes[i]);
 			}
 		}
 		else
@@ -358,12 +405,13 @@ void PackCutsceneFile(const char* foldername)
 		header.data[i].offset = offset / 4;	// because it use shorts we have an multiplier
 		header.data[i].size = repsizes[replayId];
 
-		int sizeStep = repsizes[replayId] / 2048;
-		if (sizeStep < 1)
-			sizeStep = 1;
+		int sizeStep = (repsizes[replayId] / 2048) * 2048;
 
-		bufptr += sizeStep * 2048;
-		offset += sizeStep * 2048;
+		if (sizeStep < 2048)
+			sizeStep = 2048;
+
+		bufptr += sizeStep;
+		offset += sizeStep;
 	}
 
 	MsgInfo("Saved %d cutscenes and %d chase replays\n", numCutsceneReplays, numChaseReplays);
