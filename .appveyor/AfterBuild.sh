@@ -12,6 +12,6 @@ do
 	cd "${APPVEYOR_BUILD_FOLDER}/DriverImageTool/bin/${config^}"
     tar -czf "DriverImageTool_${config^}.tar.gz" *
 	
-	cd "${APPVEYOR_BUILD_FOLDER}/DriverCutsceneTool/bin/${config^}"
-    tar -czf "DriverCutsceneTool_${config^}.tar.gz" *
+	cd "${APPVEYOR_BUILD_FOLDER}/Driver2CutsceneTool/bin/${config^}"
+    tar -czf "Driver2CutsceneTool_${config^}.tar.gz" *
 done

@@ -44,8 +44,8 @@ artifacts:
   - path: DriverImageTool\bin\*\*.zip
     name: DriverImageTool Windows Binaries
     
-  - path: DriverCutsceneTool\bin\*\*.zip
-    name: DriverCutsceneTool Windows Binaries
+  - path: Driver2CutsceneTool\bin\*\*.zip
+    name: Driver2CutsceneTool Windows Binaries
     
 #--------------
   - path: DriverLevelTool\bin\*\*.tar.gz
@@ -57,5 +57,5 @@ artifacts:
   - path: DriverImageTool\bin\*\*.tar.gz
     name: DriverImageTool Linux Binaries
 
-  - path: DriverCutsceneTool\bin\*\*.tar.gz
-    name: DriverCutsceneTool Linux Binaries
+  - path: Driver2CutsceneTool\bin\*\*.tar.gz
+    name: Driver2CutsceneTool Linux Binaries
