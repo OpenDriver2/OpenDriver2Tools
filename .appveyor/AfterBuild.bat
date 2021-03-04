@@ -17,8 +17,8 @@ for %%c in (%config::= %) do (
     xcopy /e /v %data_folder% .\ /Y
     7z a "DriverImageTool_%%c.zip" ".\*"
 	
-	cd %project_folder%\DriverCutsceneTool\bin\%%c
+	cd %project_folder%\Driver2CutsceneTool\bin\%%c
 
     xcopy /e /v %data_folder% .\ /Y
-    7z a "DriverCutsceneTool_%%c.zip" ".\*"
+    7z a "Driver2CutsceneTool_%%c.zip" ".\*"
 )
