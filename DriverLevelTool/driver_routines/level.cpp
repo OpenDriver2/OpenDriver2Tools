@@ -8,8 +8,8 @@ ELevelFormat g_format = LEV_FORMAT_AUTODETECT;
 
 std::string					g_levname;
 
-IVirtualStream*				g_levStream = NULL;
-char*						g_overlayMapData = NULL;
+IVirtualStream*				g_levStream = nullptr;
+char*						g_overlayMapData = nullptr;
 
 extern DkList<std::string>	g_model_names;
 
@@ -50,7 +50,7 @@ void LoadCarModelsLump(IVirtualStream* pFile, int ofs, int size)
 			pFile->Read(g_carModels[i].cleanmodel, 1, g_carModels[i].cleanSize);
 		}
 		else
-			g_carModels[i].cleanmodel = NULL;
+			g_carModels[i].cleanmodel = nullptr;
 
 		if (model_entries[i].damOffset != -1)
 		{
@@ -62,7 +62,7 @@ void LoadCarModelsLump(IVirtualStream* pFile, int ofs, int size)
 			pFile->Read(g_carModels[i].dammodel, 1, g_carModels[i].damSize);
 		}
 		else
-			g_carModels[i].dammodel = NULL;
+			g_carModels[i].dammodel = nullptr;
 
 		if (model_entries[i].lowOffset != -1)
 		{
@@ -74,7 +74,7 @@ void LoadCarModelsLump(IVirtualStream* pFile, int ofs, int size)
 			pFile->Read(g_carModels[i].lowmodel, 1, g_carModels[i].lowSize);
 		}
 		else
-			g_carModels[i].lowmodel = NULL;
+			g_carModels[i].lowmodel = nullptr;
 	}
 
 	pFile->Seek(l_ofs, VS_SEEK_SET);
@@ -169,7 +169,7 @@ void LoadLevelModelsLump(IVirtualStream* pFile)
 		{
 			ModelRef_t& ref = g_levelModels[i];
 			ref.index = i;
-			ref.model = NULL;
+			ref.model = nullptr;
 			ref.size = modelSize;
 			ref.swap = true;
 		}
@@ -475,7 +475,7 @@ void LoadLevelFile(const char* filename)
 	}
 
 	CMemoryStream* stream = new CMemoryStream();
-	stream->Open(NULL, VS_OPEN_WRITE | VS_OPEN_READ, 0);
+	stream->Open(nullptr, VS_OPEN_WRITE | VS_OPEN_READ, 0);
 
 	// read file into stream
 	if (stream->ReadFromFileStream(pReadFile))
@@ -574,7 +574,7 @@ void FreeLevelData()
 
 	if (g_levStream)
 		delete g_levStream;
-	g_levStream = NULL;
+	g_levStream = nullptr;
 
 	FreeSpoolData();
 
@@ -613,8 +613,8 @@ void FreeLevelData()
 	delete[] g_extraPalettes;
 	delete[] g_overlayMapData;
 
-	g_texPageData = NULL;
-	g_texPagePos = NULL;
-	g_texPagePos = NULL;
-	g_extraPalettes = NULL;
+	g_texPageData = nullptr;
+	g_texPagePos = nullptr;
+	g_texPagePos = nullptr;
+	g_extraPalettes = nullptr;
 }

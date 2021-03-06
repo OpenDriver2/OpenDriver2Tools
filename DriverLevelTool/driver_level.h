@@ -28,9 +28,9 @@ void	ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, in
 void	WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize, int model_index, const char* name_prefix,
 			bool debugInfo = true,
 			const Matrix4x4& translation = identity4(),
-			int* first_v = NULL,
-			int* first_t = NULL,
-			RegionModels_t* regModels = NULL);
+			int* first_v = nullptr,
+			int* first_t = nullptr,
+			RegionModels_t* regModels = nullptr);
 
 //----------------------------------------------------------
 // main functions

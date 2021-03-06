@@ -282,7 +282,7 @@ void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, in
 
 	const char* selFilename = model_name;
 
-	if (strchr(model_name, '.') == NULL)
+	if (strchr(model_name, '.') == nullptr)
 		selFilename = varargs("%s.obj", model_name);
 	
 	FILE* mdlFile = fopen(selFilename, "wb");

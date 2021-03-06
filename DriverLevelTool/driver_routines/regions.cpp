@@ -11,17 +11,17 @@
 LEVELINFO				g_levInfo;
 OUT_CELL_FILE_HEADER	g_mapInfo;
 
-AreaDataStr*		g_areaData = NULL;			// region model/texture data descriptors
-AreaTPage_t*		g_regionPages = NULL;		// region texpage usage table
-RegionModels_t*		g_regionModels = NULL;		// cached region models
-Spool*				g_regionSpool = NULL;		// region data info
-ushort*				g_spoolInfoOffsets = NULL;		// region offset table
+AreaDataStr*		g_areaData = nullptr;			// region model/texture data descriptors
+AreaTPage_t*		g_regionPages = nullptr;		// region texpage usage table
+RegionModels_t*		g_regionModels = nullptr;		// cached region models
+Spool*				g_regionSpool = nullptr;		// region data info
+ushort*				g_spoolInfoOffsets = nullptr;		// region offset table
 
 int					g_numAreas = 0;
 int					g_numSpoolInfoOffsets = 0;
 int					g_numRegionSpools = 0;
 
-void*				g_straddlers = NULL;		// cells that placed between regions (transition area)
+void*				g_straddlers = nullptr;		// cells that placed between regions (transition area)
 int					g_numStraddlers = 0;
 
 int					g_cell_slots_add[5] = { 0 };
@@ -240,23 +240,23 @@ void FreeSpoolData()
 {
 	if(g_straddlers)
 		free(g_straddlers);
-	g_straddlers = NULL;
+	g_straddlers = nullptr;
 
 	if(g_regionSpool)
 		free(g_regionSpool);
-	g_regionSpool = NULL;
+	g_regionSpool = nullptr;
 
 	if(g_spoolInfoOffsets)
 		delete [] g_spoolInfoOffsets;
-	g_spoolInfoOffsets = NULL;
+	g_spoolInfoOffsets = nullptr;
 
 	if(g_regionPages)
 		delete [] g_regionPages;
-	g_regionPages = NULL;
+	g_regionPages = nullptr;
 
 	if(g_areaData)
 		delete [] g_areaData;
-	g_areaData = NULL;
+	g_areaData = nullptr;
 
 	if(g_regionModels)
 	{
@@ -267,6 +267,6 @@ void FreeSpoolData()
 		}
 
 		delete [] g_regionModels;
-		g_regionModels = NULL;
+		g_regionModels = nullptr;
 	}
 }

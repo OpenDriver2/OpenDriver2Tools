@@ -283,7 +283,7 @@ void ExportAllTextures()
 
 		for (int i = 0; i < g_numAreas; i++)
 		{
-			LoadRegionData(g_levStream, NULL, &g_areaData[i], &g_regionPages[i]);
+			LoadRegionData(g_levStream, nullptr, &g_areaData[i], &g_regionPages[i]);
 		}
 	}
 

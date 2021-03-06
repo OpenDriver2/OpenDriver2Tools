@@ -71,11 +71,11 @@ bool LoadMTL(const char* filename, DkList<obj_material_t> &material_list)
 		return false;
 	}
 
-	obj_material_t* current = NULL;
+	obj_material_t* current = nullptr;
 
 	char *str;
 
-	while ((str = tok.next()) != NULL)
+	while ((str = tok.next()) != nullptr)
 	{
 		if(str[0] == '#')
 		{
@@ -157,7 +157,7 @@ bool LoadOBJ(smdmodel_t* model, const char* filename)
 	int nFaces = 0;
 
 	// read counters for fast alloc
-	while ((str = tok.next()) != NULL)
+	while ((str = tok.next()) != nullptr)
 	{
 		if(!stricmp(str, "v"))
 		{
@@ -208,7 +208,7 @@ bool LoadOBJ(smdmodel_t* model, const char* filename)
 	texcoords.resize(nTexCoords);
 	normals.resize(nNormals);
 
-	smdgroup_t* curgroup = NULL;
+	smdgroup_t* curgroup = nullptr;
 	//int*		group_remap = new int[nVerts];
 
 	bool gl_to_eq = true;
@@ -327,7 +327,7 @@ bool LoadOBJ(smdmodel_t* model, const char* filename)
 			
 			strcpy(string, ofs);
 
-			char* str_idxs[32] = {NULL};
+			char* str_idxs[32] = {nullptr};
 			xstrsplitws(string, str_idxs);
 
 			int i = 0;
@@ -348,7 +348,7 @@ bool LoadOBJ(smdmodel_t* model, const char* filename)
 				{
 					// face format handling
 					slashcount = strchcount(pstr, '/');
-					doubleslash = (strstr(pstr,"//") != NULL);
+					doubleslash = (strstr(pstr,"//") != nullptr);
 				}
 
 				// v//vn
@@ -394,7 +394,7 @@ bool LoadOBJ(smdmodel_t* model, const char* filename)
 		}
 		else if(str[0] == 'g')
 		{
-			curgroup = NULL;
+			curgroup = nullptr;
 		}
 		else if(str[0] == 's')
 		{
@@ -403,7 +403,7 @@ bool LoadOBJ(smdmodel_t* model, const char* filename)
 		}
 		else if(!stricmp(str, "usemtl"))
 		{
-			curgroup = NULL;
+			curgroup = nullptr;
 			strcpy(material_name, tok.next(isNotNewLine));
 		}
 

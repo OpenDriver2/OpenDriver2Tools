@@ -33,8 +33,8 @@ struct ModelRef_t
 {
 	ModelRef_t()
 	{
-		model = NULL;
-		userData = NULL;
+		model = nullptr;
+		userData = nullptr;
 	}
 
 	MODEL*	model;

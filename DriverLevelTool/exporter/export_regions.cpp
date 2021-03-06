@@ -113,7 +113,7 @@ PACKED_CELL_OBJECT* GetFirstPackedCop(CELL_DATA** cell, ushort cell_ptr, int bar
 	*cell = &g_cells[cell_ptr];
 
 	if ((*cell)->num & 0x8000)
-		return NULL;
+		return nullptr;
 
 	return &g_packed_cell_objects[((*cell)->num & 0x3fff) - g_cell_objects_add[barrel_region]];
 }
@@ -128,13 +128,13 @@ PACKED_CELL_OBJECT* GetNextPackedCop(CELL_DATA** cell, int barrel_region)
 
 	do {
 		if ((*cell)->num & 0x8000)
-			return NULL;
+			return nullptr;
 
 		(*cell) = (*cell) + 1;
 		num = (*cell)->num;
 
 		if (num & 0x4000)
-			return NULL;
+			return nullptr;
 
 		ppco = &g_packed_cell_objects[((*cell)->num & 0x3fff) - g_cell_objects_add[barrel_region]];
 	} while (ppco->value == 0xffff && (ppco->pos.vy & 1) != 0);
@@ -343,7 +343,7 @@ void ExportRegions()
 			}
 
 			// read cell objects after we spool additional area data
-			RegionModels_t* regModels = NULL;
+			RegionModels_t* regModels = nullptr;
 
 			// if region data is available, load models and textures
 			if (spool->super_region != SUPERREGION_NONE)

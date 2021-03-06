@@ -593,7 +593,7 @@ inline T *DkList<T>::find( T const & obj ) const
 	if ( i >= 0 )
 		return &m_pListPtr[ i ];
 
-	return NULL;
+	return nullptr;
 }
 
 // -----------------------------------------------------------------
@@ -610,7 +610,7 @@ inline T *DkList<T>::findFirst( COMPAREFUNC comparator  ) const
 			return &m_pListPtr[i];
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 // -----------------------------------------------------------------
@@ -627,7 +627,7 @@ inline T *DkList<T>::findLast( COMPAREFUNC comparator ) const
 			return &m_pListPtr[i];
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 // -----------------------------------------------------------------
@@ -641,7 +641,7 @@ inline bool DkList<T>::removeIndex( int index )
 	int i;
 
 #ifdef DEBUG_CHECK_LIST_BOUNDS
-	ASSERT( m_pListPtr != NULL );
+	ASSERT( m_pListPtr != nullptr );
 	ASSERT( index >= 0 );
 	ASSERT( index < m_nNumElem );
 #endif // DEBUG_CHECK_LIST_BOUNDS
@@ -666,7 +666,7 @@ template< class T >
 inline bool DkList<T>::fastRemoveIndex( int index )
 {
 #ifdef DEBUG_CHECK_LIST_BOUNDS
-	ASSERT( m_pListPtr != NULL );
+	ASSERT( m_pListPtr != nullptr );
 	ASSERT( index >= 0 );
 	ASSERT( index < m_nNumElem );
 #endif // DEBUG_CHECK_LIST_BOUNDS

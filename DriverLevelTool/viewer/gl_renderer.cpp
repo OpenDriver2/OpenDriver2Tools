@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "math/dktypes.h"
+#include "math/Matrix.h"
 
 struct GrVAO
 {
@@ -17,23 +18,35 @@ struct GrVAO
 
 //-------------------------------------------------------------
 
-SDL_Window* g_window = NULL;
+SDL_Window* g_window = nullptr;
 int			g_windowWidth, g_windowHeight;
 int			g_swapInterval = 1;
 
 int			g_PreviousBlendMode = BM_NONE;
 int			g_PreviousDepthMode = 0;
-GrVAO*		g_PreviousVAO = NULL;
+GrVAO*		g_PreviousVAO = nullptr;
 TextureID	g_lastBoundTexture = -1;
 ShaderID	g_PreviousShader = -1;
+
+GLint		u_MatrixUniforms[MATRIX_MODES];
+Matrix4x4	g_matrices[MATRIX_MODES];
 
 GLint		u_World;			// object transform in the world
 GLint		u_View;				// view transform in the world
 GLint		u_Projection;		// projection
-
 GLint		u_WorldViewProj;
 
-TextureID g_whiteTexture;
+TextureID	g_whiteTexture;
+
+
+
+void GR_GetWVPUniforms(GLuint program)
+{
+	u_MatrixUniforms[MATRIX_VIEW] = glGetUniformLocation(program, "u_View");
+	u_MatrixUniforms[MATRIX_PROJECTION] = glGetUniformLocation(program, "u_Projection");
+	u_MatrixUniforms[MATRIX_WORLD] = glGetUniformLocation(program, "u_World");
+	u_MatrixUniforms[MATRIX_WORLDVIEWPROJECTION] = glGetUniformLocation(program, "u_WorldViewProj");
+}
 
 void GR_UpdateWindowSize(int width, int height)
 {
@@ -57,7 +70,7 @@ int GR_InitWindow(char* windowName, int width, int height, int fullscreen)
 
 	g_window = SDL_CreateWindow(windowName, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, g_windowWidth, g_windowHeight, windowFlags);
 
-	if (g_window == NULL)
+	if (g_window == nullptr)
 	{
 		MsgError("Failed to initialise SDL window or GL context!\n");
 		return 0;
@@ -183,7 +196,7 @@ void GR_Shutdown()
 void GR_CheckShaderStatus(GLuint shader)
 {
 	char info[1024];
-	glGetShaderInfoLog(shader, sizeof(info), NULL, info);
+	glGetShaderInfoLog(shader, sizeof(info), nullptr, info);
 	if (info[0] && strlen(info) > 8)
 	{
 		MsgError("%s\n", info);
@@ -194,7 +207,7 @@ void GR_CheckShaderStatus(GLuint shader)
 void GR_CheckProgramStatus(GLuint program)
 {
 	char info[1024];
-	glGetProgramInfoLog(program, sizeof(info), NULL, info);
+	glGetProgramInfoLog(program, sizeof(info), nullptr, info);
 	if (info[0] && strlen(info) > 8)
 	{
 		MsgError("%s\n", info);
@@ -263,14 +276,14 @@ ShaderID GR_CompileShader(const char* source)
 	GLuint program = glCreateProgram();
 
 	GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShader, 3, vs_list, NULL);
+	glShaderSource(vertexShader, 3, vs_list, nullptr);
 	glCompileShader(vertexShader);
 	GR_CheckShaderStatus(vertexShader);
 	glAttachShader(program, vertexShader);
 	glDeleteShader(vertexShader);
 
 	GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragmentShader, 3, fs_list, NULL);
+	glShaderSource(fragmentShader, 3, fs_list, nullptr);
 	glCompileShader(fragmentShader);
 	GR_CheckShaderStatus(fragmentShader);
 	glAttachShader(program, fragmentShader);
@@ -299,48 +312,23 @@ void GR_SetShader(const ShaderID& shader)
 	g_PreviousShader = shader;
 	
 	glUseProgram(shader);
+	GR_GetWVPUniforms(shader);
 }
 
 //----------------------------------------------------------------
 
-void GR_Ortho2D(float left, float right, float bottom, float top, float znear, float zfar)
+void GR_SetMatrix(MatrixMode mode, const Matrix4x4& matrix)
 {
-	float a = 2.0f / (right - left);
-	float b = 2.0f / (top - bottom);
-	float c = 2.0f / (znear - zfar);
-
-	float x = (left + right) / (left - right);
-	float y = (bottom + top) / (bottom - top);
-
-	float z = (znear + zfar) / (znear - zfar);
-
-	float ortho[16] = {
-		a, 0, 0, 0,
-		0, b, 0, 0,
-		0, 0, c, 0,
-		x, y, z, 1
-	};
-
-	glUniformMatrix4fv(u_Projection, 1, GL_FALSE, ortho);
+	g_matrices[mode] = matrix;
 }
 
-void GR_Perspective3D(const float fov, const float width, const float height, const float zNear, const float zFar)
+void GR_UpdateMatrixUniforms()
 {
-	float sinF, cosF;
-	sinF = sinf(0.5f * fov);
-	cosF = cosf(0.5f * fov);
-
-	float h = cosF / sinF;
-	float w = (h * height) / width;
-
-	float persp[16] = {
-		w, 0, 0, 0,
-		0, h, 0, 0,
-		0, 0, (zFar + zNear) / (zFar - zNear), -(2 * zFar * zNear) / (zFar - zNear),
-		0, 0, 1, 0
-	};
-
-	glUniformMatrix4fv(u_Projection, 1, GL_TRUE, persp);
+	// rebuild WVP
+	g_matrices[MATRIX_WORLDVIEWPROJECTION] = identity4() * g_matrices[MATRIX_PROJECTION] * (g_matrices[MATRIX_VIEW] * g_matrices[MATRIX_WORLD]);
+	
+	for(int i = 0; i < MATRIX_MODES; i++)
+		glUniformMatrix4fv(u_MatrixUniforms[i], 1, GL_FALSE, g_matrices[i]);
 }
 
 //----------------------------------------------------------------
@@ -432,7 +420,7 @@ void GR_SetPolygonOffset(float ofs)
 	}
 }
 
-void GR_EnableDepth(int enable)
+void GR_SetDepth(int enable)
 {
 	if (g_PreviousDepthMode == enable)
 		return;
@@ -500,9 +488,9 @@ GrVAO* GR_CreateVAO(int numVertices, GrVertex* verts /*= NULL*/, int dynamic /*=
 		glEnableVertexAttribArray(a_normal_tv);
 		glEnableVertexAttribArray(a_color);
 
-		glVertexAttribPointer(a_position_tu, 4, GL_FLOAT, GL_FALSE, sizeof(GrVertex), &((GrVertex*)NULL)->vx);
-		glVertexAttribPointer(a_normal_tv, 4, GL_FLOAT, GL_FALSE, sizeof(GrVertex), &((GrVertex*)NULL)->nx);
-		glVertexAttribPointer(a_color, 4, GL_FLOAT, GL_TRUE, sizeof(GrVertex), &((GrVertex*)NULL)->cr);
+		glVertexAttribPointer(a_position_tu, 4, GL_FLOAT, GL_FALSE, sizeof(GrVertex), &((GrVertex*)nullptr)->vx);
+		glVertexAttribPointer(a_normal_tv, 4, GL_FLOAT, GL_FALSE, sizeof(GrVertex), &((GrVertex*)nullptr)->nx);
+		glVertexAttribPointer(a_color, 4, GL_FLOAT, GL_TRUE, sizeof(GrVertex), &((GrVertex*)nullptr)->cr);
 
 		glBindVertexArray(0);
 	}
@@ -522,7 +510,7 @@ void GR_SetVAO(GrVAO* vaoPtr)
 
 	g_PreviousVAO = vaoPtr;
 	
-	if (vaoPtr == NULL)
+	if (vaoPtr == nullptr)
 	{
 		glBindVertexArray(0);
 		return;

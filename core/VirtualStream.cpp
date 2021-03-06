@@ -16,7 +16,7 @@ IVirtualStream* OpenMemoryStream(int nOpenFlags, int nBufferSize, ubyte* pBuffer
 	else
 	{
 		delete pMemoryStream;
-		return NULL;
+		return nullptr;
 	}
 }
 
@@ -40,8 +40,8 @@ void IVirtualStream::Print(const char* pFmt, ...)
 
 CMemoryStream::CMemoryStream()
 {
-	m_pCurrent = NULL;
-	m_pStart = NULL;
+	m_pCurrent = nullptr;
+	m_pStart = nullptr;
 
 	m_nAllocatedSize = 0;
 	m_nUsageFlags = 0;
@@ -51,10 +51,10 @@ CMemoryStream::CMemoryStream()
 CMemoryStream::~CMemoryStream()
 {
 	// destroy memory
-	m_pCurrent = NULL;
+	m_pCurrent = nullptr;
 
 	free( m_pStart );
-	m_pStart = NULL;
+	m_pStart = nullptr;
 	m_nAllocatedSize = 0;
 	m_nUsageFlags = 0;
 }
@@ -154,12 +154,12 @@ bool CMemoryStream::Open(ubyte* data, int nOpenFlags, int nDataSize)
 
 		m_nAllocatedSize = 0;
 
-		m_pStart = NULL;
-		m_pCurrent = NULL;
+		m_pStart = nullptr;
+		m_pCurrent = nullptr;
 	}
 
 	// make this as base buffer
-	if(nDataSize > 0 && m_pStart == NULL)
+	if(nDataSize > 0 && m_pStart == nullptr)
 		ReAllocate(nDataSize);
 
 	if((m_nUsageFlags & VS_OPEN_READ) && data)

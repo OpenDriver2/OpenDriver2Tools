@@ -30,7 +30,7 @@ ModelRef_t* FindModelByIndex(int nIndex, RegionModels_t* models)
 		return &g_levelModels[nIndex];
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 int GetModelIndexByName(const char* name)

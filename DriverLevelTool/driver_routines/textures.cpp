@@ -7,9 +7,9 @@
 
 //-------------------------------------------------------------------------------
 
-char*						g_textureNamesData = NULL;
+char*						g_textureNamesData = nullptr;
 
-TEXPAGE_POS*				g_texPagePos = NULL;
+TEXPAGE_POS*				g_texPagePos = nullptr;
 
 int							g_numTexPages = 0;
 int							g_numTexDetails = 0;
@@ -21,9 +21,9 @@ bool						g_originalTransparencyKey = true;
 
 XYPAIR						g_permsList[16];
 XYPAIR						g_specList[16];
-texdata_t*					g_texPageData = NULL;
-TexPage_t*					g_texPages = NULL;
-extclutdata_t*				g_extraPalettes = NULL;
+texdata_t*					g_texPageData = nullptr;
+TexPage_t*					g_texPages = nullptr;
+extclutdata_t*				g_extraPalettes = nullptr;
 int							g_numExtraPalettes = 0;
 
 // 16 bit color to BGRA
@@ -327,7 +327,7 @@ void LoadTextureInfoLump(IVirtualStream* pFile)
 			pFile->Read(tp.details, tp.numDetails, sizeof(TEXINF));
 		}
 		else
-			tp.details = NULL;
+			tp.details = nullptr;
 
 	}
 
@@ -362,5 +362,5 @@ TEXINF* FindTextureDetail(const char* name)
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }

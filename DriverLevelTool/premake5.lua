@@ -28,13 +28,13 @@ project "DriverLevelTool"
 		
 	filter "system:windows"
 		includedirs {
-			SDL2_DIR.."/include"
+			"../"..SDL2_DIR.."/include"
 		}
 		links { 
             "SDL2", 
         }
 		libdirs { 
-			SDL2_DIR.."/lib/x86",
+			"../"..SDL2_DIR.."/lib/x86",
 		}
 
 

@@ -71,7 +71,7 @@ void InitHWTexturePage(int nPage)
 	
 	texdata_t* page = &g_texPageData[nPage];
 
-	if (page->data == NULL)
+	if (page->data == nullptr)
 		return;
 	
 	int imgSize = TEXPAGE_SIZE * 4;

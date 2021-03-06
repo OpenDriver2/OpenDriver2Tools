@@ -11,14 +11,14 @@
 
 extern std::string		g_levname;
 
-TexPage_t*				g_compilerTPages = NULL;
+TexPage_t*				g_compilerTPages = nullptr;
 int						g_numCompilerTPages = 0;
 
 //--------------------------------------------------------------------------
 
 inline int GetDamageZoneId(const char* zoneName)
 {
-	if (zoneName == NULL)
+	if (zoneName == nullptr)
 		return 0xFFFF;
 
 	for(int i = 0; i < NUM_ZONE_TYPES; i++)
@@ -50,7 +50,7 @@ void FreeTextureDetails()
 	}
 
 	delete[] g_compilerTPages;
-	g_compilerTPages = NULL;
+	g_compilerTPages = nullptr;
 	g_numCompilerTPages = 0;
 }
 
@@ -90,7 +90,7 @@ void InitTextureDetailsForModel(smdmodel_t* model)
 
 		if (!tpage_ini)
 		{
-			g_compilerTPages[i].details = NULL;
+			g_compilerTPages[i].details = nullptr;
 			g_compilerTPages[i].numDetails = 0;
 			
 			MsgError("Unable to open '%s_textures/%s.ini'! Texture coordinates might be messed up\n", g_levname.c_str(), textured_groups[i]->texture);
@@ -148,7 +148,7 @@ void InitTextureDetailsForModel(smdmodel_t* model)
 int FindTextureDetailByUV(int tpage, UV_INFO* uvs, int num_uv, TEXINF** detail)
 {
 	// first find tpage
-	TexPage_t* tpinfo = NULL;
+	TexPage_t* tpinfo = nullptr;
 	for(int i = 0; i < g_numCompilerTPages; i++)
 	{
 		if(g_compilerTPages[i].id == tpage)
@@ -552,7 +552,7 @@ void CompileOBJModelToDMODEL(const char* filename, const char* outputName, bool 
 	InitTextureDetailsForModel(&model);
 
 	CMemoryStream stream;
-	stream.Open(NULL, VS_OPEN_WRITE, 512 * 1024);
+	stream.Open(nullptr, VS_OPEN_WRITE, 512 * 1024);
 	
 	int resultSize = 0;
 	MODEL* resultModel = CompileDMODEL(&stream, &model, resultSize);

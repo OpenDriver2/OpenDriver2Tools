@@ -589,7 +589,7 @@ template <typename T>
 TVec4D<T>	balance(const TVec4D<T> &v);
 
 // computes direction vectors from angles (degrees)
-void		AngleVectors(const Vector3D &angles,Vector3D *forward,Vector3D *right = NULL,Vector3D *up = NULL);
+void		AngleVectors(const Vector3D &angles,Vector3D *forward,Vector3D *right = nullptr,Vector3D *up = nullptr);
 
 // computes angles from direction vector
 Vector3D	VectorAngles(const Vector3D &forward);
@@ -598,7 +598,7 @@ Vector3D	VectorAngles(const Vector3D &forward);
 void		VectorVectors( const Vector3D &forward, Vector3D &right, Vector3D &up );
 
 // rotates vector by degree angles around selected center
-void		VectorRotate( const Vector3D &in1, const Vector3D &angles, Vector3D *out, Vector3D *center = 0);
+void		VectorRotate( const Vector3D &in1, const Vector3D &angles, Vector3D *out, Vector3D *center = nullptr);
 
 // rotates vector around y axis
 Vector3D	RotateXZBy(const Vector3D &vector, float degrees, Vector3D &center);
