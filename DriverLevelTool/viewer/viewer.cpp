@@ -1,6 +1,7 @@
 #include <malloc.h>
 #include <SDL_events.h>
 #include "gl_renderer.h"
+#include "rendermodel.h"
 #include "core/cmdlib.h"
 
 #include "driver_routines/d2_types.h"
@@ -61,7 +62,9 @@ void SDLPollEvent()
 	}
 }
 
+CRenderModel* g_renderModels[MAX_MODELS];
 TextureID g_hwTexturePages[128][32];
+ShaderID g_modelShader = -1;
 extern bool g_originalTransparencyKey;
 
 // Creates hardware texture
@@ -166,7 +169,11 @@ int ViewerMain(const char* filename)
 	// Load models
 	for(int i = 0; i < MAX_MODELS; i++)
 	{
-		
+		CRenderModel* model = new CRenderModel();
+		if (model->Initialize(&g_levelModels[i]))
+			g_renderModels[i] = model;
+		else
+			delete model;
 	}
 
 	// Load car models
@@ -186,6 +193,7 @@ int ViewerMain(const char* filename)
 		// Spool map
 		
 		// Render stuff
+		g_renderModels[0]->Draw();
 
 		GR_SwapWindow();
 	} while (!g_quit);

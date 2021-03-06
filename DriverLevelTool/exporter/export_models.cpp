@@ -71,7 +71,7 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 	// store GT3/GT4 vertex normals
 	for (int i = 0; i < vertex_ref->num_point_normals; i++)
 	{
-		SVECTOR* norm = vertex_ref->pNormal(i);
+		SVECTOR* norm = vertex_ref->pPointNormal(i);
 		Vector3D sfNorm = Vector3D(norm->x * -EXPORT_SCALING, norm->y * -EXPORT_SCALING, norm->z * EXPORT_SCALING);
 
 		pStream->Print("vn %g %g %g\r\n", 

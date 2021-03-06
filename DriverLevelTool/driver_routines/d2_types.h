@@ -260,6 +260,11 @@ struct MODEL
 
 	SVECTOR* pNormal(int i) const
 	{
+		return (SVECTOR*)(((ubyte*)this) + normals) + i;
+	}
+	
+	SVECTOR* pPointNormal(int i) const
+	{
 		return (SVECTOR *)(((ubyte *)this) + point_normals) + i;
 	}
 
