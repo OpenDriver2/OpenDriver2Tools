@@ -9,7 +9,45 @@
 #include "driver_routines/models.h"
 #include "driver_routines/textures.h"
 
+#define MODEL_VERTEX_SHADER \
+	"	attribute vec4 a_position_tu;\n"\
+	"	attribute vec4 a_normal_tv;\n"\
+	"	uniform mat4 u_View;\n"\
+	"	uniform mat4 u_Projection;\n"\
+	"	uniform mat4 u_World;\n"\
+	"	uniform mat4 u_WorldViewProj;\n"\
+	"	void main() {\n"\
+	"		v_texcoord = vec2(a_position_tu.w, 1.0-a_normal_tv.w);\n"\
+	"		gl_Position = u_WorldViewProj * vec4(a_position_tu.xyz, 1.0);\n"\
+	"	}\n"
+
+#define MODEL_FRAGMENT_SHADER \
+	"	uniform sampler2D s_texture;\n"\
+	"	void main() {\n"\
+	"		fragColor = texture2D(s_texture, v_texcoord.xy);\n"\
+	"	}\n"
+
+const char* model_shader =
+	"varying vec2 v_texcoord;\n"
+	"varying vec4 v_color;\n"
+	"varying vec4 v_page_clut;\n"
+	"varying float v_z;\n"
+	"#ifdef VERTEX\n"
+	MODEL_VERTEX_SHADER
+	"#else\n"
+	MODEL_FRAGMENT_SHADER
+	"#endif\n";
+
 int g_quit = 0;
+
+int g_currentModel = 0;
+bool g_holdLeft = false;
+bool g_holdRight = false;
+
+Vector3D g_cameraPosition(0);
+Vector3D g_cameraAngles(25.0f, 45.0f, 0);
+float g_cameraDistance = 0.5f;
+float g_cameraFOV = 90.0f;
 
 void SDLPollEvent()
 {
@@ -40,6 +78,28 @@ void SDLPollEvent()
 			case SDL_MOUSEMOTION:
 			{
 				//Emulator_DoDebugMouseMotion(event.motion.x, event.motion.y);
+
+				if(g_holdLeft)
+				{
+					g_cameraAngles.x += event.motion.yrel * 0.8f;
+					g_cameraAngles.y -= event.motion.xrel * 0.8f;
+				}
+				else if(g_holdRight)
+				{
+					g_cameraDistance += event.motion.yrel * 0.01f;
+				}
+				
+				break;
+			}
+			case SDL_MOUSEBUTTONDOWN:
+			case SDL_MOUSEBUTTONUP:
+			{
+				bool down = (event.type == SDL_MOUSEBUTTONDOWN);
+
+				if (event.button.button == 1)
+					g_holdLeft = down;
+				else if (event.button.button == 3)
+					g_holdRight = down;
 				break;
 			}
 			case SDL_KEYDOWN:
@@ -54,6 +114,24 @@ void SDLPollEvent()
 					nKey = SDL_SCANCODE_LCTRL;
 				else if (nKey == SDL_SCANCODE_RALT)
 					nKey = SDL_SCANCODE_LALT;
+
+				if (event.type == SDL_KEYDOWN)
+				{
+					if(nKey == SDL_SCANCODE_LEFT)
+					{
+						g_currentModel--;
+						g_currentModel = MAX(0, g_currentModel);
+
+						Msg("Current: %d\n", g_currentModel);
+					}
+					else if (nKey == SDL_SCANCODE_RIGHT)
+					{
+						g_currentModel++;
+						g_currentModel = MIN(MAX_MODELS, g_currentModel);
+
+						Msg("Current: %d\n", g_currentModel);
+					}
+				}
 
 				//Emulator_DoDebugKeys(nKey, (event.type == SDL_KEYUP) ? false : true);
 				break;
@@ -139,6 +217,37 @@ void InitHWTexturePage(int nPage)
 	free(color_data);
 }
 
+extern int g_windowWidth;
+extern int g_windowHeight;
+
+void RenderView()
+{
+	Vector3D forward, right;
+	AngleVectors(g_cameraAngles, &forward, &right);
+
+	Vector3D cameraPos = g_cameraPosition - forward * g_cameraDistance;
+	Vector3D cameraAngles = VDEG2RAD(g_cameraAngles);
+
+	Matrix4x4 view, proj;
+
+	proj = perspectiveMatrixY(DEG2RAD(g_cameraFOV), g_windowWidth, g_windowHeight, 0.01f, 1000.0f);
+	view = rotateZXY4(-cameraAngles.x, -cameraAngles.y, -cameraAngles.z);
+
+	view.translate(-cameraPos);
+
+	GR_SetMatrix(MATRIX_VIEW, view);
+	GR_SetMatrix(MATRIX_PROJECTION, proj);
+
+	GR_SetMatrix(MATRIX_WORLD, identity4());
+
+	GR_UpdateMatrixUniforms();
+	GR_SetDepth(1);
+	GR_SetCullMode(CULL_FRONT);
+
+	if(g_renderModels[g_currentModel])
+		g_renderModels[g_currentModel]->Draw();
+}
+
 //-------------------------------------------------------------
 // Main level viewer
 //-------------------------------------------------------------
@@ -150,10 +259,11 @@ int ViewerMain(const char* filename)
 		return -1;
 	}
 
+	// create shader
+	g_modelShader = GR_CompileShader(model_shader);
+
 	// Load level file
 	LoadLevelFile(filename);
-
-	// Load VAO
 
 	// Load permanent textures
 	for(int i = 0; i < g_numTexPages; i++)
@@ -169,6 +279,8 @@ int ViewerMain(const char* filename)
 	// Load models
 	for(int i = 0; i < MAX_MODELS; i++)
 	{
+		g_renderModels[i] = nullptr;
+
 		CRenderModel* model = new CRenderModel();
 		if (model->Initialize(&g_levelModels[i]))
 			g_renderModels[i] = model;
@@ -185,6 +297,9 @@ int ViewerMain(const char* filename)
 	do
 	{
 		SDLPollEvent();
+
+		GR_BeginScene();
+		
 		GR_ClearColor(32, 32, 32);
 		GR_ClearDepth(1.0f);
 	
@@ -193,7 +308,9 @@ int ViewerMain(const char* filename)
 		// Spool map
 		
 		// Render stuff
-		g_renderModels[0]->Draw();
+		RenderView();
+
+		GR_EndScene();
 
 		GR_SwapWindow();
 	} while (!g_quit);
