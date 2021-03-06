@@ -1,4 +1,4 @@
-#include "gl_renderer.h"
+﻿#include "gl_renderer.h"
 #include <SDL.h>
 #include "core/cmdlib.h"
 
@@ -25,6 +25,7 @@ int			g_swapInterval = 1;
 
 int			g_CurrentBlendMode = BM_NONE;
 int			g_CurrentDepthMode = 0;
+int			g_CurrentCullMode = CULL_NONE;
 GrVAO*		g_CurrentVAO = nullptr;
 TextureID	g_lastBoundTexture = -1;
 ShaderID	g_CurrentShader = -1;
@@ -52,6 +53,12 @@ static const GLenum glPrimitiveType[] = {
 	GL_LINE_STRIP,
 	GL_LINE_LOOP,
 	GL_POINTS,
+};
+
+static const GLenum glCullModes[] = {
+	GL_NONE,
+	GL_CW,
+	GL_CCW,
 };
 
 void GR_GetWVPUniforms(GLuint program)
@@ -342,7 +349,7 @@ void GR_UpdateMatrixUniforms()
 	g_matrices[MATRIX_WORLDVIEWPROJECTION] = identity4() * g_matrices[MATRIX_PROJECTION] * (g_matrices[MATRIX_VIEW] * g_matrices[MATRIX_WORLD]);
 	
 	for(int i = 0; i < MATRIX_MODES; i++)
-		glUniformMatrix4fv(u_MatrixUniforms[i], 1, GL_FALSE, g_matrices[i]);
+		glUniformMatrix4fv(u_MatrixUniforms[i], 1, GL_TRUE, g_matrices[i]);
 }
 
 //----------------------------------------------------------------
@@ -365,8 +372,8 @@ TextureID GR_CreateRGBATexture(int width, int height, ubyte* data)
 	glGenTextures(1, &newTexture);
 
 	glBindTexture(GL_TEXTURE_2D, newTexture);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 
 	glFinish();
@@ -406,6 +413,16 @@ void GR_ClearDepth(float depth)
 	glClearDepth(depth);
 	glClear(GL_DEPTH_BUFFER_BIT);
 	glClear(GL_STENCIL_BUFFER_BIT);
+}
+
+void GR_BeginScene()
+{
+	GR_SetViewPort(0, 0, g_windowWidth, g_windowHeight);
+}
+
+void GR_EndScene()
+{
+	
 }
 
 void GR_SwapWindow()
@@ -479,6 +496,24 @@ void GR_SetBlendMode(GR_BlendMode blendMode)
 	}
 
 	g_CurrentBlendMode = blendMode;
+}
+
+void GR_SetCullMode(GR_CullMode cullMode)
+{
+	if (g_CurrentCullMode == cullMode)
+		return;
+
+	if(cullMode == CULL_NONE)
+	{
+		glDisable(GL_CULL_FACE);
+	}
+	else
+	{
+		glEnable(GL_CULL_FACE);
+		glFrontFace(glCullModes[cullMode]);
+	}
+	
+	g_CurrentCullMode = cullMode;
 }
 
 //--------------------------------------------------------------------------
@@ -565,5 +600,5 @@ void GR_DrawNonIndexed(GR_PrimitiveType primitivesType, int firstVertex, int num
 
 void GR_DrawIndexed(GR_PrimitiveType primitivesType, int firstIndex, int numIndices)
 {
-	glDrawElements(glPrimitiveType[primitivesType], numIndices, GL_UNSIGNED_INT, (void*)(intptr_t)firstIndex);
+	glDrawElements(glPrimitiveType[primitivesType], numIndices, GL_UNSIGNED_INT, (void*)(intptr_t)(firstIndex*sizeof(int)));
 }

@@ -75,9 +75,16 @@ int FindGrVertexIndex(const DkList<vertexTuple_t>& whereFind, int flags, int ver
 	return -1;
 }
 
-modelBatch_t* FindBatch(DkList<modelBatch_t*>& batches, int tpageId)
+struct genBatch_t
 {
-	for(int i = 0; i < batches.numElem(); i++)
+	DkList<int>				indices;
+	
+	int tpage;
+};
+
+genBatch_t* FindBatch(DkList<genBatch_t*>& batches, int tpageId)
+{
+	for (int i = 0; i < batches.numElem(); i++)
 	{
 		if (batches[i]->tpage == tpageId)
 			return batches[i];
@@ -87,10 +94,9 @@ modelBatch_t* FindBatch(DkList<modelBatch_t*>& batches, int tpageId)
 
 void CRenderModel::GenerateBuffers()
 {
-	DkList<vertexTuple_t>	verticesMap;
-	
+	DkList<genBatch_t*>		batches;
 	DkList<GrVertex>		vertices;
-	DkList<int>				indices;
+	DkList<vertexTuple_t>	verticesMap;
 	
 	MODEL* model = m_sourceModel->model;
 	MODEL* vertex_ref = model;
@@ -108,13 +114,13 @@ void CRenderModel::GenerateBuffers()
 		vertex_ref = ref->model;
 	}
 
-	modelBatch_t* batch = nullptr;
+	genBatch_t* batch = nullptr;
 	
 	int modelSize = m_sourceModel->size;
 	int face_ofs = 0;
 	dpoly_t dec_face;
 
-	// go throught all polygons
+	// go through all polygons
 	for (int i = 0; i < model->num_polys; i++)
 	{
 		char* facedata = model->pPolyAt(face_ofs);
@@ -133,7 +139,9 @@ void CRenderModel::GenerateBuffers()
 		{
 			MsgError("poly id=%d type=%d ofs=%d zero size!\n", i, *facedata & 31, model->poly_block + face_ofs);
 			break;
-		}	
+		}
+
+		face_ofs += poly_size;
 
 		int numPolyVerts = (dec_face.flags & FACE_IS_QUAD) ? 4 : 3;
 		bool bad_face = false;
@@ -161,22 +169,22 @@ void CRenderModel::GenerateBuffers()
 		if (bad_face)
 		{
 			MsgError("poly id=%d type=%d ofs=%d has invalid indices (or format is unknown)\n", i, *facedata & 31, model->poly_block + face_ofs);
-			face_ofs += poly_size;
+			
 			continue;
 		}
 
 		// find or create new batch
 		int tpageId = (dec_face.flags & FACE_TEXTURED) ? dec_face.page : -1;
 
-		batch = FindBatch(m_batches, tpageId);
+		if(batch && batch->tpage != tpageId)
+			batch = FindBatch(batches, tpageId);
+		
 		if (!batch)
 		{
-			batch = new modelBatch_t;
-			batch->startIndex = indices.numElem();
-			batch->numIndices = 0;
+			batch = new genBatch_t;
 			batch->tpage = tpageId;
 	
-			m_batches.append(batch);
+			batches.append(batch);
 		}
 		
 		// Gouraud-shaded poly smoothing
@@ -193,7 +201,7 @@ void CRenderModel::GenerateBuffers()
 			int vflags = dec_face.flags & ~(FACE_IS_QUAD | FACE_RGB);
 			
 			// try searching for vertex
-			int index = FindGrVertexIndex(verticesMap, 
+			int index = FindGrVertexIndex(verticesMap,
 				vflags,
 				dec_face.vindices[VERT_IDX], 
 				dec_face.nindices[VERT_IDX], 
@@ -207,6 +215,7 @@ void CRenderModel::GenerateBuffers()
 
 				vertMap.flags = vflags;
 				vertMap.normalIndex = -1;
+				vertMap.vertexIndex = dec_face.vindices[VERT_IDX];
 				
 				// get the vertex
 				SVECTOR* vert = vertex_ref->pVertex(dec_face.vindices[VERT_IDX]);
@@ -230,11 +239,10 @@ void CRenderModel::GenerateBuffers()
 					newVert.tc_v = float(uv.v) / 256.0f;
 				}
 
-				vertMap.grVertexIndex = vertices.append(newVert);
-				vertMap.vertexIndex = dec_face.vindices[VERT_IDX];
+				index = vertMap.grVertexIndex = vertices.append(newVert);
 
 				// add vertex and a map
-				index = verticesMap.append(vertMap);
+				verticesMap.append(vertMap);
 
 				// vertices and verticesMap should be equal
 				_ASSERT(verticesMap.numElem() == vertices.numElem());
@@ -257,30 +265,50 @@ void CRenderModel::GenerateBuffers()
 
 			// set to each vertex
 			for (int v = 0; v < numPolyVerts; v++)
-				*(Vector3D*)&vertices[faceIndices[0]].nx = normal;
+				*(Vector3D*)&vertices[faceIndices[v]].nx = normal;
 		}
 
 		// triangulate quads
 		if(numPolyVerts == 4)
 		{
-			indices.append(faceIndices[0]);
-			indices.append(faceIndices[1]);
-			indices.append(faceIndices[2]);
+			batch->indices.append(faceIndices[0]);
+			batch->indices.append(faceIndices[1]);
+			batch->indices.append(faceIndices[2]);
 
-			indices.append(faceIndices[0]);
-			indices.append(faceIndices[2]);
-			indices.append(faceIndices[3]);
-			batch->numIndices += 6;
+			batch->indices.append(faceIndices[2]);
+			batch->indices.append(faceIndices[3]);
+			batch->indices.append(faceIndices[0]);
 		}
 		else
 		{
-			indices.append(faceIndices[0]);
-			indices.append(faceIndices[1]);
-			indices.append(faceIndices[2]);
-			batch->numIndices += 6;
+			batch->indices.append(faceIndices[0]);
+			batch->indices.append(faceIndices[1]);
+			batch->indices.append(faceIndices[2]);
 		}
+	}
 
-		face_ofs += poly_size;
+	//DkList<GrVertex> vertices;
+	DkList<int> indices;
+
+	// merge batches
+	for(int i = 0; i < batches.numElem(); i++)
+	{	
+		//int startVertex = vertices.numElem();
+		int startIndex = indices.numElem();
+		
+		//vertices.append(batches[i]->vertices);
+
+		for(int j = 0; j < batches[i]->indices.numElem(); j++)
+			indices.append(batches[i]->indices[j]);
+
+		modelBatch_t batch;
+		batch.startIndex = startIndex;
+		batch.numIndices = batches[i]->indices.numElem();
+		batch.tpage = batches[i]->tpage;
+
+		m_batches.append(batch);
+		
+		delete batches[i];
 	}
 	
 	m_vao = GR_CreateVAO(vertices.numElem(), indices.numElem(), vertices.ptr(), indices.ptr(), 0);
@@ -300,9 +328,9 @@ void CRenderModel::Draw()
 	
 	for(int i = 0; i < m_batches.numElem(); i++)
 	{
-		modelBatch_t* batch = m_batches[i];
+		modelBatch_t& batch = m_batches[i];
 		GR_SetShader(g_modelShader);
-		GR_SetTexture(g_hwTexturePages[batch->tpage][0]);
-		GR_DrawIndexed(PRIM_TRIANGLES, batch->startIndex, batch->numIndices);
+		GR_SetTexture(g_hwTexturePages[batch.tpage][0]);
+		GR_DrawIndexed(PRIM_TRIANGLES, batch.startIndex, batch.numIndices);
 	}
 }

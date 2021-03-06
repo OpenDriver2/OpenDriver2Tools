@@ -31,7 +31,7 @@ protected:
 	RegionModels_t*			m_regModelData{ nullptr };
 	ModelRef_t*				m_sourceModel { nullptr };
 	GrVAO*					m_vao { nullptr };
-	DkList<modelBatch_t*>	m_batches;
+	DkList<modelBatch_t>	m_batches;
 	int						m_numVerts;
 };
 

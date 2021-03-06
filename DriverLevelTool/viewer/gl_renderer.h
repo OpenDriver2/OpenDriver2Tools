@@ -29,11 +29,18 @@ enum GR_ShaderAttrib
 
 enum GR_BlendMode
 {
-	BM_NONE,
+	BM_NONE = 0,
 	BM_AVERAGE,
 	BM_ADD,
 	BM_SUBTRACT,
 	BM_ADD_QUATER_SOURCE
+};
+
+enum GR_CullMode
+{
+	CULL_NONE = 0,
+	CULL_FRONT,
+	CULL_BACK,
 };
 
 enum GR_MatrixMode
@@ -69,6 +76,9 @@ ShaderID	GR_CompileShader(const char* source);
 
 //--------------------------------------------------
 
+void		GR_BeginScene();
+void		GR_EndScene();
+
 void		GR_ClearColor(int r, int g, int b);
 void		GR_ClearDepth(float depth);
 
@@ -94,12 +104,13 @@ void		GR_SetMatrix(GR_MatrixMode mode, const Matrix4x4& matrix);
 
 void		GR_SetPolygonOffset(float ofs);
 void		GR_SetDepth(int enable);
+void		GR_SetCullMode(GR_CullMode cullMode);
 
 void		GR_UpdateMatrixUniforms();
 
 //--------------------------------------------------
 
-void GR_DrawNonIndexed(GR_PrimitiveType primitivesType, int firstVertex, int numVertices);
-void GR_DrawIndexed(GR_PrimitiveType primitivesType, int firstIndex, int numIndices);
+void		GR_DrawNonIndexed(GR_PrimitiveType primitivesType, int firstVertex, int numVertices);
+void		GR_DrawIndexed(GR_PrimitiveType primitivesType, int firstIndex, int numIndices);
 
 #endif
