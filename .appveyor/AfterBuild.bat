@@ -11,4 +11,14 @@ for %%c in (%config::= %) do (
 
     xcopy /e /v %data_folder% .\ /Y
     7z a "DriverSoundTool_%%c.zip" ".\*"
+	
+	cd %project_folder%\DriverImageTool\bin\%%c
+
+    xcopy /e /v %data_folder% .\ /Y
+    7z a "DriverImageTool_%%c.zip" ".\*"
+	
+	cd %project_folder%\DriverCutsceneTool\bin\%%c
+
+    xcopy /e /v %data_folder% .\ /Y
+    7z a "DriverCutsceneTool_%%c.zip" ".\*"
 )

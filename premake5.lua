@@ -43,3 +43,6 @@ workspace "OpenDriver2Tools"
 
 dofile("DriverLevelTool/premake5.lua")
 dofile("DriverSoundTool/premake5.lua")
+dofile("DriverImageTool/premake5.lua")
+dofile("Driver2CutsceneTool/premake5.lua")
+dofile("Driver2MissionTool/premake5.lua")

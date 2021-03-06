@@ -41,8 +41,21 @@ artifacts:
   - path: DriverSoundTool\bin\*\*.zip
     name: DriverSoundTool Windows Binaries
 
+  - path: DriverImageTool\bin\*\*.zip
+    name: DriverImageTool Windows Binaries
+    
+  - path: DriverCutsceneTool\bin\*\*.zip
+    name: DriverCutsceneTool Windows Binaries
+    
+#--------------
   - path: DriverLevelTool\bin\*\*.tar.gz
     name: DriverLevelTool Linux Binaries
     
   - path: DriverSoundTool\bin\*\*.tar.gz
     name: DriverSoundTool Linux Binaries
+    
+  - path: DriverImageTool\bin\*\*.tar.gz
+    name: DriverImageTool Linux Binaries
+
+  - path: DriverCutsceneTool\bin\*\*.tar.gz
+    name: DriverCutsceneTool Linux Binaries

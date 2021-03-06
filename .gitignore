@@ -52,4 +52,6 @@ DriverLevelTool/bin/*
 DriverLevelTool/obj/*
 DriverSoundTool/bin/*
 DriverSoundTool/obj/*
+ImageUnpackTool/bin/*
+ImageUnpackTool/obj/*
 LEVELS/*
