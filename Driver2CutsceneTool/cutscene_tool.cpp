@@ -434,8 +434,8 @@ void PackCutsceneFile(const char* foldername)
 void PrintCommandLineArguments()
 {
 	MsgInfo("Example usage:\n");
-	MsgInfo("\tDriverCutsceneTool -unpack CUT2.R\n");
-	MsgInfo("\tDriverCutsceneTool -pack CUT2\n");
+	MsgInfo("\tDriver2CutsceneTool -unpack CUT2.R\n");
+	MsgInfo("\tDriver2CutsceneTool -pack CUT2\n");
 }
 
 int main(int argc, char** argv)
