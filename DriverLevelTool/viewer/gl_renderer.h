@@ -20,14 +20,14 @@ struct GrVertex
 
 struct GrVAO;
 
-enum ShaderAttrib
+enum GR_ShaderAttrib
 {
 	a_position_tu,
 	a_normal_tv,
 	a_color,
 };
 
-enum BlendMode
+enum GR_BlendMode
 {
 	BM_NONE,
 	BM_AVERAGE,
@@ -36,7 +36,7 @@ enum BlendMode
 	BM_ADD_QUATER_SOURCE
 };
 
-enum MatrixMode
+enum GR_MatrixMode
 {
 	MATRIX_VIEW = 0,
 	MATRIX_PROJECTION,
@@ -45,6 +45,18 @@ enum MatrixMode
 	MATRIX_WORLDVIEWPROJECTION,
 
 	MATRIX_MODES,
+};
+
+enum GR_PrimitiveType
+{
+	PRIM_TRIANGLES = 0,
+	PRIM_TRIANGLE_FAN,
+	PRIM_TRIANGLE_STRIP,
+	PRIM_QUADS,
+	PRIM_LINES,
+	PRIM_LINE_STRIP,
+	PRIM_LINE_LOOP,
+	PRIM_POINTS,
 };
 
 int			GR_Init(char* windowName, int width, int height, int fullscreen);
@@ -70,6 +82,7 @@ void		GR_DestroyTexture(TextureID texture);
 //--------------------------------------------------
 
 GrVAO*		GR_CreateVAO(int numVertices, GrVertex* verts = nullptr, int dynamic = 0);
+GrVAO*		GR_CreateVAO(int numVertices, int numIndices, GrVertex* verts = nullptr, int* indices = nullptr, int dynamic = 0);
 void		GR_DestroyVAO(GrVAO* vaoPtr);
 
 //--------------------------------------------------
@@ -77,17 +90,16 @@ void		GR_DestroyVAO(GrVAO* vaoPtr);
 void		GR_SetShader(const ShaderID& shader);
 void		GR_SetVAO(GrVAO* vaoPtr);
 void		GR_SetTexture(TextureID texture);
-void		GR_SetMatrix(MatrixMode mode, const Matrix4x4& matrix);
+void		GR_SetMatrix(GR_MatrixMode mode, const Matrix4x4& matrix);
 
 void		GR_SetPolygonOffset(float ofs);
 void		GR_SetDepth(int enable);
 
 void		GR_UpdateMatrixUniforms();
 
-
-
 //--------------------------------------------------
 
-
+void GR_DrawNonIndexed(GR_PrimitiveType primitivesType, int firstVertex, int numVertices);
+void GR_DrawIndexed(GR_PrimitiveType primitivesType, int firstIndex, int numIndices);
 
 #endif

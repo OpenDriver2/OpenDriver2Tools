@@ -11,9 +11,10 @@
 struct GrVAO
 {
 	GLuint vertexArray;
-	GLuint vertexBuffer;
+	GLuint buffers[2];
 
 	int numVertices;
+	int numIndices;
 };
 
 //-------------------------------------------------------------
@@ -22,11 +23,11 @@ SDL_Window* g_window = nullptr;
 int			g_windowWidth, g_windowHeight;
 int			g_swapInterval = 1;
 
-int			g_PreviousBlendMode = BM_NONE;
-int			g_PreviousDepthMode = 0;
-GrVAO*		g_PreviousVAO = nullptr;
+int			g_CurrentBlendMode = BM_NONE;
+int			g_CurrentDepthMode = 0;
+GrVAO*		g_CurrentVAO = nullptr;
 TextureID	g_lastBoundTexture = -1;
-ShaderID	g_PreviousShader = -1;
+ShaderID	g_CurrentShader = -1;
 
 GLint		u_MatrixUniforms[MATRIX_MODES];
 Matrix4x4	g_matrices[MATRIX_MODES];
@@ -38,7 +39,20 @@ GLint		u_WorldViewProj;
 
 TextureID	g_whiteTexture;
 
-
+static const GLenum glPrimitiveType[] = {
+	GL_TRIANGLES,
+	GL_TRIANGLE_FAN,
+	GL_TRIANGLE_STRIP,
+#ifdef USE_GLES2
+	0, // GL_QUADS,
+#else
+	GL_QUADS,
+#endif // USE_GLES2
+	GL_LINES,
+	GL_LINE_STRIP,
+	GL_LINE_LOOP,
+	GL_POINTS,
+};
 
 void GR_GetWVPUniforms(GLuint program)
 {
@@ -306,10 +320,10 @@ ShaderID GR_CompileShader(const char* source)
 
 void GR_SetShader(const ShaderID& shader)
 {
-	if (g_PreviousShader == shader)
+	if (g_CurrentShader == shader)
 		return;
 
-	g_PreviousShader = shader;
+	g_CurrentShader = shader;
 	
 	glUseProgram(shader);
 	GR_GetWVPUniforms(shader);
@@ -317,7 +331,7 @@ void GR_SetShader(const ShaderID& shader)
 
 //----------------------------------------------------------------
 
-void GR_SetMatrix(MatrixMode mode, const Matrix4x4& matrix)
+void GR_SetMatrix(GR_MatrixMode mode, const Matrix4x4& matrix)
 {
 	g_matrices[mode] = matrix;
 }
@@ -422,10 +436,10 @@ void GR_SetPolygonOffset(float ofs)
 
 void GR_SetDepth(int enable)
 {
-	if (g_PreviousDepthMode == enable)
+	if (g_CurrentDepthMode == enable)
 		return;
 
-	g_PreviousDepthMode = enable;
+	g_CurrentDepthMode = enable;
 
 	if (enable)
 		glEnable(GL_DEPTH_TEST);
@@ -433,12 +447,12 @@ void GR_SetDepth(int enable)
 		glDisable(GL_DEPTH_TEST);
 }
 
-void GR_SetBlendMode(BlendMode blendMode)
+void GR_SetBlendMode(GR_BlendMode blendMode)
 {
-	if (g_PreviousBlendMode == blendMode)
+	if (g_CurrentBlendMode == blendMode)
 		return;
 
-	if (g_PreviousBlendMode == BM_NONE)
+	if (g_CurrentBlendMode == BM_NONE)
 		glEnable(GL_BLEND);
 
 	switch (blendMode)
@@ -464,24 +478,29 @@ void GR_SetBlendMode(BlendMode blendMode)
 		break;
 	}
 
-	g_PreviousBlendMode = blendMode;
+	g_CurrentBlendMode = blendMode;
 }
 
 //--------------------------------------------------------------------------
 
-GrVAO* GR_CreateVAO(int numVertices, GrVertex* verts /*= NULL*/, int dynamic /*= 0*/)
+GrVAO* GR_CreateVAO(int numVertices, GrVertex* verts /*= nullptr*/, int dynamic /*= 0*/)
 {
-	GLuint vertexBuffer;
+	return GR_CreateVAO(numVertices, 0, verts, nullptr, dynamic);
+}
+
+GrVAO* GR_CreateVAO(int numVertices, int numIndices, GrVertex* verts /*= nullptr*/, int* indices /*= nullptr*/, int dynamic /*= 0*/)
+{
+	GLuint buffers[2] = { GL_NONE };
 	GLuint vertexArray;
 
 	// gen vertex buffer and index buffer
 	glGenVertexArrays(1, &vertexArray);
 	{
-		glGenBuffers(1, &vertexBuffer);
+		glGenBuffers(2, buffers);
 
 		glBindVertexArray(vertexArray);
 
-		glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+		glBindBuffer(GL_ARRAY_BUFFER, buffers[0]);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(GrVertex) * numVertices, verts, dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
 
 		glEnableVertexAttribArray(a_position_tu);
@@ -492,23 +511,31 @@ GrVAO* GR_CreateVAO(int numVertices, GrVertex* verts /*= NULL*/, int dynamic /*=
 		glVertexAttribPointer(a_normal_tv, 4, GL_FLOAT, GL_FALSE, sizeof(GrVertex), &((GrVertex*)nullptr)->nx);
 		glVertexAttribPointer(a_color, 4, GL_FLOAT, GL_TRUE, sizeof(GrVertex), &((GrVertex*)nullptr)->cr);
 
+		if(numIndices)
+		{
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[1]);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int) * numIndices, indices, dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+		}
+
 		glBindVertexArray(0);
 	}
 
 	GrVAO* newVAO = new GrVAO();
 	newVAO->numVertices = numVertices;
+	newVAO->numIndices = numIndices;
 	newVAO->vertexArray = vertexArray;
-	newVAO->vertexBuffer = vertexBuffer;
+	newVAO->buffers[0] = buffers[0];
+	newVAO->buffers[1] = buffers[1];
 
 	return newVAO;
 }
 
 void GR_SetVAO(GrVAO* vaoPtr)
 {
-	if (g_PreviousVAO == vaoPtr)
+	if (g_CurrentVAO == vaoPtr)
 		return;
 
-	g_PreviousVAO = vaoPtr;
+	g_CurrentVAO = vaoPtr;
 	
 	if (vaoPtr == nullptr)
 	{
@@ -525,8 +552,18 @@ void GR_DestroyVAO(GrVAO* vaoPtr)
 		return;
 
 	glDeleteVertexArrays(1, &vaoPtr->vertexArray);
-	glDeleteBuffers(1, &vaoPtr->vertexBuffer);
+	glDeleteBuffers(2, vaoPtr->buffers);
 	delete vaoPtr;
 }
 
 //--------------------------------------------------------------------------
+
+void GR_DrawNonIndexed(GR_PrimitiveType primitivesType, int firstVertex, int numVertices)
+{
+	glDrawArrays(glPrimitiveType[primitivesType], firstVertex, numVertices);
+}
+
+void GR_DrawIndexed(GR_PrimitiveType primitivesType, int firstIndex, int numIndices)
+{
+	glDrawElements(glPrimitiveType[primitivesType], numIndices, GL_UNSIGNED_INT, (void*)(intptr_t)firstIndex);
+}
