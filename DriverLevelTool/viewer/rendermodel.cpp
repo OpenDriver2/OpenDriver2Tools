@@ -196,7 +196,7 @@ void CRenderModel::GenerateBuffers()
 		for (int v = 0; v < numPolyVerts; v++)
 		{
 			// NOTE: Vertex indexes is reversed here
-#define VERT_IDX numPolyVerts - 1 - v
+#define VERT_IDX v//numPolyVerts - 1 - v
 
 			int vflags = dec_face.flags & ~(FACE_IS_QUAD | FACE_RGB);
 			
@@ -220,14 +220,14 @@ void CRenderModel::GenerateBuffers()
 				// get the vertex
 				SVECTOR* vert = vertex_ref->pVertex(dec_face.vindices[VERT_IDX]);
 				
-				(*(Vector3D*)&newVert.vx) = Vector3D(vert->x * -EXPORT_SCALING, vert->y * -EXPORT_SCALING, vert->z * EXPORT_SCALING);
+				(*(Vector3D*)&newVert.vx) = Vector3D(vert->x * EXPORT_SCALING, vert->y * -EXPORT_SCALING, vert->z * EXPORT_SCALING);
 
 				if (smooth)
 				{
 					vertMap.normalIndex = dec_face.nindices[VERT_IDX];
 					
 					SVECTOR* norm = vertex_ref->pPointNormal(vertMap.normalIndex);
-					*(Vector3D*)&newVert.nx = Vector3D(norm->x * -EXPORT_SCALING, norm->y * -EXPORT_SCALING, norm->z * EXPORT_SCALING);
+					*(Vector3D*)&newVert.nx = Vector3D(norm->x * EXPORT_SCALING, norm->y * -EXPORT_SCALING, norm->z * EXPORT_SCALING);
 				}
 				
 				if (dec_face.flags & FACE_TEXTURED)
