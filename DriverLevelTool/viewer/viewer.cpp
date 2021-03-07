@@ -252,29 +252,26 @@ void InitHWTexturePage(CTexturePage* tpage)
 	for (int pal = 0; pal < 16; pal++)
 	{
 		bool anyMatched = false;
-		for (int i = 0; i < g_levTextures.GetExtraCLUTCount(); i++)
+
+		for (int j = 0; j < numDetails; j++)
 		{
-			ExtClutData_t* clutData = g_levTextures.GetExtraCLUT(i);
-			
-			if (clutData->tpage != tpageId)
-				continue;
+			TexDetailInfo_t* detail = tpage->GetTextureDetail(j);
 
-			if (clutData->palette != pal)
-				continue;
-
-			for (int j = 0; j < clutData->texcnt; j++)
-				tpage->ConvertIndexedTextureToRGBA(color_data, clutData->texnum[j], &clutData->clut);
-
-			anyMatched = true;
+			if (detail->extraCLUTs[pal])
+			{
+				tpage->ConvertIndexedTextureToRGBA(color_data, j, detail->extraCLUTs[pal]);
+				anyMatched = true;
+			}
 		}
 
 		if (anyMatched)
 		{
-			g_hwTexturePages[tpageId][numPalettes+1] = GR_CreateRGBATexture(TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, (ubyte*)color_data);
+			g_hwTexturePages[tpageId][numPalettes + 1] = GR_CreateRGBATexture(TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, (ubyte*)color_data);
 			numPalettes++;
 		}
 	}
-
+	
+	
 	// no longer need in RGBA data
 	free(color_data);
 }
@@ -359,7 +356,7 @@ int ViewerMain(const char* filename)
 		g_renderModels[i] = nullptr;
 
 		CRenderModel* model = new CRenderModel();
-		if (model->Initialize(&g_levelModels[i]))
+		if (model->Initialize(g_levModels.GetModelByIndex(i, nullptr)))
 			g_renderModels[i] = model;
 		else
 			delete model;

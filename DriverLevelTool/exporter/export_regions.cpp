@@ -13,8 +13,6 @@ extern bool						g_export_models;
 extern std::string				g_levname_moddir;
 extern std::string				g_levname;
 
-extern DkList<std::string>		g_model_names;
-
 char g_packed_cell_pointers[8192];
 ushort g_cell_ptrs[8192];
 
@@ -359,15 +357,16 @@ void ExportRegions()
 					// export region models
 					for (int i = 0; i < regModels->modelRefs.numElem(); i++)
 					{
-						int mod_indxex = regModels->modelRefs[i].index;
+						ModelRef_t* modelRef = &regModels->modelRefs[i];
+						const char* modelName = g_levModels.GetModelName(modelRef);
 
-						std::string modelFileName = varargs("%s/ZREG%d_MOD_%d", g_levname_moddir.c_str(), spool->super_region, mod_indxex);
+						std::string modelFileName = varargs("%s/ZREG%d_MOD_%d", g_levname_moddir.c_str(), spool->super_region, modelRef->index);
 
-						if (g_model_names[mod_indxex].length())
-							modelFileName = varargs("%s/ZREG%d_%d_%s", g_levname_moddir.c_str(), spool->super_region, i, g_model_names[mod_indxex].c_str());
+						if (modelName && modelName[0] != 0)
+							modelFileName = varargs("%s/ZREG%d_%d_%s", g_levname_moddir.c_str(), spool->super_region, i, modelName);
 
 						// export model
-						ExportDMODELToOBJ(regModels->modelRefs[i].model, modelFileName.c_str(), regModels->modelRefs[i].index, regModels->modelRefs[i].size);
+						ExportDMODELToOBJ(modelRef->model, modelFileName.c_str(), modelRef->index, modelRef->size);
 					}
 				}
 			}
@@ -405,7 +404,7 @@ void ExportRegions()
 									cellsFileStream.Print("v %g %g %g\r\n", absCellPosition.x, absCellPosition.y, absCellPosition.z);
 								}
 
-								ModelRef_t* mdref = FindModelByIndex(co.type, regModels);
+								ModelRef_t* mdref = g_levModels.GetModelByIndex(co.type, regModels);
 
 								if (mdref)
 								{
@@ -464,7 +463,7 @@ void ExportRegions()
 								cellsFileStream.Print("v %g %g %g\r\n", absCellPosition.x, absCellPosition.y, absCellPosition.z);
 							}
 
-							ModelRef_t* mdref = FindModelByIndex(co.type, regModels);
+							ModelRef_t* mdref = g_levModels.GetModelByIndex(co.type, regModels);
 
 							if (mdref)
 							{

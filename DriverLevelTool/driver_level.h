@@ -22,6 +22,7 @@
 // extern some vars
 extern IVirtualStream*			g_levStream;
 extern CDriverLevelTextures		g_levTextures;
+extern CDriverLevelModels		g_levModels;
 
 //----------------------------------------------------------
 

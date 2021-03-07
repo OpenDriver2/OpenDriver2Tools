@@ -575,13 +575,3 @@ int CDriverLevelTextures::GetTPageCount() const
 {
 	return m_numTexPages;
 }
-
-ExtClutData_t* CDriverLevelTextures::GetExtraCLUT(int clut) const
-{
-	return &m_extraPalettes[clut];
-}
-
-int	CDriverLevelTextures::GetExtraCLUTCount() const
-{
-	return m_numExtraPalettes;
-}

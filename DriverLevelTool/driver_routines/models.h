@@ -1,14 +1,22 @@
 #ifndef MODEL_H
 #define MODEL_H
 
+#include <string>
+
 #include "math/dktypes.h"
 #include "math/psx_math_types.h"
 #include "d2_types.h"
+#include "util/DkList.h"
 
+#define MAX_MODELS				1536	// maximum models (this is limited by PACKED_CELL_OBJECT)
 
 //------------------------------------------------------------------------------------------------------------
 
-typedef struct dpoly_t
+// forward
+class IVirtualStream;
+struct RegionModels_t;
+
+struct dpoly_t
 {
 	ubyte	flags;
 	ubyte	page;
@@ -19,7 +27,7 @@ typedef struct dpoly_t
 	ubyte	nindices[4];
 	CVECTOR	color[4];
 	// something more?
-}FACE;
+};
 
 enum EFaceFlags_e
 {
@@ -41,13 +49,11 @@ struct ModelRef_t
 	int		index;
 	int		size;
 	bool	swap;
-
+	
 	void*	userData; // might contain a hardware model pointer
 };
 
 //------------------------------------------------------------------------------------------------------------
-
-#define MAX_MODELS				1536	// maximum models (this is limited by PACKED_CELL_OBJECT)
 
 struct CarModelData_t
 {
@@ -60,22 +66,36 @@ struct CarModelData_t
 	int lowSize;
 };
 
+class CDriverLevelModels
+{
+public:
+	CDriverLevelModels();
+	virtual ~CDriverLevelModels();
 
-extern ModelRef_t				g_levelModels[MAX_MODELS];
-extern CarModelData_t			g_carModels[MAX_CAR_MODELS];
+	// release all data
+	void				FreeAll();
+
+	void				LoadCarModelsLump(IVirtualStream* pFile, int size);
+	void				LoadModelNamesLump(IVirtualStream* pFile, int size);
+	void				LoadLevelModelsLump(IVirtualStream* pFile);
+
+	ModelRef_t*			GetModelByIndex(int nIndex, RegionModels_t* models) const;
+	int					FindModelIndexByName(const char* name) const;
+	const char*			GetModelName(ModelRef_t* model) const;
+
+	CarModelData_t*		GetCarModel(int index) const;
+	
+protected:
+	ModelRef_t			m_levelModels[MAX_MODELS];
+	CarModelData_t		m_carModels[MAX_CAR_MODELS];
+	DkList<std::string>	m_model_names;
+};
 
 //------------------------------------------------------------------------------------------------------------
-
-struct RegionModels_t;
-ModelRef_t*		FindModelByIndex(int nIndex, RegionModels_t* models);
-int				GetModelIndexByName(const char* name);
 
 void			PrintUnknownPolys();
 int				decode_poly(const char* face, dpoly_t* out);
 
 //-------------------------------------------------------------------------------
-
-// research function
-void			DumpFaceTypes();
 
 #endif // MODEL_H

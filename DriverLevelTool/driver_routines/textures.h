@@ -105,9 +105,6 @@ public:
 	CTexturePage*		GetTPage(int page) const;
 	int					GetTPageCount() const;
 
-	ExtClutData_t*		GetExtraCLUT(int clut) const;
-	int					GetExtraCLUTCount() const;
-
 	TexDetailInfo_t*	FindTextureDetail(const char* name) const;
 	const char*			GetTextureDetailName(TEXINF* info) const;
 

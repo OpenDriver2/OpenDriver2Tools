@@ -14,13 +14,8 @@ extern bool g_export_overmap;
 extern int g_overlaymap_width;
 extern bool g_explode_tpages;
 extern bool g_export_world;
-extern bool g_originalTransparencyKey = true;
+extern bool g_originalTransparencyKey;
 extern char* g_overlayMapData;
-
-int clutSortFunc(ExtClutData_t* const& i, ExtClutData_t* const& j)
-{
-	return (i->palette - j->palette);
-}
 
 void GetTPageDetailPalettes(DkList<TEXCLUT*>& out, CTexturePage* tpage, TexDetailInfo_t* detail)
 {
@@ -213,7 +208,7 @@ void ExportTexturePage(CTexturePage* tpage)
 
 	for (int i = 0; i < numDetails; i++)
 	{
-		tpage->ConvertIndexedTextureToRGBA(color_data, i, nullptr, true, g_originalTransparencyKey);
+		tpage->ConvertIndexedTextureToRGBA(color_data, i, nullptr, true, true);
 	}
 
 	MsgInfo("Writing texture '%s/PAGE_%d.tga'\n", g_levname_texdir.c_str(), tpage->GetId());
@@ -230,7 +225,7 @@ void ExportTexturePage(CTexturePage* tpage)
 			
 			if(detail->extraCLUTs[pal])
 			{
-				tpage->ConvertIndexedTextureToRGBA(color_data, j, detail->extraCLUTs[pal], true, g_originalTransparencyKey);
+				tpage->ConvertIndexedTextureToRGBA(color_data, j, detail->extraCLUTs[pal], true, true);
 				anyMatched = true;
 			}
 		}

@@ -5,20 +5,47 @@
 #include <string>
 
 #include "core/cmdlib.h"
+#include "core/IVirtualStream.h"
+
 #include "d2_types.h"
 
 //--------------------------------------------------------------------------------
 
-DkList<std::string>	g_model_names;
-ModelRef_t					g_levelModels[1536];		// level models
-CarModelData_t				g_carModels[MAX_CAR_MODELS];
+CDriverLevelModels::CDriverLevelModels()
+{
+}
 
-ModelRef_t* FindModelByIndex(int nIndex, RegionModels_t* models)
+CDriverLevelModels::~CDriverLevelModels()
+{
+}
+
+void CDriverLevelModels::FreeAll()
+{
+	for (int i = 0; i < MAX_MODELS; i++)
+	{
+		if (m_levelModels[i].model)
+			free(m_levelModels[i].model);
+	}
+
+	for (int i = 0; i < MAX_CAR_MODELS; i++)
+	{
+		if (m_carModels[i].cleanmodel)
+			free(m_carModels[i].cleanmodel);
+
+		if (m_carModels[i].dammodel)
+			free(m_carModels[i].dammodel);
+
+		if (m_carModels[i].lowmodel)
+			free(m_carModels[i].lowmodel);
+	}
+}
+
+ModelRef_t* CDriverLevelModels::GetModelByIndex(int nIndex, RegionModels_t* models) const
 {
 	if (nIndex >= 0 && nIndex < 1536)
 	{
 		// try searching in region datas
-		if (g_levelModels[nIndex].swap && models)
+		if (m_levelModels[nIndex].swap && models)
 		{
 			for (int i = 0; i < models->modelRefs.numElem(); i++)
 			{
@@ -27,21 +54,173 @@ ModelRef_t* FindModelByIndex(int nIndex, RegionModels_t* models)
 			}
 		}
 
-		return &g_levelModels[nIndex];
+		return (ModelRef_t*)&m_levelModels[nIndex];
 	}
 
 	return nullptr;
 }
 
-int GetModelIndexByName(const char* name)
+int CDriverLevelModels::FindModelIndexByName(const char* name) const
 {
 	for (int i = 0; i < 1536; i++)
 	{
-		if (!strcmp(g_model_names[i].c_str(), name))
+		if (!strcmp(m_model_names[i].c_str(), name))
 			return i;
 	}
 
 	return -1;
+}
+
+const char* CDriverLevelModels::GetModelName(ModelRef_t* model) const
+{
+	if (!model)
+		return nullptr;
+
+	return m_model_names[model->index].c_str();
+}
+
+CarModelData_t* CDriverLevelModels::GetCarModel(int index) const
+{
+	return (CarModelData_t*)&m_carModels[index];
+}
+
+//-------------------------------------------------------------
+// parses model lumps and exports models to OBJ
+//-------------------------------------------------------------
+void CDriverLevelModels::LoadCarModelsLump(IVirtualStream* pFile, int size)
+{
+	int l_ofs = pFile->Tell();
+
+	int modelCount;
+	pFile->Read(&modelCount, sizeof(int), 1);
+
+	Msg("	all car models count: %d\n", modelCount);
+
+	// read entries
+	carmodelentry_t model_entries[MAX_CAR_MODELS];
+	pFile->Read(&model_entries, sizeof(carmodelentry_t), MAX_CAR_MODELS);
+
+	// position
+	int r_ofs = pFile->Tell();
+
+	int pad; // really padding?
+	pFile->Read(&pad, sizeof(int), 1);
+
+	// load car models
+	for (int i = 0; i < MAX_CAR_MODELS; i++)
+	{
+		Msg("car model: %d %d %d\n", model_entries[i].cleanOffset != -1, model_entries[i].damOffset != -1, model_entries[i].lowOffset != -1);
+
+		if (model_entries[i].cleanOffset != -1)
+		{
+			pFile->Seek(r_ofs + model_entries[i].cleanOffset, VS_SEEK_SET);
+
+			pFile->Read(&m_carModels[i].cleanSize, 1, sizeof(int));
+
+			m_carModels[i].cleanmodel = (MODEL*)malloc(m_carModels[i].cleanSize);
+			pFile->Read(m_carModels[i].cleanmodel, 1, m_carModels[i].cleanSize);
+		}
+		else
+			m_carModels[i].cleanmodel = nullptr;
+
+		if (model_entries[i].damOffset != -1)
+		{
+			pFile->Seek(r_ofs + model_entries[i].damOffset, VS_SEEK_SET);
+
+			pFile->Read(&m_carModels[i].damSize, 1, sizeof(int));
+
+			m_carModels[i].dammodel = (MODEL*)malloc(m_carModels[i].damSize);
+			pFile->Read(m_carModels[i].dammodel, 1, m_carModels[i].damSize);
+		}
+		else
+			m_carModels[i].dammodel = nullptr;
+
+		if (model_entries[i].lowOffset != -1)
+		{
+			pFile->Seek(r_ofs + model_entries[i].lowOffset, VS_SEEK_SET);
+
+			pFile->Read(&m_carModels[i].lowSize, 1, sizeof(int));
+
+			m_carModels[i].lowmodel = (MODEL*)malloc(m_carModels[i].lowSize);
+			pFile->Read(m_carModels[i].lowmodel, 1, m_carModels[i].lowSize);
+		}
+		else
+			m_carModels[i].lowmodel = nullptr;
+	}
+
+	pFile->Seek(l_ofs, VS_SEEK_SET);
+}
+
+//-------------------------------------------------------------
+// load model names
+//-------------------------------------------------------------
+void CDriverLevelModels::LoadModelNamesLump(IVirtualStream* pFile, int size)
+{
+	int l_ofs = pFile->Tell();
+
+	char* modelnames = new char[size];
+	pFile->Read(modelnames, size, 1);
+
+	int len = strlen(modelnames);
+	int sz = 0;
+
+	do
+	{
+		char* str = modelnames + sz;
+
+		len = strlen(str);
+
+		m_model_names.append(str);
+
+		sz += len + 1;
+	} while (sz < size);
+
+	delete[] modelnames;
+
+	pFile->Seek(l_ofs, VS_SEEK_SET);
+}
+
+//-------------------------------------------------------------
+// parses model lumps and exports models to OBJ
+//-------------------------------------------------------------
+void CDriverLevelModels::LoadLevelModelsLump(IVirtualStream* pFile)
+{
+	int l_ofs = pFile->Tell();
+
+	int modelCount;
+	pFile->Read(&modelCount, sizeof(int), 1);
+
+	MsgInfo("	model count: %d\n", modelCount);
+
+	for (int i = 0; i < modelCount; i++)
+	{
+		int modelSize;
+
+		pFile->Read(&modelSize, sizeof(int), 1);
+
+		if (modelSize > 0)
+		{
+			char* data = (char*)malloc(modelSize);
+
+			pFile->Read(data, modelSize, 1);
+
+			ModelRef_t& ref = m_levelModels[i];
+			ref.index = i;
+			ref.model = (MODEL*)data;
+			ref.size = modelSize;
+			ref.swap = false;
+		}
+		else // leave empty as swap
+		{
+			ModelRef_t& ref = m_levelModels[i];
+			ref.index = i;
+			ref.model = nullptr;
+			ref.size = modelSize;
+			ref.swap = true;
+		}
+	}
+
+	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
 //--------------------------------------------------------------------------------
@@ -69,6 +248,7 @@ void PrintUnknownPolys()
 		MsgWarning("%d (sz=%d), ", *itr, PolySizes[*itr]);
 	}
 	MsgError("\n\n");
+	g_UnknownPolyTypes.clear();
 }
 
 // 5 (sz=20), 11 (sz=16), 10 (sz=16), 17 (sz=12), 9 (sz=12), 16 (sz=12), 8 (sz=8),

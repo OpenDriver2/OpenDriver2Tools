@@ -103,7 +103,7 @@ void CRenderModel::GenerateBuffers()
 
 	if (model->instance_number > 0) // car models have vertex_ref=0
 	{
-		ModelRef_t* ref = FindModelByIndex(model->instance_number, m_regModelData);
+		ModelRef_t* ref = g_levModels.GetModelByIndex(model->instance_number, m_regModelData);
 
 		if (!ref)
 		{

@@ -67,10 +67,6 @@ extern ELevelFormat g_format;
 //------------------------------------------------------------------------------------------------------------
 // functions
 
-
-
-void	LoadModelNamesLump(IVirtualStream* pFile, int size);
-
 void	LoadLevelFile(const char* filename);
 void	FreeLevelData();
 

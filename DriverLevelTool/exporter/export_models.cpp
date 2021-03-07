@@ -12,7 +12,6 @@
 extern bool						g_extract_dmodels;
 extern std::string				g_levname_moddir;
 extern std::string				g_levname_texdir;
-extern DkList<std::string>		g_model_names;
 
 //-------------------------------------------------------------
 // writes Wavefront OBJ into stream
@@ -43,7 +42,7 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 	{
 		pStream->Print("#vertex data ref model: %d (count = %d)\r\n", model->instance_number, model->num_vertices);
 
-		ModelRef_t* ref = FindModelByIndex(model->instance_number, regModels);
+		ModelRef_t* ref = g_levModels.GetModelByIndex(model->instance_number, regModels);
 
 		if (!ref)
 		{
@@ -340,24 +339,27 @@ void ExportAllModels()
 {
 	MsgInfo("Exporting all models...\n");
 
-	for (int i = 0; i < 1536; i++)
+	for (int i = 0; i < MAX_MODELS; i++)
 	{
-		if (!g_levelModels[i].model)
+		ModelRef_t* modelRef = g_levModels.GetModelByIndex(i, nullptr);
+		const char* modelName = g_levModels.GetModelName(modelRef);
+		
+		if (!modelRef->model)
 			continue;
 
 		std::string modelFileName(varargs("%s/ZMOD_%d", g_levname_moddir.c_str(), i));
 
-		if (g_model_names[i].size())
-			modelFileName = varargs("%s/%d_%s", g_levname_moddir.c_str(), i, g_model_names[i].c_str());
+		if (modelName && modelName[0] != 0)
+			modelFileName = varargs("%s/%d_%s", g_levname_moddir.c_str(), i, modelName);
 
 		// export model
-		ExportDMODELToOBJ(g_levelModels[i].model, modelFileName.c_str(), i, g_levelModels[i].size);
+		ExportDMODELToOBJ(modelRef->model, modelFileName.c_str(), i, modelRef->size);
 
 		// save original dmodel2
 		FILE* dFile = fopen(varargs("%s.dmodel", modelFileName.c_str()), "wb");
 		if (dFile)
 		{
-			fwrite(g_levelModels[i].model, g_levelModels[i].size, 1, dFile);
+			fwrite(modelRef->model, modelRef->size, 1, dFile);
 			fclose(dFile);
 		}
 	}
@@ -372,8 +374,10 @@ void ExportAllCarModels()
 
 	for (int i = 0; i < MAX_CAR_MODELS; i++)
 	{
-		ExportCarModel(g_carModels[i].cleanmodel, g_carModels[i].cleanSize, i, "clean");
-		ExportCarModel(g_carModels[i].dammodel, g_carModels[i].cleanSize, i, "damaged");
-		ExportCarModel(g_carModels[i].lowmodel, g_carModels[i].lowSize, i, "low");
+		CarModelData_t* modelRef = g_levModels.GetCarModel(i);
+		
+		ExportCarModel(modelRef->cleanmodel, modelRef->cleanSize, i, "clean");
+		ExportCarModel(modelRef->dammodel, modelRef->cleanSize, i, "damaged");
+		ExportCarModel(modelRef->lowmodel, modelRef->lowSize, i, "low");
 	}
 }
