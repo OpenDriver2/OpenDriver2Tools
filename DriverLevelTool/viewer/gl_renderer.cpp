@@ -38,6 +38,8 @@ GLint		u_View;				// view transform in the world
 GLint		u_Projection;		// projection
 GLint		u_WorldViewProj;
 
+void*		s_uniformFuncs[CONSTANT_TYPE_COUNT] = {};
+
 TextureID	g_whiteTexture;
 
 static const GLenum glPrimitiveType[] = {
@@ -171,6 +173,22 @@ int GR_InitGL()
 	const char* glslVersionStr = (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
 	Msg("*GLSL version: %s\n", glslVersionStr);
 
+	s_uniformFuncs[CONSTANT_FLOAT] = (void*)glUniform1fv;
+	s_uniformFuncs[CONSTANT_VECTOR2D] = (void*)glUniform2fv;
+	s_uniformFuncs[CONSTANT_VECTOR3D] = (void*)glUniform3fv;
+	s_uniformFuncs[CONSTANT_VECTOR4D] = (void*)glUniform4fv;
+	s_uniformFuncs[CONSTANT_INT] = (void*)glUniform1iv;
+	s_uniformFuncs[CONSTANT_IVECTOR2D] = (void*)glUniform2iv;
+	s_uniformFuncs[CONSTANT_IVECTOR3D] = (void*)glUniform3iv;
+	s_uniformFuncs[CONSTANT_IVECTOR4D] = (void*)glUniform4iv;
+	s_uniformFuncs[CONSTANT_BOOL] = (void*)glUniform1iv;
+	s_uniformFuncs[CONSTANT_BVECTOR2D] = (void*)glUniform2iv;
+	s_uniformFuncs[CONSTANT_BVECTOR3D] = (void*)glUniform3iv;
+	s_uniformFuncs[CONSTANT_BVECTOR4D] = (void*)glUniform4iv;
+	s_uniformFuncs[CONSTANT_MATRIX2x2] = (void*)glUniformMatrix2fv;
+	s_uniformFuncs[CONSTANT_MATRIX3x3] = (void*)glUniformMatrix3fv;
+	s_uniformFuncs[CONSTANT_MATRIX4x4] = (void*)glUniformMatrix4fv;
+
 	return 1;
 }
 
@@ -258,7 +276,9 @@ ShaderID GR_CompileShader(const char* source)
 		"#define VERTEX\n"
 		"#define varying   out\n"
 		"#define attribute in\n"
-		"#define texture2D texture\n";
+		"#define texture2D texture\n"
+		"#define saturate(x) clamp(x,0.0,1.0)\r\n"
+		"#define lerp mix\r\n";
 
 	const char* GLSL_HEADER_FRAG =
 		"#version 300 es\n"
@@ -266,6 +286,8 @@ ShaderID GR_CompileShader(const char* source)
 		"precision highp float;\n"
 		"#define varying     in\n"
 		"#define texture2D   texture\n"
+		"#define saturate(x) clamp(x,0.0,1.0)\r\n"
+		"#define lerp mix\r\n";
 		"out vec4 fragColor;\n";
 #else
 	const char* GLSL_HEADER_VERT =
@@ -275,7 +297,9 @@ ShaderID GR_CompileShader(const char* source)
 		"#define VERTEX\n"
 		"#define varying   out\n"
 		"#define attribute in\n"
-		"#define texture2D texture\n";
+		"#define texture2D texture\n"
+		"#define saturate(x) clamp(x,0.0,1.0)\r\n"
+		"#define lerp mix\r\n";
 
 	const char* GLSL_HEADER_FRAG =
 		"#version 330\n"
@@ -283,6 +307,8 @@ ShaderID GR_CompileShader(const char* source)
 		"precision highp float;\n"
 		"#define varying     in\n"
 		"#define texture2D   texture\n"
+		"#define saturate(x) clamp(x,0.0,1.0)\r\n"
+		"#define lerp mix\r\n"
 		"out vec4 fragColor;\n";
 #endif
 
@@ -334,6 +360,47 @@ void GR_SetShader(const ShaderID& shader)
 	
 	glUseProgram(shader);
 	GR_GetWVPUniforms(shader);
+}
+
+typedef GLvoid(APIENTRY* UNIFORM_FUNC)(GLint location, GLsizei count, const void* value);
+typedef GLvoid(APIENTRY* UNIFORM_MAT_FUNC)(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value);
+
+int GR_GetShaderConstantIndex(ShaderID shaderId, char* name)
+{
+	return glGetUniformLocation(shaderId, name);
+}
+
+void GR_SetShaderConstatntvi(int index, GR_ConstantType constantType, int count, float* value)
+{
+	if (constantType >= CONSTANT_MATRIX2x2)
+		((UNIFORM_MAT_FUNC)s_uniformFuncs[constantType])(index, count, GL_TRUE, value);
+	else
+		((UNIFORM_FUNC)s_uniformFuncs[constantType])(index, count, value);
+}
+
+void GR_SetShaderConstatntFloat(int index, float value)
+{
+	GR_SetShaderConstatntvi(index, CONSTANT_FLOAT, 1, &value);
+}
+
+void GR_SetShaderConstatntVector3D(int index, const Vector3D& value)
+{
+	GR_SetShaderConstatntvi(index, CONSTANT_VECTOR3D, 1, (float*)&value);
+}
+
+void GR_SetShaderConstatntVector4D(int index, const Vector4D& value)
+{
+	GR_SetShaderConstatntvi(index, CONSTANT_VECTOR4D, 1, (float*)&value);
+}
+
+void GR_SetShaderConstatntMatrix3x3(int index, const Matrix3x3& value)
+{
+	GR_SetShaderConstatntvi(index, CONSTANT_MATRIX3x3, 1, (float*)&value);
+}
+
+void GR_SetShaderConstatntMatrix4x4(int index, const Matrix4x4& value)
+{
+	GR_SetShaderConstatntvi(index, CONSTANT_MATRIX4x4, 1, (float*)&value);
 }
 
 //----------------------------------------------------------------

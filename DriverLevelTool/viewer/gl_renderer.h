@@ -66,6 +66,28 @@ enum GR_PrimitiveType
 	PRIM_POINTS,
 };
 
+// Reserved, used for shaders only
+enum GR_ConstantType
+{
+	CONSTANT_FLOAT,
+	CONSTANT_VECTOR2D,
+	CONSTANT_VECTOR3D,
+	CONSTANT_VECTOR4D,
+	CONSTANT_INT,
+	CONSTANT_IVECTOR2D,
+	CONSTANT_IVECTOR3D,
+	CONSTANT_IVECTOR4D,
+	CONSTANT_BOOL,
+	CONSTANT_BVECTOR2D,
+	CONSTANT_BVECTOR3D,
+	CONSTANT_BVECTOR4D,
+	CONSTANT_MATRIX2x2,
+	CONSTANT_MATRIX3x3,
+	CONSTANT_MATRIX4x4,
+
+	CONSTANT_TYPE_COUNT
+};
+
 int			GR_Init(char* windowName, int width, int height, int fullscreen);
 void		GR_Shutdown();
 
@@ -98,6 +120,16 @@ void		GR_DestroyVAO(GrVAO* vaoPtr);
 //--------------------------------------------------
 
 void		GR_SetShader(const ShaderID& shader);
+int			GR_GetShaderConstantIndex(ShaderID shaderId, char* name);
+
+void		GR_SetShaderConstatntvi(int index, GR_ConstantType constantType, int count, float* value);
+
+void		GR_SetShaderConstatntFloat(int index, float value);
+void		GR_SetShaderConstatntVector3D(int index, const Vector3D& value);
+void		GR_SetShaderConstatntVector4D(int index, const Vector4D& value);
+void		GR_SetShaderConstatntMatrix3x3(int index, const Matrix3x3& value);
+void		GR_SetShaderConstatntMatrix4x4(int index, const Matrix4x4& value);
+
 void		GR_SetVAO(GrVAO* vaoPtr);
 void		GR_SetTexture(TextureID texture);
 void		GR_SetMatrix(GR_MatrixMode mode, const Matrix4x4& matrix);
