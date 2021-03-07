@@ -88,10 +88,8 @@ void LoadRegionData(IVirtualStream* pFile, RegionModels_t* models, AreaDataStr* 
 	// fetch textures
 	for(int i = 0; pages->pageIndexes[i] != REGTEXPAGE_EMPTY; i++)
 	{
-		int pageIdx = pages->pageIndexes[i];
-
-		// region textures are non-compressed due to loading speeds
-		g_texPages[pageIdx].LoadTPageAndCluts(pFile, false);
+		CTexturePage* tpage = g_levTextures.GetTPage(pages->pageIndexes[i]);
+		tpage->LoadTPageAndCluts(pFile, true);
 
 		if(pFile->Tell() % 2048)
 			pFile->Seek(2048 - (pFile->Tell() % 2048),VS_SEEK_CUR);

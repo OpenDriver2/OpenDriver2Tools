@@ -30,10 +30,10 @@ public:
 	virtual ~CTexturePage();
 
 	// loading texture page properties from file
-	void					InitFromFile(int id, IVirtualStream* pFile);
+	void					InitFromFile(int id, TEXPAGE_POS& tp, IVirtualStream* pFile);
 	
 	// loading texture page from lump
-	bool					LoadTPageAndCluts(IVirtualStream* pFile, bool isCompressed);
+	bool					LoadTPageAndCluts(IVirtualStream* pFile, bool isSpooled);
 
 	// converting 4bit texture page to 32 bit full color RGBA/BGRA
 	void					ConvertIndexedTextureToRGBA(uint* dest_color_data, 
@@ -46,17 +46,20 @@ public:
 	int						GetDetailCount() const;
 
 	// returns the 4bit map data
-	const TexBitmap_t&		GetBitmap() const;	
+	const TexBitmap_t&		GetBitmap() const;
+
+	int						GetId() const;
+	int						GetFlags() const;
 protected:
 
 	void					LoadCompressedTexture(IVirtualStream* pFile);
-	
-	int						m_id{ -1 };
-
-	TEXINF*					m_details{nullptr};
-	int						m_numDetails{ 0 };
 
 	TexBitmap_t				m_bitmap;
+	TEXINF*					m_details{ nullptr };
+	TEXPAGE_POS				m_tp;
+	
+	int						m_id{ -1 };
+	int						m_numDetails{ 0 };
 };
 
 struct ExtClutData_t
@@ -70,34 +73,52 @@ struct ExtClutData_t
 
 //---------------------------------------------------------------------------------------------------------------------------------
 
-extern CTexturePage*				g_texPages;
-extern ExtClutData_t*			g_extraPalettes;
-extern int						g_numExtraPalettes;
+class CDriverLevelTextures
+{
+public:
+	CDriverLevelTextures();
+	virtual ~CDriverLevelTextures();
 
-extern char*					g_textureNamesData;
+	// loaders
+	void			LoadTextureInfoLump(IVirtualStream* pFile);
+	void			LoadPermanentTPages(IVirtualStream* pFile);
+	void			LoadTextureNamesLump(IVirtualStream* pFile, int size);
+	void			ProcessPalletLump(IVirtualStream* pFile);
 
-extern TEXPAGE_POS*				g_texPagePos;
+	// release all data
+	void			FreeAll();
 
-extern int						g_numTexPages;
-extern int						g_numTexDetail;
+	// getters
+	CTexturePage*	GetTPage(int page) const;
+	int				GetTPageCount() const;
 
-extern char*					g_overlayMapData;
+	ExtClutData_t*	GetExtraCLUT(int clut) const;
+	int				GetExtraCLUTCount() const;
 
+	TEXINF*			FindTextureDetail(const char* name) const;
+	const char*		GetTextureDetailName(TEXINF* info) const;
+
+protected:
+	char*			m_textureNamesData{ nullptr };
+
+	CTexturePage*	m_texPages{ nullptr };
+	int				m_numTexPages{ 0 };
+
+	XYPAIR			m_permsList[16];
+	int				m_numPermanentPages{ 0 };
+
+	int				m_numSpecPages{ 0 };
+	XYPAIR			m_specList[16];
+
+	ExtClutData_t*	m_extraPalettes{ nullptr };
+	int				m_numExtraPalettes{ 0 };
+};
+
+extern CDriverLevelTextures	g_levTextures;
+extern char*				g_overlayMapData;
 //---------------------------------------------------------------------------------------------------------------------------------
 
-TVec4D<ubyte>	bgr5a1_ToRGBA8(ushort color, bool originalTransparencyKey = true);
-
-//---------------------------------------------------------------------------------------------------------------------------------
-
-int				GetCarPalIndex(int tpage);
-
-// loads global textures (pre-loading stage)
-void			LoadPermanentTPages(IVirtualStream* pFile);
-
-// loads texture atlas information (details per page)
-void			LoadTextureInfoLump(IVirtualStream* pFile);
-
-// searches for texture detail
-TEXINF*			FindTextureDetail(const char* name);
+TVec4D<ubyte> rgb5a1_ToBGRA8(ushort color, bool originalTransparencyKey = true);
+TVec4D<ubyte> rgb5a1_ToRGBA8(ushort color, bool originalTransparencyKey = true);
 
 #endif // TEXTURES_H

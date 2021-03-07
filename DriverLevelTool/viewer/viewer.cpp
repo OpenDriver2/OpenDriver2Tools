@@ -150,7 +150,6 @@ void SDLPollEvent()
 CRenderModel* g_renderModels[MAX_MODELS];
 TextureID g_hwTexturePages[128][32];
 
-extern bool g_originalTransparencyKey;
 
 //-----------------------------------------------------------------
 
@@ -205,11 +204,9 @@ void SetupModelShader()
 //-----------------------------------------------------------------
 
 // Creates hardware texture
-void InitHWTexturePage(int nPage)
+void InitHWTexturePage(CTexturePage* tpage)
 {
-	g_originalTransparencyKey = false;	// off
-	
-	const TexBitmap_t& bitmap = g_texPages[nPage].GetBitmap();
+	const TexBitmap_t& bitmap = tpage->GetBitmap();
 
 	if (bitmap.data == nullptr)
 		return;
@@ -237,37 +234,41 @@ void InitHWTexturePage(int nPage)
 		}
 	}
 
-	int numDetails = g_texPages[nPage].GetDetailCount();
+	int numDetails = tpage->GetDetailCount();
 
 	// FIXME: load indexes instead?
 
 	for (int i = 0; i < numDetails; i++)
-		g_texPages[nPage].ConvertIndexedTextureToRGBA(color_data, i, &bitmap.clut[i]);
+		tpage->ConvertIndexedTextureToRGBA(color_data, i, &bitmap.clut[i]);
 
-	g_hwTexturePages[nPage][0] = GR_CreateRGBATexture(TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, (ubyte*)color_data);
+	int tpageId = tpage->GetId();
+	
+	g_hwTexturePages[tpageId][0] = GR_CreateRGBATexture(TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, (ubyte*)color_data);
 
 	// also load different palettes
 	int numPalettes = 0;
 	for (int pal = 0; pal < 16; pal++)
 	{
 		bool anyMatched = false;
-		for (int i = 0; i < g_numExtraPalettes; i++)
+		for (int i = 0; i < g_levTextures.GetExtraCLUTCount(); i++)
 		{
-			if (g_extraPalettes[i].tpage != nPage)
+			ExtClutData_t* clutData = g_levTextures.GetExtraCLUT(i);
+			
+			if (clutData->tpage != tpageId)
 				continue;
 
-			if (g_extraPalettes[i].palette != pal)
+			if (clutData->palette != pal)
 				continue;
 
-			for (int j = 0; j < g_extraPalettes[i].texcnt; j++)
-				g_texPages[nPage].ConvertIndexedTextureToRGBA(color_data, g_extraPalettes[i].texnum[j], &g_extraPalettes[i].clut);
+			for (int j = 0; j < clutData->texcnt; j++)
+				tpage->ConvertIndexedTextureToRGBA(color_data, clutData->texnum[j], &clutData->clut);
 
 			anyMatched = true;
 		}
 
 		if (anyMatched)
 		{
-			g_hwTexturePages[nPage][numPalettes+1] = GR_CreateRGBATexture(TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, (ubyte*)color_data);
+			g_hwTexturePages[tpageId][numPalettes+1] = GR_CreateRGBATexture(TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, (ubyte*)color_data);
 			numPalettes++;
 		}
 	}
@@ -338,13 +339,15 @@ int ViewerMain(const char* filename)
 	LoadLevelFile(filename);
 
 	// Load permanent textures
-	for(int i = 0; i < g_numTexPages; i++)
+	for(int i = 0; i < g_levTextures.GetTPageCount(); i++)
 	{
+		CTexturePage* tpage = g_levTextures.GetTPage(i);
+		
 		memset(g_hwTexturePages[i], 0, sizeof(g_hwTexturePages[0]));
 
-		if(g_texPagePos[i].flags & TPAGE_PERMANENT)
+		if(tpage->GetFlags() & TPAGE_PERMANENT)
 		{
-			InitHWTexturePage(i);
+			InitHWTexturePage(tpage);
 		}
 	}
 

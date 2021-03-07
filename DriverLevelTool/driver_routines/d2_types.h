@@ -337,4 +337,19 @@ struct Spool {
 
 #define REGION_EMPTY	(0xFFFF)
 
+struct PALLET_INFO
+{
+	int palette;
+	int texnum;
+	int tpage;
+	int clut_number;
+};
+
+struct PALLET_INFO_D1
+{
+	int palette;
+	int texnum;
+	int tpage;
+};
+
 #endif

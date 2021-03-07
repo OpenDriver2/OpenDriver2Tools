@@ -110,32 +110,6 @@ void LoadModelNamesLump(IVirtualStream* pFile, int size)
 }
 
 //-------------------------------------------------------------
-// load texture names, same as model names
-//-------------------------------------------------------------
-void LoadTextureNamesLump(IVirtualStream* pFile, int size)
-{
-	int l_ofs = pFile->Tell();
-
-	g_textureNamesData = new char[size];
-
-	pFile->Read(g_textureNamesData, size, 1);
-
-	int len = strlen(g_textureNamesData);
-	int sz = 0;
-
-	do
-	{
-		char* str = g_textureNamesData + sz;
-
-		len = strlen(str);
-
-		sz += len + 1;
-	} while (sz < size);
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
-}
-
-//-------------------------------------------------------------
 // parses model lumps and exports models to OBJ
 //-------------------------------------------------------------
 void LoadLevelModelsLump(IVirtualStream* pFile)
@@ -179,99 +153,6 @@ void LoadLevelModelsLump(IVirtualStream* pFile)
 }
 
 //---------------------------------------------------------------------------------------------------------------------------------
-
-struct PAL_INFO
-{
-	int palette;
-	int texnum;
-	int tpage;
-	int clut_number;
-};
-
-struct PAL_INFO_D1
-{
-	int palette;
-	int texnum;
-	int tpage;
-};
-
-//-------------------------------------------------------------
-// Loads car and pedestrians palletes
-//-------------------------------------------------------------
-void ProcessPalletLump(IVirtualStream* pFile, int lump_size)
-{
-	ushort* clutTablePtr;
-	int total_cluts;
-	int l_ofs = pFile->Tell();
-
-	pFile->Read(&total_cluts, 1, sizeof(int));
-
-	if (total_cluts == 0)
-		return;
-
-	g_extraPalettes = new ExtClutData_t[total_cluts + 1];
-	memset(g_extraPalettes, 0, sizeof(ExtClutData_t) * total_cluts);
-
-	Msg("total_cluts: %d\n", total_cluts);
-
-	int added_cluts = 0;
-	while (true)
-	{
-		PAL_INFO info;
-
-		if (g_format == LEV_FORMAT_DRIVER1)
-		{
-			PAL_INFO_D1 infod1;
-			pFile->Read(&infod1, 1, sizeof(info) - sizeof(int));
-			info.clut_number = -1; // D1 doesn't have that
-			info.tpage = infod1.tpage;
-			info.texnum = infod1.texnum;
-			info.palette = infod1.palette;
-		}
-		else
-		{
-			pFile->Read(&info, 1, sizeof(info));
-		}
-
-		if (info.palette == -1)
-			break;
-
-		if (info.clut_number == -1)
-		{
-			ExtClutData_t& data = g_extraPalettes[added_cluts];
-			data.texnum[data.texcnt++] = info.texnum;
-			data.tpage = info.tpage;
-			data.palette = info.palette;
-
-			clutTablePtr = data.clut.colors;
-
-			pFile->Read(clutTablePtr, 16, sizeof(ushort));
-
-			added_cluts++;
-
-			// only in D1 we need to check count
-			if (g_format == LEV_FORMAT_DRIVER1)
-			{
-				if (added_cluts >= total_cluts)
-					break;
-			}
-		}
-		else
-		{
-			//Msg("    reference clut: %d, tex %d\n", info.clut_number, info.texnum);
-
-			ExtClutData_t& data = g_extraPalettes[info.clut_number];
-
-			// add texture number to existing clut
-			data.texnum[data.texcnt++] = info.texnum;
-		}
-	}
-
-	Msg("    added: %d\n", added_cluts);
-	g_numExtraPalettes = added_cluts;
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
-}
 
 //-------------------------------------------------------------
 // Loads overhead map lump
@@ -400,7 +281,7 @@ void ProcessLumps(IVirtualStream* pFile)
 				break;
 			case LUMP_TEXTURENAMES:
 				MsgWarning("LUMP_TEXTURENAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadTextureNamesLump(pFile, lump.size);
+				g_levTextures.LoadTextureNamesLump(pFile, lump.size);
 				break;
 			case LUMP_MODELNAMES:
 				MsgWarning("LUMP_MODELNAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
@@ -421,7 +302,7 @@ void ProcessLumps(IVirtualStream* pFile)
 				break;
 			case LUMP_PALLET:
 				MsgWarning("LUMP_PALLET ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				ProcessPalletLump(pFile, lump.size);
+				g_levTextures.ProcessPalletLump(pFile);
 				break;
 			case LUMP_SPOOLINFO:
 				MsgWarning("LUMP_SPOOLINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
@@ -448,7 +329,7 @@ void ProcessLumps(IVirtualStream* pFile)
 				break;
 			case LUMP_TEXTUREINFO:
 				MsgWarning("LUMP_TEXTUREINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadTextureInfoLump(pFile);
+				g_levTextures.LoadTextureInfoLump(pFile);
 				break;
 			default:
 				MsgInfo("LUMP type: %d (0x%X) ofs=%d size=%d\n", lump.type, lump.type, pFile->Tell(), lump.size);
@@ -548,7 +429,7 @@ void LoadLevelFile(const char* filename)
 	//-----------------------------------------------------
 	// read global textures
 
-	LoadPermanentTPages(g_levStream);
+	g_levTextures.LoadPermanentTPages(g_levStream);
 
 	//-----------------------------------------------------
 	// seek to section 3 - lump data 2
@@ -596,15 +477,5 @@ void FreeLevelData()
 			free(g_carModels[i].lowmodel);
 	}
 
-	delete[] g_textureNamesData;
-
-	// delete texture data
-	delete[] g_texPagePos;
-	delete[] g_texPages;
-	delete[] g_extraPalettes;
 	delete[] g_overlayMapData;
-
-	g_texPagePos = nullptr;
-	g_texPagePos = nullptr;
-	g_extraPalettes = nullptr;
 }

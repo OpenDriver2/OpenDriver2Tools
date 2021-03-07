@@ -7,66 +7,25 @@
 
 //-------------------------------------------------------------------------------
 
-class CDriverLevelTextures
-{
-public:
-	CDriverLevelTextures();
-	~CDriverLevelTextures();
-	
-	
-protected:
-	char*			m_textureNamesData {nullptr};
-
-	TEXPAGE_POS*	m_texPagePos {nullptr};
-
-	int				m_numTexPages {0};
-	int				m_numTexDetails {0};
-
-	int				m_numPermanentPages {0};
-	int				m_numSpecPages {0};
-
-	XYPAIR			m_permsList[16];
-	XYPAIR			m_specList[16];
-
-	CTexturePage*		m_texPages { nullptr};
-	
-	ExtClutData_t*	m_extraPalettes { nullptr};
-	int				m_numExtraPalettes { 0};
-};
-
-char*						g_textureNamesData = nullptr;
-
-TEXPAGE_POS*				g_texPagePos = nullptr;
-
-int							g_numTexPages = 0;
-int							g_numTexDetails = 0;
-
-int							g_numPermanentPages = 0;
-int							g_numSpecPages = 0;
-
-XYPAIR						g_permsList[16];
-XYPAIR						g_specList[16];
-CTexturePage*					g_texPages = nullptr;
-ExtClutData_t*				g_extraPalettes = nullptr;
-int							g_numExtraPalettes = 0;
+CDriverLevelTextures		g_levTextures;
 
 // 16 bit color to BGRA
 // originalTransparencyKey makes it pink
-TVec4D<ubyte> bgr5a1_ToRGBA8(ushort color, bool originalTransparencyKey /*= true*/)
+TVec4D<ubyte> rgb5a1_ToBGRA8(ushort color, bool originalTransparencyKey /*= true*/)
 {
-	ubyte b = (color & 0x1F) * 8;
+	ubyte r = (color & 0x1F) * 8;
 	ubyte g = ((color >> 5) & 0x1F) * 8;
-	ubyte r = ((color >> 9) & 0x1F) * 8;
-	
+	ubyte b = ((color >> 10) & 0x1F) * 8;
+
 	ubyte a = (color >> 15);
-	
+
 	// restore source transparency key
-	if(originalTransparencyKey && color == 0)
+	if (originalTransparencyKey && color == 0)
 	{
 		return TVec4D<ubyte>(255, 0, 255, 0);
 	}
 
-	return TVec4D<ubyte>(r,g,b,a);
+	return TVec4D<ubyte>(b, g, r, a);
 }
 
 // 16 bit color to RGBA
@@ -121,7 +80,7 @@ char* unpackTexture(char* src, char* dest)
 
 #define MAX_PAGE_CLUTS 63
 
-struct texturedata_t
+struct SpooledTextureData_t
 {
 	int			numPalettes;
 	TEXCLUT		palettes[63];
@@ -184,21 +143,28 @@ void CTexturePage::ConvertIndexedTextureToRGBA(uint* dest_color_data, int detail
 
 			clindex &= 0xF;
 
-			TVec4D<ubyte> color = outputBGR ?
-				bgr5a1_ToRGBA8(clut->colors[clindex], originalTransparencyKey) :
-				rgb5a1_ToRGBA8(clut->colors[clindex], originalTransparencyKey);
-
-			// flip texture by Y because of TGA
+			// flip texture by Y
 			int ypos = (TEXPAGE_SIZE_Y - y - 1) * TEXPAGE_SIZE_Y;
 
-			dest_color_data[ypos + x] = *(uint*)(&color);
+			if(outputBGR)
+			{
+				TVec4D<ubyte> color = rgb5a1_ToBGRA8(clut->colors[clindex], originalTransparencyKey);
+				dest_color_data[ypos + x] = *(uint*)(&color);
+			}
+			else
+			{
+				TVec4D<ubyte> color = rgb5a1_ToRGBA8(clut->colors[clindex], originalTransparencyKey);
+				dest_color_data[ypos + x] = *(uint*)(&color);
+			}
+
 		}
 	}
 }
 
-void CTexturePage::InitFromFile(int id, IVirtualStream* pFile)
+void CTexturePage::InitFromFile(int id, TEXPAGE_POS& tp, IVirtualStream* pFile)
 {
 	m_id = id;
+	m_tp = tp;
 
 	pFile->Read(&m_numDetails, 1, sizeof(int));
 
@@ -246,7 +212,7 @@ void CTexturePage::LoadCompressedTexture(IVirtualStream* pFile)
 //-------------------------------------------------------------------------------
 // Loads Texture page itself with it's color lookup tables
 //-------------------------------------------------------------------------------
-bool CTexturePage::LoadTPageAndCluts(IVirtualStream* pFile, bool isCompressed)
+bool CTexturePage::LoadTPageAndCluts(IVirtualStream* pFile, bool isSpooled)
 {
 	int rStart = pFile->Tell();
 
@@ -259,15 +225,11 @@ bool CTexturePage::LoadTPageAndCluts(IVirtualStream* pFile, bool isCompressed)
 
 	m_bitmap.data = new ubyte[TEXPAGE_4BIT_SIZE];
 
-	if( isCompressed )
-	{
-		LoadCompressedTexture(pFile);
-	}
-	else
+	if( isSpooled )
 	{
 		// non-compressed textures loads different way, with a fixed size
-		texturedata_t* texData = new texturedata_t;
-		pFile->Read( texData, 1, sizeof(texturedata_t) );
+		SpooledTextureData_t* texData = new SpooledTextureData_t;
+		pFile->Read( texData, 1, sizeof(SpooledTextureData_t) );
 
 		// palettes are after them
 		m_bitmap.numPalettes = texData->numPalettes;
@@ -280,12 +242,14 @@ bool CTexturePage::LoadTPageAndCluts(IVirtualStream* pFile, bool isCompressed)
 		// not need anymore
 		delete texData;
 	}
+	else
+	{
+		// non-spooled are compressed
+		LoadCompressedTexture(pFile);
+	}
 
-	int readSize = pFile->Tell()-rStart;
-
-	m_bitmap.rsize = readSize;
-
-	Msg("PAGE %d (%s) datasize=%d\n", m_id, isCompressed ? "compr" : "spooled", readSize);
+	m_bitmap.rsize = pFile->Tell() - rStart;
+	Msg("PAGE %d (%s) datasize=%d\n", m_id, isSpooled ? "compr" : "spooled", m_bitmap.rsize);
 
 	return true;
 }
@@ -297,18 +261,13 @@ TEXINF* CTexturePage::FindTextureDetail(const char* name) const
 {
 	for (int i = 0; i < m_numDetails; i++)
 	{
-		char* pTexName = g_textureNamesData + m_details[i].nameoffset;
+		const char* pTexName = g_levTextures.GetTextureDetailName(&m_details[i]);
 
 		if (!strcmp(pTexName, name)) // FIXME: hashing and case insensitive?
 			return &m_details[i];
 	}
 
 	return nullptr;
-}
-
-const TexBitmap_t& CTexturePage::GetBitmap() const
-{
-	return m_bitmap;
 }
 
 TEXINF* CTexturePage::GetTextureDetail(int num) const
@@ -321,37 +280,60 @@ int CTexturePage::GetDetailCount() const
 	return m_numDetails;
 }
 
+const TexBitmap_t& CTexturePage::GetBitmap() const
+{
+	return m_bitmap;
+}
+
+int CTexturePage::GetId() const
+{
+	return m_id;
+}
+
+int CTexturePage::GetFlags() const
+{
+	return m_tp.flags;
+}
+
 //-------------------------------------------------------------------------------
+
+CDriverLevelTextures::CDriverLevelTextures()
+{
+}
+
+CDriverLevelTextures::~CDriverLevelTextures()
+{
+}
 
 //
 // loads global textures (pre-loading stage)
 //
-void LoadPermanentTPages(IVirtualStream* pFile)
+void CDriverLevelTextures::LoadPermanentTPages(IVirtualStream* pFile)
 {
 	pFile->Seek( g_levInfo.texdata_offset, VS_SEEK_SET );
 	
 	//-----------------------------------
 
-	Msg("Loading permanent texture pages (%d)\n", g_numPermanentPages);
+	Msg("Loading permanent texture pages (%d)\n", m_numPermanentPages);
 
 	// simulate sectors
 	// convert current file offset to sectors
 	long sector = pFile->Tell() / 2048; 
 	int nsectors = 0;
 
-	for (int i = 0; i < g_numPermanentPages; i++)
-		nsectors += (g_permsList[i].y + 2047) / 2048;
+	for (int i = 0; i < m_numPermanentPages; i++)
+		nsectors += (m_permsList[i].y + 2047) / 2048;
 	
 	// load permanent pages
-	for(int i = 0; i < g_numPermanentPages; i++)
+	for(int i = 0; i < m_numPermanentPages; i++)
 	{
 		long curOfs = pFile->Tell(); 
-		int tpage = g_permsList[i].x;
+		int tpage = m_permsList[i].x;
 
 		// permanents are also compressed
-		g_texPages[tpage].LoadTPageAndCluts(pFile, true);
+		m_texPages[tpage].LoadTPageAndCluts(pFile, false);
 
-		pFile->Seek(curOfs + ((g_permsList[i].y + 2047) & -2048), VS_SEEK_SET);
+		pFile->Seek(curOfs + ((m_permsList[i].y + 2047) & -2048), VS_SEEK_SET);
 	}
 
 	// simulate sectors
@@ -360,28 +342,28 @@ void LoadPermanentTPages(IVirtualStream* pFile)
 
 	// Driver 2 - special cars only
 	// Driver 1 - only player cars
-	Msg("Loading special/car texture pages (%d)\n", g_numSpecPages);
+	Msg("Loading special/car texture pages (%d)\n", m_numSpecPages);
 
 	// load compressed spec pages
 	// those are non-spooled ones
-	for (int i = 0; i < g_numSpecPages; i++)
+	for (int i = 0; i < m_numSpecPages; i++)
 	{
 		TexBitmap_t* newTexData = new TexBitmap_t;
 
 		long curOfs = pFile->Tell();
-		int tpage = g_specList[i].x;
+		int tpage = m_specList[i].x;
 
 		// permanents are compressed
-		g_texPages[tpage].LoadTPageAndCluts(pFile, true);
+		m_texPages[tpage].LoadTPageAndCluts(pFile, false);
 
-		pFile->Seek(curOfs + ((g_specList[i].y + 2047) & -2048), VS_SEEK_SET);
+		pFile->Seek(curOfs + ((m_specList[i].y + 2047) & -2048), VS_SEEK_SET);
 	}
 }
 
 //-------------------------------------------------------------
 // parses texture info lumps. Quite simple
 //-------------------------------------------------------------
-void LoadTextureInfoLump(IVirtualStream* pFile)
+void CDriverLevelTextures::LoadTextureInfoLump(IVirtualStream* pFile)
 {
 	int l_ofs = pFile->Tell();
 
@@ -395,45 +377,196 @@ void LoadTextureInfoLump(IVirtualStream* pFile)
 	Msg("Texture amount: %d\n", numTextures);
 
 	// read array of texutre page info
-	g_texPagePos = new TEXPAGE_POS[numPages+1];
-	g_texPages = new CTexturePage[numPages];
-
-	pFile->Read(g_texPagePos, numPages+1, sizeof(TEXPAGE_POS));
+	TEXPAGE_POS* tpage_position = new TEXPAGE_POS[numPages + 1];
+	pFile->Read(tpage_position, numPages+1, sizeof(TEXPAGE_POS));
 
 	// read page details
-	g_numTexPages = numPages;
+	m_numTexPages = numPages;
+	m_texPages = new CTexturePage[numPages];
 
 	for(int i = 0; i < numPages; i++) 
 	{
-		CTexturePage& tp = g_texPages[i];
-		tp.InitFromFile(i, pFile);
+		CTexturePage& tp = m_texPages[i];
+		tp.InitFromFile(i, tpage_position[i], pFile);
 	}
 
-	pFile->Read(&g_numPermanentPages, 1, sizeof(int));
-	Msg("Permanent TPages = %d\n", g_numPermanentPages);
-	pFile->Read(g_permsList, 16, sizeof(XYPAIR));
+	pFile->Read(&m_numPermanentPages, 1, sizeof(int));
+	Msg("Permanent TPages = %d\n", m_numPermanentPages);
+	pFile->Read(m_permsList, 16, sizeof(XYPAIR));
 
 	// Driver 2 - special cars only
 	// Driver 1 - only player cars
-	pFile->Read(&g_numSpecPages, 1, sizeof(int));
-	pFile->Read(g_specList, 16, sizeof(XYPAIR));
+	pFile->Read(&m_numSpecPages, 1, sizeof(int));
+	pFile->Read(m_specList, 16, sizeof(XYPAIR));
 
-	Msg("Special/Car TPages = %d\n", g_numSpecPages);
+	Msg("Special/Car TPages = %d\n", m_numSpecPages);
+
+	pFile->Seek(l_ofs, VS_SEEK_SET);
+
+	// not needed
+	delete tpage_position;
+}
+
+//-------------------------------------------------------------
+// load texture names, same as model names
+//-------------------------------------------------------------
+void CDriverLevelTextures::LoadTextureNamesLump(IVirtualStream* pFile, int size)
+{
+	int l_ofs = pFile->Tell();
+
+	m_textureNamesData = new char[size];
+
+	pFile->Read(m_textureNamesData, size, 1);
+
+	int len = strlen(m_textureNamesData);
+	int sz = 0;
+
+	do
+	{
+		char* str = m_textureNamesData + sz;
+
+		len = strlen(str);
+
+		sz += len + 1;
+	} while (sz < size);
+
+	pFile->Seek(l_ofs, VS_SEEK_SET);
+}
+
+//-------------------------------------------------------------
+// Loads car and pedestrians palletes
+//-------------------------------------------------------------
+void CDriverLevelTextures::ProcessPalletLump(IVirtualStream* pFile)
+{
+	ushort* clutTablePtr;
+	int total_cluts;
+	int l_ofs = pFile->Tell();
+
+	pFile->Read(&total_cluts, 1, sizeof(int));
+
+	if (total_cluts == 0)
+		return;
+
+	m_extraPalettes = new ExtClutData_t[total_cluts + 1];
+	memset(m_extraPalettes, 0, sizeof(ExtClutData_t) * total_cluts);
+
+	Msg("total_cluts: %d\n", total_cluts);
+
+	int added_cluts = 0;
+	while (true)
+	{
+		PALLET_INFO info;
+
+		if (g_format == LEV_FORMAT_DRIVER1)
+		{
+			PALLET_INFO_D1 infod1;
+			pFile->Read(&infod1, 1, sizeof(info) - sizeof(int));
+			
+			info.clut_number = -1; // D1 doesn't have that
+			info.tpage = infod1.tpage;
+			info.texnum = infod1.texnum;
+			info.palette = infod1.palette;
+		}
+		else
+		{
+			pFile->Read(&info, 1, sizeof(info));
+		}
+
+		if (info.palette == -1)
+			break;
+
+		if (info.clut_number == -1)
+		{
+			ExtClutData_t& data = m_extraPalettes[added_cluts];
+			data.texnum[data.texcnt++] = info.texnum;
+			data.tpage = info.tpage;
+			data.palette = info.palette;
+
+			clutTablePtr = data.clut.colors;
+
+			pFile->Read(clutTablePtr, 16, sizeof(ushort));
+
+			added_cluts++;
+
+			// only in D1 we need to check count
+			if (g_format == LEV_FORMAT_DRIVER1)
+			{
+				if (added_cluts >= total_cluts)
+					break;
+			}
+		}
+		else
+		{
+			//Msg("    reference clut: %d, tex %d\n", info.clut_number, info.texnum);
+
+			ExtClutData_t& data = m_extraPalettes[info.clut_number];
+
+			// add texture number to existing clut
+			data.texnum[data.texcnt++] = info.texnum;
+		}
+	}
+
+	Msg("    added: %d\n", added_cluts);
+	m_numExtraPalettes = added_cluts;
 
 	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
 //----------------------------------------------------------------------------------------------------
 
-TEXINF* FindTextureDetail(const char* name)
+TEXINF* CDriverLevelTextures::FindTextureDetail(const char* name) const
 {
-	for(int i = 0; i < g_numTexPages; i++)
+	for(int i = 0; i < m_numTexPages; i++)
 	{
-		TEXINF* found = g_texPages[i].FindTextureDetail(name);
+		TEXINF* found = m_texPages[i].FindTextureDetail(name);
 
 		if (found)
 			return found;
 	}
 
 	return nullptr;
+}
+
+// returns texture name
+const char* CDriverLevelTextures::GetTextureDetailName(TEXINF* info) const
+{
+	return m_textureNamesData + info->nameoffset;
+}
+
+// release all data
+void CDriverLevelTextures::FreeAll()
+{
+	delete[] m_textureNamesData;
+	delete[] m_texPages;
+	delete[] m_extraPalettes;
+
+	m_textureNamesData = nullptr;
+	m_texPages = nullptr;
+	m_extraPalettes = nullptr;
+
+	m_numTexPages = 0;
+	m_numPermanentPages = 0;
+	m_numSpecPages = 0;
+	m_numExtraPalettes = 0;
+}
+
+// getters
+CTexturePage* CDriverLevelTextures::GetTPage(int page) const
+{
+	return &m_texPages[page];
+}
+
+int CDriverLevelTextures::GetTPageCount() const
+{
+	return m_numTexPages;
+}
+
+ExtClutData_t* CDriverLevelTextures::GetExtraCLUT(int clut) const
+{
+	return &m_extraPalettes[clut];
+}
+
+int	CDriverLevelTextures::GetExtraCLUTCount() const
+{
+	return m_numExtraPalettes;
 }

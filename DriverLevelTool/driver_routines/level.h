@@ -67,7 +67,6 @@ class IVirtualStream;
 struct RegionModels_t;
 
 void	LoadModelNamesLump(IVirtualStream* pFile, int size);
-void	LoadTextureNamesLump(IVirtualStream* pFile, int size);
 
 void	LoadLevelFile(const char* filename);
 void	FreeLevelData();

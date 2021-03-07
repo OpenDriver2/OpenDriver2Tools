@@ -21,25 +21,26 @@ int clutSortFunc(ExtClutData_t* const& i, ExtClutData_t* const& j)
 	return (i->palette - j->palette);
 }
 
-void GetTPageDetailPalettes(DkList<TEXCLUT*>& out, int nPage, int detail)
+void GetTPageDetailPalettes(DkList<TEXCLUT*>& out, CTexturePage* tpage, int detail)
 {
-	const TexBitmap_t& bitmap = g_texPages[nPage].GetBitmap();
+	const TexBitmap_t& bitmap = tpage->GetBitmap();
 
 	// ofc, add default
 	out.append(&bitmap.clut[detail]);
 
 	DkList<ExtClutData_t*> extra_cluts;
 
-	for (int i = 0; i < g_numExtraPalettes; i++)
+	for (int i = 0; i < g_levTextures.GetExtraCLUTCount(); i++)
 	{
-		if (g_extraPalettes[i].tpage != nPage)
+		ExtClutData_t* clutData = g_levTextures.GetExtraCLUT(i);
+		if (clutData->tpage != tpage->GetId())
 			continue;
 
 		bool found = false;
 
-		for (int j = 0; j < g_extraPalettes[i].texcnt; j++)
+		for (int j = 0; j < clutData->texcnt; j++)
 		{
-			if (g_extraPalettes[i].texnum[j] == detail)
+			if (clutData->texnum[j] == detail)
 			{
 				found = true;
 				break;
@@ -47,7 +48,7 @@ void GetTPageDetailPalettes(DkList<TEXCLUT*>& out, int nPage, int detail)
 		}
 
 		if (found)
-			extra_cluts.append(&g_extraPalettes[i]);
+			extra_cluts.append(clutData);
 	}
 
 	extra_cluts.sort(clutSortFunc);
@@ -59,16 +60,16 @@ void GetTPageDetailPalettes(DkList<TEXCLUT*>& out, int nPage, int detail)
 //-------------------------------------------------------------
 // writes 4-bit TIM image file from TPAGE
 //-------------------------------------------------------------
-void ExportTIM(int nPage, int detail)
+void ExportTIM(CTexturePage* tpage, int detail)
 {
-	if (!(detail < g_texPages[nPage].GetDetailCount()))
+	if (!(detail < tpage->GetDetailCount()))
 	{
 		MsgError("Cannot apply palette to non-existent detail! Programmer error?\n");
 		return;
 	}
 
-	const TexBitmap_t& bitmap = g_texPages[nPage].GetBitmap();
-	TEXINF* texdetail = g_texPages[nPage].GetTextureDetail(detail);
+	const TexBitmap_t& bitmap = tpage->GetBitmap();
+	TEXINF* texdetail = tpage->GetTextureDetail(detail);
 	
 	int ox = texdetail->x;
 	int oy = texdetail->y;
@@ -82,9 +83,9 @@ void ExportTIM(int nPage, int detail)
 		h = 256;
 
 	DkList<TEXCLUT*> palettes;
-	GetTPageDetailPalettes(palettes, nPage, detail);
+	GetTPageDetailPalettes(palettes, tpage, detail);
 
-	char* textureName = g_textureNamesData + texdetail->nameoffset;
+	const char* textureName = g_levTextures.GetTextureDetailName(texdetail);
 
 	Msg("Saving %s' %d (xywh: %d %d %d %d)\n", textureName, detail, ox, oy, w, h);
 
@@ -134,7 +135,7 @@ void ExportTIM(int nPage, int detail)
 	}
 
 	// compose TIMs
-	SaveTIM_4bit(varargs("%s/PAGE_%d/%s_%d.TIM", g_levname_texdir.c_str(), nPage, textureName, detail), 
+	SaveTIM_4bit(varargs("%s/PAGE_%d/%s_%d.TIM", g_levname_texdir.c_str(), tpage->GetId(), textureName, detail),
 		image_data, img_size, ox, oy, w, h, 
 		(ubyte*)clut_data, palettes.numElem() );
 
@@ -145,23 +146,23 @@ void ExportTIM(int nPage, int detail)
 //-------------------------------------------------------------
 // Exports entire texture page
 //-------------------------------------------------------------
-void ExportTexturePage(int nPage)
+void ExportTexturePage(CTexturePage* tpage)
 {
 	//
 	// This is where texture is converted from paletted BGR5A1 to BGRA8
 	// Also saving to LEVEL_texture/PAGE_*
 	//
 
-	const TexBitmap_t& bitmap = g_texPages[nPage].GetBitmap();
+	const TexBitmap_t& bitmap = tpage->GetBitmap();
 
 	if (!bitmap.data)
 		return;		// NO DATA
 
-	int numDetails = g_texPages[nPage].GetDetailCount();
+	int numDetails = tpage->GetDetailCount();
 
 	// Write an INI file with texture page info
 	{
-		FILE* pIniFile = fopen(varargs("%s/PAGE_%d.ini", g_levname_texdir.c_str(), nPage), "wb");
+		FILE* pIniFile = fopen(varargs("%s/PAGE_%d.ini", g_levname_texdir.c_str(), tpage->GetId()), "wb");
 
 		if (pIniFile)
 		{
@@ -171,7 +172,7 @@ void ExportTexturePage(int nPage)
 
 			for (int i = 0; i < numDetails; i++)
 			{
-				TEXINF* detail = g_texPages[nPage].GetTextureDetail(i);
+				TEXINF* detail = tpage->GetTextureDetail(i);
 				
 				int x = detail->x;
 				int y = detail->y;
@@ -186,7 +187,7 @@ void ExportTexturePage(int nPage)
 
 				fprintf(pIniFile, "[detail_%d]\r\n", i);
 				fprintf(pIniFile, "id=%d\r\n", detail->id);
-				fprintf(pIniFile, "name=%s\r\n", g_textureNamesData + detail->nameoffset);
+				fprintf(pIniFile, "name=%s\r\n", g_levTextures.GetTextureDetailName(detail));
 				fprintf(pIniFile, "xywh=%d,%d,%d,%d\r\n",x, y, w, h);
 				fprintf(pIniFile, "\r\n");
 			}
@@ -197,14 +198,14 @@ void ExportTexturePage(int nPage)
 
 	if (g_explode_tpages)
 	{
-		MsgInfo("Exploding texture '%s/PAGE_%d'\n", g_levname_texdir.c_str(), nPage);
+		MsgInfo("Exploding texture '%s/PAGE_%d'\n", g_levname_texdir.c_str(), tpage->GetId());
 
 		// make folder and place all tims in there
-		mkdirRecursive(varargs("%s/PAGE_%d", g_levname_texdir.c_str(), nPage));
+		mkdirRecursive(varargs("%s/PAGE_%d", g_levname_texdir.c_str(), tpage->GetId()));
 
 		for (int i = 0; i < numDetails; i++)
 		{
-			ExportTIM(nPage, i);
+			ExportTIM(tpage, i);
 		}
 
 		return;
@@ -238,27 +239,29 @@ void ExportTexturePage(int nPage)
 
 	for (int i = 0; i < numDetails; i++)
 	{
-		g_texPages[nPage].ConvertIndexedTextureToRGBA(color_data, i, &bitmap.clut[i], true, g_originalTransparencyKey);
+		tpage->ConvertIndexedTextureToRGBA(color_data, i, nullptr, true, g_originalTransparencyKey);
 	}
 
-	MsgInfo("Writing texture '%s/PAGE_%d.tga'\n", g_levname_texdir.c_str(), nPage);
-	SaveTGA(varargs("%s/PAGE_%d.tga", g_levname_texdir.c_str(), nPage), (ubyte*)color_data, TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, TEX_CHANNELS);
+	MsgInfo("Writing texture '%s/PAGE_%d.tga'\n", g_levname_texdir.c_str(), tpage->GetId());
+	SaveTGA(varargs("%s/PAGE_%d.tga", g_levname_texdir.c_str(), tpage->GetId()), (ubyte*)color_data, TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, TEX_CHANNELS);
 
 	int numPalettes = 0;
 	for (int pal = 0; pal < 16; pal++)
 	{
 		bool anyMatched = false;
-		for (int i = 0; i < g_numExtraPalettes; i++)
+		for (int i = 0; i < g_levTextures.GetExtraCLUTCount(); i++)
 		{
-			if (g_extraPalettes[i].tpage != nPage)
+			ExtClutData_t* clutData = g_levTextures.GetExtraCLUT(i);
+			
+			if (clutData->tpage != tpage->GetId())
 				continue;
 
-			if (g_extraPalettes[i].palette != pal)
+			if (clutData->palette != pal)
 				continue;
 
-			for (int j = 0; j < g_extraPalettes[i].texcnt; j++)
+			for (int j = 0; j < clutData->texcnt; j++)
 			{
-				g_texPages[nPage].ConvertIndexedTextureToRGBA(color_data, g_extraPalettes[i].texnum[j], &g_extraPalettes[i].clut, true, g_originalTransparencyKey);
+				tpage->ConvertIndexedTextureToRGBA(color_data, clutData->texnum[j], &clutData->clut, true, g_originalTransparencyKey);
 			}
 
 			anyMatched = true;
@@ -266,8 +269,8 @@ void ExportTexturePage(int nPage)
 
 		if (anyMatched)
 		{
-			MsgInfo("Writing texture %s/PAGE_%d_%d.tga\n", g_levname_texdir.c_str(), nPage, numPalettes);
-			SaveTGA(varargs("%s/PAGE_%d_%d.tga", g_levname_texdir.c_str(), nPage, numPalettes), (ubyte*)color_data, TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, TEX_CHANNELS);
+			MsgInfo("Writing texture %s/PAGE_%d_%d.tga\n", g_levname_texdir.c_str(), tpage->GetId(), numPalettes);
+			SaveTGA(varargs("%s/PAGE_%d_%d.tga", g_levname_texdir.c_str(), tpage->GetId(), numPalettes), (ubyte*)color_data, TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, TEX_CHANNELS);
 			numPalettes++;
 		}
 	}
@@ -292,9 +295,9 @@ void ExportAllTextures()
 	}
 
 	MsgInfo("Exporting texture data\n");
-	for (int i = 0; i < g_numTexPages; i++)
+	for (int i = 0; i < g_levTextures.GetTPageCount(); i++)
 	{
-		ExportTexturePage(i);
+		ExportTexturePage(g_levTextures.GetTPage(i));
 	}
 
 	// create material file
@@ -307,7 +310,7 @@ void ExportAllTextures()
 
 	if (pMtlFile)
 	{
-		for (int i = 0; i < g_numTexPages; i++)
+		for (int i = 0; i < g_levTextures.GetTPageCount(); i++)
 		{
 			fprintf(pMtlFile, "newmtl page_%d\r\n", i);
 			fprintf(pMtlFile, "map_Kd %s_textures/PAGE_%d.tga\r\n", justLevFilename.c_str(), i);
@@ -381,7 +384,7 @@ void ExportOverlayMap()
 
 					colorIndex &= 0xf;
 
-					TVec4D<ubyte> color = bgr5a1_ToRGBA8(clut[colorIndex]);
+					TVec4D<ubyte> color = rgb5a1_ToBGRA8(clut[colorIndex]);
 
 					px = x * 32 + xx;
 					py = (tall - 1 - y) * 32 + (31-yy);
