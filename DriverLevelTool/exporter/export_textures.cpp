@@ -14,20 +14,21 @@ extern bool g_export_overmap;
 extern int g_overlaymap_width;
 extern bool g_explode_tpages;
 extern bool g_export_world;
+extern bool g_originalTransparencyKey = true;
 
-int clutSortFunc(extclutdata_t* const& i, extclutdata_t* const& j)
+int clutSortFunc(ExtClutData_t* const& i, ExtClutData_t* const& j)
 {
 	return (i->palette - j->palette);
 }
 
 void GetTPageDetailPalettes(DkList<TEXCLUT*>& out, int nPage, int detail)
 {
-	texdata_t* page = &g_texPageData[nPage];
+	const TexBitmap_t& bitmap = g_texPages[nPage].GetBitmap();
 
 	// ofc, add default
-	out.append(&page->clut[detail]);
+	out.append(&bitmap.clut[detail]);
 
-	DkList<extclutdata_t*> extra_cluts;
+	DkList<ExtClutData_t*> extra_cluts;
 
 	for (int i = 0; i < g_numExtraPalettes; i++)
 	{
@@ -60,18 +61,19 @@ void GetTPageDetailPalettes(DkList<TEXCLUT*>& out, int nPage, int detail)
 //-------------------------------------------------------------
 void ExportTIM(int nPage, int detail)
 {
-	texdata_t* page = &g_texPageData[nPage];
-
-	if (!(detail < g_texPages[nPage].numDetails))
+	if (!(detail < g_texPages[nPage].GetDetailCount()))
 	{
 		MsgError("Cannot apply palette to non-existent detail! Programmer error?\n");
 		return;
 	}
 
-	int ox = g_texPages[nPage].details[detail].x;
-	int oy = g_texPages[nPage].details[detail].y;
-	int w = g_texPages[nPage].details[detail].width;
-	int h = g_texPages[nPage].details[detail].height;
+	const TexBitmap_t& bitmap = g_texPages[nPage].GetBitmap();
+	TEXINF* texdetail = g_texPages[nPage].GetTextureDetail(detail);
+	
+	int ox = texdetail->x;
+	int oy = texdetail->y;
+	int w = texdetail->width;
+	int h = texdetail->height;
 
 	if (w == 0)
 		w = 256;
@@ -82,7 +84,7 @@ void ExportTIM(int nPage, int detail)
 	DkList<TEXCLUT*> palettes;
 	GetTPageDetailPalettes(palettes, nPage, detail);
 
-	char* textureName = g_textureNamesData + g_texPages[nPage].details[detail].nameoffset;
+	char* textureName = g_textureNamesData + texdetail->nameoffset;
 
 	Msg("Saving %s' %d (xywh: %d %d %d %d)\n", textureName, detail, ox, oy, w, h);
 
@@ -112,7 +114,7 @@ void ExportTIM(int nPage, int detail)
 
 			if (py * half_w + half_px < img_size)
 			{
-				image_data[py * half_w + half_px] = page->data[y * 128 + half_x];
+				image_data[py * half_w + half_px] = bitmap.data[y * 128 + half_x];
 			}
 			else
 			{
@@ -150,12 +152,12 @@ void ExportTexturePage(int nPage)
 	// Also saving to LEVEL_texture/PAGE_*
 	//
 
-	texdata_t* page = &g_texPageData[nPage];
+	const TexBitmap_t& bitmap = g_texPages[nPage].GetBitmap();
 
-	if (!page->data)
+	if (!bitmap.data)
 		return;		// NO DATA
 
-	int numDetails = g_texPages[nPage].numDetails;
+	int numDetails = g_texPages[nPage].GetDetailCount();
 
 	// Write an INI file with texture page info
 	{
@@ -169,10 +171,12 @@ void ExportTexturePage(int nPage)
 
 			for (int i = 0; i < numDetails; i++)
 			{
-				int x = g_texPages[nPage].details[i].x;
-				int y = g_texPages[nPage].details[i].y;
-				int w = g_texPages[nPage].details[i].width;
-				int h = g_texPages[nPage].details[i].height;
+				TEXINF* detail = g_texPages[nPage].GetTextureDetail(i);
+				
+				int x = detail->x;
+				int y = detail->y;
+				int w = detail->width;
+				int h = detail->height;
 
 				if (w == 0)
 					w = 256;
@@ -181,8 +185,8 @@ void ExportTexturePage(int nPage)
 					h = 256;
 
 				fprintf(pIniFile, "[detail_%d]\r\n", i);
-				fprintf(pIniFile, "id=%d\r\n", g_texPages[nPage].details[i].id);
-				fprintf(pIniFile, "name=%s\r\n", g_textureNamesData + g_texPages[nPage].details[i].nameoffset);
+				fprintf(pIniFile, "id=%d\r\n", detail->id);
+				fprintf(pIniFile, "name=%s\r\n", g_textureNamesData + detail->nameoffset);
 				fprintf(pIniFile, "xywh=%d,%d,%d,%d\r\n",x, y, w, h);
 				fprintf(pIniFile, "\r\n");
 			}
@@ -219,7 +223,7 @@ void ExportTexturePage(int nPage)
 	{
 		for (int x = 0; x < 256; x++)
 		{
-			ubyte clindex = page->data[y * 128 + (x >> 1)];
+			ubyte clindex = bitmap.data[y * 128 + (x >> 1)];
 
 			if (0 != (x & 1))
 				clindex >>= 4;
@@ -234,7 +238,7 @@ void ExportTexturePage(int nPage)
 
 	for (int i = 0; i < numDetails; i++)
 	{
-		ConvertIndexedTextureToRGBA(nPage, color_data, i, &page->clut[i]);
+		g_texPages[nPage].ConvertIndexedTextureToRGBA(color_data, i, &bitmap.clut[i], true, g_originalTransparencyKey);
 	}
 
 	MsgInfo("Writing texture '%s/PAGE_%d.tga'\n", g_levname_texdir.c_str(), nPage);
@@ -254,7 +258,7 @@ void ExportTexturePage(int nPage)
 
 			for (int j = 0; j < g_extraPalettes[i].texcnt; j++)
 			{
-				ConvertIndexedTextureToRGBA(nPage, color_data, g_extraPalettes[i].texnum[j], &g_extraPalettes[i].clut);
+				g_texPages[nPage].ConvertIndexedTextureToRGBA(color_data, g_extraPalettes[i].texnum[j], &g_extraPalettes[i].clut, true, g_originalTransparencyKey);
 			}
 
 			anyMatched = true;

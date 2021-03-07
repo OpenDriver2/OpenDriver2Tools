@@ -209,9 +209,9 @@ void InitHWTexturePage(int nPage)
 {
 	g_originalTransparencyKey = false;	// off
 	
-	texdata_t* page = &g_texPageData[nPage];
+	const TexBitmap_t& bitmap = g_texPages[nPage].GetBitmap();
 
-	if (page->data == nullptr)
+	if (bitmap.data == nullptr)
 		return;
 	
 	int imgSize = TEXPAGE_SIZE * 4;
@@ -224,7 +224,7 @@ void InitHWTexturePage(int nPage)
 	{
 		for (int x = 0; x < 256; x++)
 		{
-			ubyte clindex = page->data[y * 128 + (x >> 1)];
+			ubyte clindex = bitmap.data[y * 128 + (x >> 1)];
 
 			if (0 != (x & 1))
 				clindex >>= 4;
@@ -237,12 +237,12 @@ void InitHWTexturePage(int nPage)
 		}
 	}
 
-	int numDetails = g_texPages[nPage].numDetails;
+	int numDetails = g_texPages[nPage].GetDetailCount();
 
 	// FIXME: load indexes instead?
 
 	for (int i = 0; i < numDetails; i++)
-		ConvertIndexedTextureToRGBA(nPage, color_data, i, &page->clut[i], false);
+		g_texPages[nPage].ConvertIndexedTextureToRGBA(color_data, i, &bitmap.clut[i]);
 
 	g_hwTexturePages[nPage][0] = GR_CreateRGBATexture(TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, (ubyte*)color_data);
 
@@ -260,7 +260,7 @@ void InitHWTexturePage(int nPage)
 				continue;
 
 			for (int j = 0; j < g_extraPalettes[i].texcnt; j++)
-				ConvertIndexedTextureToRGBA(nPage, color_data, g_extraPalettes[i].texnum[j], &g_extraPalettes[i].clut, false);
+				g_texPages[nPage].ConvertIndexedTextureToRGBA(color_data, g_extraPalettes[i].texnum[j], &g_extraPalettes[i].clut);
 
 			anyMatched = true;
 		}

@@ -209,8 +209,8 @@ void ProcessPalletLump(IVirtualStream* pFile, int lump_size)
 	if (total_cluts == 0)
 		return;
 
-	g_extraPalettes = new extclutdata_t[total_cluts + 1];
-	memset(g_extraPalettes, 0, sizeof(extclutdata_t) * total_cluts);
+	g_extraPalettes = new ExtClutData_t[total_cluts + 1];
+	memset(g_extraPalettes, 0, sizeof(ExtClutData_t) * total_cluts);
 
 	Msg("total_cluts: %d\n", total_cluts);
 
@@ -238,7 +238,7 @@ void ProcessPalletLump(IVirtualStream* pFile, int lump_size)
 
 		if (info.clut_number == -1)
 		{
-			extclutdata_t& data = g_extraPalettes[added_cluts];
+			ExtClutData_t& data = g_extraPalettes[added_cluts];
 			data.texnum[data.texcnt++] = info.texnum;
 			data.tpage = info.tpage;
 			data.palette = info.palette;
@@ -260,7 +260,7 @@ void ProcessPalletLump(IVirtualStream* pFile, int lump_size)
 		{
 			//Msg("    reference clut: %d, tex %d\n", info.clut_number, info.texnum);
 
-			extclutdata_t& data = g_extraPalettes[info.clut_number];
+			ExtClutData_t& data = g_extraPalettes[info.clut_number];
 
 			// add texture number to existing clut
 			data.texnum[data.texcnt++] = info.texnum;
@@ -599,21 +599,11 @@ void FreeLevelData()
 	delete[] g_textureNamesData;
 
 	// delete texture data
-	for (int i = 0; i < g_numTexPages; i++)
-	{
-		if (g_texPageData[i].data)
-			delete[] g_texPageData[i].data;
-
-		delete[] g_texPages[i].details;
-	}
-
-	delete[] g_texPageData;
 	delete[] g_texPagePos;
 	delete[] g_texPages;
 	delete[] g_extraPalettes;
 	delete[] g_overlayMapData;
 
-	g_texPageData = nullptr;
 	g_texPagePos = nullptr;
 	g_texPagePos = nullptr;
 	g_extraPalettes = nullptr;

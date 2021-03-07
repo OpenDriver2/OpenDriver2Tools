@@ -91,7 +91,7 @@ void LoadRegionData(IVirtualStream* pFile, RegionModels_t* models, AreaDataStr* 
 		int pageIdx = pages->pageIndexes[i];
 
 		// region textures are non-compressed due to loading speeds
-		LoadTPageAndCluts(pFile, &g_texPageData[pageIdx], pageIdx, false);
+		g_texPages[pageIdx].LoadTPageAndCluts(pFile, false);
 
 		if(pFile->Tell() % 2048)
 			pFile->Seek(2048 - (pFile->Tell() % 2048),VS_SEEK_CUR);

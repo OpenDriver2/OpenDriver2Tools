@@ -11,7 +11,14 @@
 
 extern std::string		g_levname;
 
-TexPage_t*				g_compilerTPages = nullptr;
+struct CompilerTPage
+{
+	int		id{ -1 };
+	TEXINF* details{ nullptr };
+	int		numDetails{ 0 };
+};
+
+CompilerTPage*			g_compilerTPages = nullptr;
 int						g_numCompilerTPages = 0;
 
 //--------------------------------------------------------------------------
@@ -77,7 +84,7 @@ void InitTextureDetailsForModel(smdmodel_t* model)
 		}
 	}
 
-	g_compilerTPages = new TexPage_t[textured_groups.numElem()];
+	g_compilerTPages = new CompilerTPage[textured_groups.numElem()];
 	g_numCompilerTPages = textured_groups.numElem();
 
 	size_t lastindex = g_levname.find_last_of(".");
@@ -148,7 +155,7 @@ void InitTextureDetailsForModel(smdmodel_t* model)
 int FindTextureDetailByUV(int tpage, UV_INFO* uvs, int num_uv, TEXINF** detail)
 {
 	// first find tpage
-	TexPage_t* tpinfo = nullptr;
+	CompilerTPage* tpinfo = nullptr;
 	for(int i = 0; i < g_numCompilerTPages; i++)
 	{
 		if(g_compilerTPages[i].id == tpage)
