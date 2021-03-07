@@ -13,6 +13,8 @@ char*						g_overlayMapData = nullptr;
 
 extern DkList<std::string>	g_model_names;
 
+CDriverLevelTextures		g_levTextures;
+
 //-------------------------------------------------------------
 // parses model lumps and exports models to OBJ
 //-------------------------------------------------------------

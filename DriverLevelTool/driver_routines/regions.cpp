@@ -2,6 +2,8 @@
 
 #include <malloc.h>
 
+
+#include "driver_level.h"
 #include "textures.h"
 
 #include "core/IVirtualStream.h"

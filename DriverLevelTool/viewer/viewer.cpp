@@ -1,5 +1,7 @@
 #include <malloc.h>
 #include <SDL_events.h>
+
+#include "driver_level.h"
 #include "gl_renderer.h"
 #include "rendermodel.h"
 #include "core/cmdlib.h"

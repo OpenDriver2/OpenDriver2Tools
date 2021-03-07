@@ -15,46 +15,22 @@ extern int g_overlaymap_width;
 extern bool g_explode_tpages;
 extern bool g_export_world;
 extern bool g_originalTransparencyKey = true;
+extern char* g_overlayMapData;
 
 int clutSortFunc(ExtClutData_t* const& i, ExtClutData_t* const& j)
 {
 	return (i->palette - j->palette);
 }
 
-void GetTPageDetailPalettes(DkList<TEXCLUT*>& out, CTexturePage* tpage, int detail)
+void GetTPageDetailPalettes(DkList<TEXCLUT*>& out, CTexturePage* tpage, TexDetailInfo_t* detail)
 {
 	const TexBitmap_t& bitmap = tpage->GetBitmap();
 
 	// ofc, add default
-	out.append(&bitmap.clut[detail]);
+	out.append(&bitmap.clut[detail->info.id]);
 
-	DkList<ExtClutData_t*> extra_cluts;
-
-	for (int i = 0; i < g_levTextures.GetExtraCLUTCount(); i++)
-	{
-		ExtClutData_t* clutData = g_levTextures.GetExtraCLUT(i);
-		if (clutData->tpage != tpage->GetId())
-			continue;
-
-		bool found = false;
-
-		for (int j = 0; j < clutData->texcnt; j++)
-		{
-			if (clutData->texnum[j] == detail)
-			{
-				found = true;
-				break;
-			}
-		}
-
-		if (found)
-			extra_cluts.append(clutData);
-	}
-
-	extra_cluts.sort(clutSortFunc);
-
-	for (int i = 0; i < extra_cluts.numElem(); i++)
-		out.append(&extra_cluts[i]->clut);
+	for(int i = 0; i < detail->numExtraCLUTs; i++)
+		out.append(detail->extraCLUTs[i]);
 }
 
 //-------------------------------------------------------------
@@ -69,12 +45,12 @@ void ExportTIM(CTexturePage* tpage, int detail)
 	}
 
 	const TexBitmap_t& bitmap = tpage->GetBitmap();
-	TEXINF* texdetail = tpage->GetTextureDetail(detail);
+	TexDetailInfo_t* texdetail = tpage->GetTextureDetail(detail);
 	
-	int ox = texdetail->x;
-	int oy = texdetail->y;
-	int w = texdetail->width;
-	int h = texdetail->height;
+	int ox = texdetail->info.x;
+	int oy = texdetail->info.y;
+	int w = texdetail->info.width;
+	int h = texdetail->info.height;
 
 	if (w == 0)
 		w = 256;
@@ -83,9 +59,9 @@ void ExportTIM(CTexturePage* tpage, int detail)
 		h = 256;
 
 	DkList<TEXCLUT*> palettes;
-	GetTPageDetailPalettes(palettes, tpage, detail);
+	GetTPageDetailPalettes(palettes, tpage, texdetail);
 
-	const char* textureName = g_levTextures.GetTextureDetailName(texdetail);
+	const char* textureName = g_levTextures.GetTextureDetailName(&texdetail->info);
 
 	Msg("Saving %s' %d (xywh: %d %d %d %d)\n", textureName, detail, ox, oy, w, h);
 
@@ -130,9 +106,7 @@ void ExportTIM(CTexturePage* tpage, int detail)
 
 	// copy cluts
 	for (int i = 0; i < palettes.numElem(); i++)
-	{
 		memcpy(&clut_data[i], palettes[i], sizeof(TEXCLUT));
-	}
 
 	// compose TIMs
 	SaveTIM_4bit(varargs("%s/PAGE_%d/%s_%d.TIM", g_levname_texdir.c_str(), tpage->GetId(), textureName, detail),
@@ -172,12 +146,12 @@ void ExportTexturePage(CTexturePage* tpage)
 
 			for (int i = 0; i < numDetails; i++)
 			{
-				TEXINF* detail = tpage->GetTextureDetail(i);
+				TexDetailInfo_t* detail = tpage->GetTextureDetail(i);
 				
-				int x = detail->x;
-				int y = detail->y;
-				int w = detail->width;
-				int h = detail->height;
+				int x = detail->info.x;
+				int y = detail->info.y;
+				int w = detail->info.width;
+				int h = detail->info.height;
 
 				if (w == 0)
 					w = 256;
@@ -186,8 +160,8 @@ void ExportTexturePage(CTexturePage* tpage)
 					h = 256;
 
 				fprintf(pIniFile, "[detail_%d]\r\n", i);
-				fprintf(pIniFile, "id=%d\r\n", detail->id);
-				fprintf(pIniFile, "name=%s\r\n", g_levTextures.GetTextureDetailName(detail));
+				fprintf(pIniFile, "id=%d\r\n", detail->info.id);
+				fprintf(pIniFile, "name=%s\r\n", g_levTextures.GetTextureDetailName(&detail->info));
 				fprintf(pIniFile, "xywh=%d,%d,%d,%d\r\n",x, y, w, h);
 				fprintf(pIniFile, "\r\n");
 			}
@@ -249,22 +223,16 @@ void ExportTexturePage(CTexturePage* tpage)
 	for (int pal = 0; pal < 16; pal++)
 	{
 		bool anyMatched = false;
-		for (int i = 0; i < g_levTextures.GetExtraCLUTCount(); i++)
+
+		for (int j = 0; j < numDetails; j++)
 		{
-			ExtClutData_t* clutData = g_levTextures.GetExtraCLUT(i);
+			TexDetailInfo_t* detail = tpage->GetTextureDetail(j);
 			
-			if (clutData->tpage != tpage->GetId())
-				continue;
-
-			if (clutData->palette != pal)
-				continue;
-
-			for (int j = 0; j < clutData->texcnt; j++)
+			if(detail->extraCLUTs[pal])
 			{
-				tpage->ConvertIndexedTextureToRGBA(color_data, clutData->texnum[j], &clutData->clut, true, g_originalTransparencyKey);
+				tpage->ConvertIndexedTextureToRGBA(color_data, j, detail->extraCLUTs[pal], true, g_originalTransparencyKey);
+				anyMatched = true;
 			}
-
-			anyMatched = true;
 		}
 
 		if (anyMatched)

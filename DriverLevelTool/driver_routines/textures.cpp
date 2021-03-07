@@ -7,8 +7,6 @@
 
 //-------------------------------------------------------------------------------
 
-CDriverLevelTextures		g_levTextures;
-
 // 16 bit color to BGRA
 // originalTransparencyKey makes it pink
 TVec4D<ubyte> rgb5a1_ToBGRA8(ushort color, bool originalTransparencyKey /*= true*/)
@@ -115,10 +113,12 @@ void CTexturePage::ConvertIndexedTextureToRGBA(uint* dest_color_data, int detail
 	if (clut == nullptr)
 		clut = &bitmap.clut[detail];
 
-	int ox = m_details[detail].x;
-	int oy = m_details[detail].y;
-	int w = m_details[detail].width;
-	int h = m_details[detail].height;
+	TEXINF& texInfo = m_details[detail].info;
+
+	int ox = texInfo.x;
+	int oy = texInfo.y;
+	int w = texInfo.width;
+	int h = texInfo.height;
 
 	if (w == 0)
 		w = 256;
@@ -172,8 +172,15 @@ void CTexturePage::InitFromFile(int id, TEXPAGE_POS& tp, IVirtualStream* pFile)
 	if (m_numDetails)
 	{
 		// read texture detail info
-		m_details = new TEXINF[m_numDetails];
-		pFile->Read(m_details, m_numDetails, sizeof(TEXINF));
+		m_details = new TexDetailInfo_t[m_numDetails];
+
+		for(int i = 0; i < m_numDetails; i++)
+		{
+			m_details[i].numExtraCLUTs = 0;
+			memset(m_details[i].extraCLUTs, 0, sizeof(m_details[i].extraCLUTs));
+			
+			pFile->Read(&m_details[i].info, 1, sizeof(TEXINF));
+		}
 	}
 	else
 		m_details = nullptr;
@@ -257,11 +264,11 @@ bool CTexturePage::LoadTPageAndCluts(IVirtualStream* pFile, bool isSpooled)
 //-------------------------------------------------------------------------------
 // searches for detail in this TPAGE
 //-------------------------------------------------------------------------------
-TEXINF* CTexturePage::FindTextureDetail(const char* name) const
+TexDetailInfo_t* CTexturePage::FindTextureDetail(const char* name) const
 {
 	for (int i = 0; i < m_numDetails; i++)
 	{
-		const char* pTexName = g_levTextures.GetTextureDetailName(&m_details[i]);
+		const char* pTexName = m_owner->GetTextureDetailName(&m_details[i].info);
 
 		if (!strcmp(pTexName, name)) // FIXME: hashing and case insensitive?
 			return &m_details[i];
@@ -270,7 +277,7 @@ TEXINF* CTexturePage::FindTextureDetail(const char* name) const
 	return nullptr;
 }
 
-TEXINF* CTexturePage::GetTextureDetail(int num) const
+TexDetailInfo_t* CTexturePage::GetTextureDetail(int num) const
 {
 	return &m_details[num];
 }
@@ -387,6 +394,8 @@ void CDriverLevelTextures::LoadTextureInfoLump(IVirtualStream* pFile)
 	for(int i = 0; i < numPages; i++) 
 	{
 		CTexturePage& tp = m_texPages[i];
+		tp.m_owner = this;
+
 		tp.InitFromFile(i, tpage_position[i], pFile);
 	}
 
@@ -486,6 +495,10 @@ void CDriverLevelTextures::ProcessPalletLump(IVirtualStream* pFile)
 
 			pFile->Read(clutTablePtr, 16, sizeof(ushort));
 
+			// reference
+			TexDetailInfo_t& detail = m_texPages[data.tpage].m_details[info.texnum];
+			detail.extraCLUTs[data.palette] = &data.clut;
+			
 			added_cluts++;
 
 			// only in D1 we need to check count
@@ -497,12 +510,14 @@ void CDriverLevelTextures::ProcessPalletLump(IVirtualStream* pFile)
 		}
 		else
 		{
-			//Msg("    reference clut: %d, tex %d\n", info.clut_number, info.texnum);
-
 			ExtClutData_t& data = m_extraPalettes[info.clut_number];
 
 			// add texture number to existing clut
 			data.texnum[data.texcnt++] = info.texnum;
+
+			// reference
+			TexDetailInfo_t& detail = m_texPages[data.tpage].m_details[info.texnum];
+			detail.extraCLUTs[data.palette] = &data.clut;
 		}
 	}
 
@@ -514,11 +529,11 @@ void CDriverLevelTextures::ProcessPalletLump(IVirtualStream* pFile)
 
 //----------------------------------------------------------------------------------------------------
 
-TEXINF* CDriverLevelTextures::FindTextureDetail(const char* name) const
+TexDetailInfo_t* CDriverLevelTextures::FindTextureDetail(const char* name) const
 {
 	for(int i = 0; i < m_numTexPages; i++)
 	{
-		TEXINF* found = m_texPages[i].FindTextureDetail(name);
+		TexDetailInfo_t* found = m_texPages[i].FindTextureDetail(name);
 
 		if (found)
 			return found;
