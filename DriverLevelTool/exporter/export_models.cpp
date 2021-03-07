@@ -12,7 +12,7 @@
 extern bool						g_extract_dmodels;
 extern std::string				g_levname_moddir;
 extern std::string				g_levname_texdir;
-extern DkList<std::string>	g_model_names;
+extern DkList<std::string>		g_model_names;
 
 //-------------------------------------------------------------
 // writes Wavefront OBJ into stream

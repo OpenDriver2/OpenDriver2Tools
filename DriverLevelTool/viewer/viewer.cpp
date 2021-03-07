@@ -18,20 +18,27 @@
 	"	uniform mat4 u_WorldViewProj;\n"\
 	"	void main() {\n"\
 	"		v_texcoord = vec2(a_position_tu.w, 1.0-a_normal_tv.w);\n"\
+	"		v_normal = a_normal_tv.xyz;\n"\
 	"		gl_Position = u_WorldViewProj * vec4(a_position_tu.xyz, 1.0);\n"\
 	"	}\n"
 
 #define MODEL_FRAGMENT_SHADER \
 	"	uniform sampler2D s_texture;\n"\
+	"	uniform vec3 u_lightDir;\n"\
+	"	uniform vec4 u_ambientColor;\n"\
+	"	uniform vec4 u_lightColor;\n"\
 	"	void main() {\n"\
-	"		fragColor = texture2D(s_texture, v_texcoord.xy);\n"\
+	"		vec4 lighting;\n"\
+	"		vec4 color = texture2D(s_texture, v_texcoord.xy);\n"\
+	"		lighting = vec4(color.rgb * u_ambientColor.rgb * u_ambientColor.a, color.a);\n"\
+	"		lighting.rgb += u_lightColor.rgb * u_lightColor.a * color.rgb * saturate(1.0 - dot(v_normal, u_lightDir));\n"\
+	"		fragColor = lighting;\n"\
 	"	}\n"
 
 const char* model_shader =
 	"varying vec2 v_texcoord;\n"
+	"varying vec3 v_normal;\n"
 	"varying vec4 v_color;\n"
-	"varying vec4 v_page_clut;\n"
-	"varying float v_z;\n"
 	"#ifdef VERTEX\n"
 	MODEL_VERTEX_SHADER
 	"#else\n"
@@ -142,8 +149,60 @@ void SDLPollEvent()
 
 CRenderModel* g_renderModels[MAX_MODELS];
 TextureID g_hwTexturePages[128][32];
-ShaderID g_modelShader = -1;
+
 extern bool g_originalTransparencyKey;
+
+//-----------------------------------------------------------------
+
+struct WorldRenderProperties
+{
+	Vector4D ambientColor;
+	Vector4D lightColor;
+	Vector3D lightDir;
+	
+} g_worldRenderProperties;
+
+void SetupLightingProperties()
+{
+	g_worldRenderProperties.ambientColor = ColorRGBA(0.95f, 0.9f, 1.0f, 0.35f);
+	g_worldRenderProperties.lightColor = ColorRGBA(1.0f, 1.0f, 1.0f, 0.8f);
+	g_worldRenderProperties.lightDir = normalize(Vector3D(-1, -1, -1));
+}
+
+//-----------------------------------------------------------------
+
+
+struct ModelShaderInfo
+{
+	ShaderID	shader{ 0 };
+
+	int			ambientColorConstantId{ -1 };
+	int			lightColorConstantId{ -1 };
+
+	int			lightDirConstantId{ -1 };
+} g_modelShader;
+
+void InitModelShader()
+{
+	// create shader
+	g_modelShader.shader = GR_CompileShader(model_shader);
+
+	g_modelShader.ambientColorConstantId = GR_GetShaderConstantIndex(g_modelShader.shader, "u_ambientColor");
+	g_modelShader.lightColorConstantId = GR_GetShaderConstantIndex(g_modelShader.shader, "u_lightColor");
+
+	g_modelShader.lightDirConstantId = GR_GetShaderConstantIndex(g_modelShader.shader, "u_lightDir");
+}
+
+void SetupModelShader()
+{
+	GR_SetShader(g_modelShader.shader);
+	GR_SetShaderConstatntVector3D(g_modelShader.lightDirConstantId, g_worldRenderProperties.lightDir);
+
+	GR_SetShaderConstatntVector4D(g_modelShader.ambientColorConstantId, g_worldRenderProperties.ambientColor);
+	GR_SetShaderConstatntVector4D(g_modelShader.lightColorConstantId, g_worldRenderProperties.lightColor);
+}
+
+//-----------------------------------------------------------------
 
 // Creates hardware texture
 void InitHWTexturePage(int nPage)
@@ -217,6 +276,18 @@ void InitHWTexturePage(int nPage)
 	free(color_data);
 }
 
+TextureID GetHWTexture(int tpage, int pal)
+{
+	extern TextureID g_whiteTexture;
+	
+	if (tpage < 0)
+		return g_whiteTexture;
+
+	return g_hwTexturePages[tpage][pal];
+}
+
+//-----------------------------------------------------------------
+
 extern int g_windowWidth;
 extern int g_windowHeight;
 
@@ -234,6 +305,8 @@ void RenderView()
 	view = rotateZXY4(-cameraAngles.x, -cameraAngles.y, -cameraAngles.z);
 
 	view.translate(-cameraPos);
+
+	SetupLightingProperties();
 
 	GR_SetMatrix(MATRIX_VIEW, view);
 	GR_SetMatrix(MATRIX_PROJECTION, proj);
@@ -259,8 +332,7 @@ int ViewerMain(const char* filename)
 		return -1;
 	}
 
-	// create shader
-	g_modelShader = GR_CompileShader(model_shader);
+	InitModelShader();
 
 	// Load level file
 	LoadLevelFile(filename);

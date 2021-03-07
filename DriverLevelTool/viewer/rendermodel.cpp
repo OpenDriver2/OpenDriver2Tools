@@ -321,16 +321,17 @@ void CRenderModel::GenerateBuffers()
 
 void CRenderModel::Draw()
 {
-	extern TextureID g_hwTexturePages[128][32];
-	extern ShaderID g_modelShader;
+	extern TextureID GetHWTexture(int tpage, int pal);
+	extern void SetupModelShader();
 	
+	SetupModelShader();
 	GR_SetVAO(m_vao);
 	
 	for(int i = 0; i < m_batches.numElem(); i++)
 	{
 		modelBatch_t& batch = m_batches[i];
-		GR_SetShader(g_modelShader);
-		GR_SetTexture(g_hwTexturePages[batch.tpage][0]);
+		
+		GR_SetTexture(GetHWTexture(batch.tpage, 0));
 		GR_DrawIndexed(PRIM_TRIANGLES, batch.startIndex, batch.numIndices);
 	}
 }
