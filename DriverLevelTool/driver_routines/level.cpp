@@ -84,6 +84,7 @@ void DetectLevelFormat(IVirtualStream* pFile)
 			case LUMP_ROADBOUNDS:
 			case LUMP_JUNCBOUNDS:
 			case LUMP_SUBDIVISION:
+			default: // maybe Lump 11?
 			{
 				MsgInfo("Assuming it's a 'Driver 1' LEV file\n");
 				g_format = LEV_FORMAT_DRIVER1;
