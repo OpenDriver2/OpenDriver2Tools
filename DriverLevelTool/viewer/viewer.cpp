@@ -9,6 +9,7 @@
 #include "driver_routines/d2_types.h"
 #include "driver_routines/level.h"
 #include "driver_routines/models.h"
+#include "driver_routines/regions_d2.h"
 #include "driver_routines/textures.h"
 
 #define MODEL_VERTEX_SHADER \
@@ -60,7 +61,7 @@ Vector3D g_cameraAngles(25.0f, 45.0f, 0);
 Vector3D g_cameraMoveDir(0);
 
 float g_cameraDistance = 0.5f;
-float g_cameraFOV = 90.0f;
+float g_cameraFOV = 75.0f;
 
 void SDLPollEvent()
 {
@@ -164,11 +165,11 @@ struct WorldRenderProperties
 	
 } g_worldRenderProperties;
 
-void SetupLightingProperties()
+void SetupLightingProperties(float ambientScale = 1.0f, float lightScale = 1.0f)
 {
-	g_worldRenderProperties.ambientColor = ColorRGBA(0.95f, 0.9f, 1.0f, 0.25f);
-	g_worldRenderProperties.lightColor = ColorRGBA(1.0f, 1.0f, 1.0f, 0.8f);
-	g_worldRenderProperties.lightDir = normalize(Vector3D(1, -1, -1));
+	g_worldRenderProperties.ambientColor = ColorRGBA(0.95f, 0.9f, 1.0f, 0.45f) * ambientScale;
+	g_worldRenderProperties.lightColor = ColorRGBA(1.0f, 1.0f, 1.0f, 0.55f) * lightScale;
+	g_worldRenderProperties.lightDir = normalize(Vector3D(1, -0.5, 0));
 }
 
 //-----------------------------------------------------------------
@@ -281,7 +282,7 @@ TextureID GetHWTexture(int tpage, int pal)
 {
 	extern TextureID g_whiteTexture;
 	
-	if (tpage < 0)
+	if (tpage < 0 || tpage > 128)
 		return g_whiteTexture;
 
 	return g_hwTexturePages[tpage][pal];
@@ -297,7 +298,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 	CELL_ITERATOR ci;
 	PACKED_CELL_OBJECT* ppco;
 
-	int i = 441 * 32;
+	int i = 441;// *32;
 	int vloop = 0;
 	int hloop = 0;
 	int dir = 0;
@@ -308,8 +309,10 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 	cameraPosition.vx = cameraPos.x * 4096;
 	cameraPosition.vy = cameraPos.y * 4096;
 	cameraPosition.vz = cameraPos.z * 4096;
+
+	CDriver2LevelMap* levMapDriver2 = (CDriver2LevelMap*)g_levMap;
 	
-	g_levMap.WorldPositionToCellXZ(cell, cameraPosition);
+	levMapDriver2->WorldPositionToCellXZ(cell, cameraPosition);
 
 	// walk through all cells
 	while (i >= 0)
@@ -329,12 +332,12 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 				backPlane < farClipLimit &&  // check planes
 				PVS_ptr[vis_v * pvs_square + vis_h]) // check PVS table
 #endif
-			if(icell.x > -1 && icell.x < g_levMap.GetCellsAcross() && 
-			   icell.z > -1 && icell.z < g_levMap.GetCellsDown())
+			if(icell.x > -1 && icell.x < levMapDriver2->GetCellsAcross() &&
+			   icell.z > -1 && icell.z < levMapDriver2->GetCellsDown())
 			{
-				g_levMap.SpoolRegion(icell);
+				levMapDriver2->SpoolRegion(icell);
 				
-				ppco = g_levMap.GetFirstPackedCop(&ci, icell.x, icell.z);
+				ppco = levMapDriver2->GetFirstPackedCop(&ci, icell.x, icell.z);
 
 				// walk each cell object in cell
 				while (ppco)
@@ -344,7 +347,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 
 					if(co.type >= MAX_MODELS)
 					{
-						ppco = g_levMap.GetNextPackedCop(&ci);
+						ppco = levMapDriver2->GetNextPackedCop(&ci);
 						// WHAT THE FUCK?
 						continue;
 					}
@@ -375,17 +378,19 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 					GR_SetMatrix(MATRIX_WORLD, objectMatrix);
 					GR_UpdateMatrixUniforms();
 					
-					if(isGround)
+					if (isGround)
 					{
-						
+						//SetupLightingProperties(0.5f, 0.5f);
 					}
+					//else
+						//SetupLightingProperties(1.0f, 1.0f);
 
 					CRenderModel* renderModel = (CRenderModel*)ref->userData;
 					
 					if (renderModel)
 						renderModel->Draw();
 					
-					ppco = g_levMap.GetNextPackedCop(&ci);
+					ppco = levMapDriver2->GetNextPackedCop(&ci);
 				}
 			}
 		}
@@ -473,11 +478,6 @@ void RenderView()
 	DrawLevelDriver2(cameraPos);
 }
 
-void OnRegionLoaded(CDriver2LevelRegion* region)
-{
-	
-}
-
 void OnModelLoaded(ModelRef_t* ref)
 {
 	if (!ref->model)
@@ -505,7 +505,6 @@ int ViewerMain(const char* filename)
 	InitModelShader();
 
 	// set loading callbacks
-	g_levMap.SetLoadingCallbacks(OnRegionLoaded, nullptr);
 	g_levTextures.SetLoadingCallbacks(InitHWTexturePage, nullptr);
 	g_levModels.SetModelLoadingCallbacks(OnModelLoaded, nullptr);
 
@@ -519,6 +518,7 @@ int ViewerMain(const char* filename)
 		GR_BeginScene();
 		
 		GR_ClearColor(128, 158, 182);
+		//GR_ClearColor(19, 23, 25);
 		GR_ClearDepth(1.0f);
 	
 		// Control and map

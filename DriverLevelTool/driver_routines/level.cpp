@@ -1,4 +1,5 @@
 #include "driver_level.h"
+#include "regions_d2.h"
 #include "core/VirtualStream.h"
 #include "util/DkList.h"
 
@@ -13,7 +14,7 @@ char*						g_overlayMapData = nullptr;
 
 CDriverLevelTextures		g_levTextures;
 CDriverLevelModels			g_levModels;
-CDriver2LevelMap			g_levMap;
+CBaseLevelMap*				g_levMap = nullptr;
 
 //---------------------------------------------------------------------------------------------------------------------------------
 
@@ -117,7 +118,16 @@ void ProcessLumps(IVirtualStream* pFile)
 	// perform auto-detection if format is not specified
 	if(g_format == LEV_FORMAT_AUTODETECT)
 		DetectLevelFormat(pFile);
-	
+
+	if(!g_levMap)
+	{
+		// failed to detect Driver 1 level file - try Driver 2 loader
+		if (g_format >= LEV_FORMAT_DRIVER2_ALPHA16 || g_format == LEV_FORMAT_AUTODETECT)
+			g_levMap = new CDriver2LevelMap();
+		//else
+		//	g_levMap = new CDriver1LevelMap();
+	}
+
 	int lump_count = 255; // Driver 2 difference: you not need to read lump count
 
 	// Driver 1 has lump count
@@ -142,7 +152,7 @@ void ProcessLumps(IVirtualStream* pFile)
 				break;
 			case LUMP_MAP:
 				MsgWarning("LUMP_MAP ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				g_levMap.LoadMapLump(pFile);
+				g_levMap->LoadMapLump(pFile);
 				break;
 			case LUMP_TEXTURENAMES:
 				MsgWarning("LUMP_TEXTURENAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
@@ -171,7 +181,7 @@ void ProcessLumps(IVirtualStream* pFile)
 				break;
 			case LUMP_SPOOLINFO:
 				MsgWarning("LUMP_SPOOLINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				g_levMap.LoadSpoolInfoLump(pFile);
+				g_levMap->LoadSpoolInfoLump(pFile);
 				break;
 			case LUMP_STRAIGHTS2:
 				MsgWarning("LUMP_STRAIGHTS2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
@@ -322,7 +332,7 @@ void FreeLevelData()
 		delete g_levStream;
 	g_levStream = nullptr;
 
-	g_levMap.FreeAll();
+	g_levMap->FreeAll();
 	g_levTextures.FreeAll();
 	g_levModels.FreeAll();
 

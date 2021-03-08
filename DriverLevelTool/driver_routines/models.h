@@ -78,7 +78,7 @@ struct CarModelData_t
 
 class CDriverLevelModels
 {
-	friend class CDriver2LevelMap;
+	friend class CBaseLevelMap;
 public:
 	CDriverLevelModels();
 	virtual ~CDriverLevelModels();

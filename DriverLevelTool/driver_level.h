@@ -24,7 +24,7 @@ extern IVirtualStream*			g_levStream;
 
 extern CDriverLevelTextures		g_levTextures;
 extern CDriverLevelModels		g_levModels;
-extern CDriver2LevelMap			g_levMap;
+extern CBaseLevelMap*			g_levMap;
 
 //----------------------------------------------------------
 

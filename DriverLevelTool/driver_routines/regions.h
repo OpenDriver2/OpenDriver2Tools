@@ -9,6 +9,7 @@
 
 // forward
 class IVirtualStream;
+class CBaseLevelRegion;
 class CDriver2LevelRegion;
 
 // OBSOLETE
@@ -17,44 +18,32 @@ struct RegionModels_t
 	DkList<ModelRef_t> modelRefs;
 };
 
-typedef void (*OnRegionLoaded_t)(CDriver2LevelRegion* region);
-typedef void (*OnRegionFreed_t)(CDriver2LevelRegion* region);
-
-struct CELL_ITERATOR
-{
-	CDriver2LevelRegion* region;
-	CELL_DATA* pcd;
-	PACKED_CELL_OBJECT* ppco;
-	XZPAIR nearCell;
-};
+typedef void (*OnRegionLoaded_t)(CBaseLevelRegion* region);
+typedef void (*OnRegionFreed_t)(CBaseLevelRegion* region);
 
 //----------------------------------------------------------------------------------
 
-// Driver 2 region
-class CDriver2LevelRegion
+class CBaseLevelRegion
 {
+	friend class CBaseLevelMap;
+	friend class CDriver1LevelMap;
 	friend class CDriver2LevelMap;
 public:
-	CDriver2LevelRegion();
-	virtual ~CDriver2LevelRegion();
+	CBaseLevelRegion();
+	virtual ~CBaseLevelRegion();
 
-	void					FreeAll();
-
-	void					LoadRegionData(IVirtualStream* pFile, Spool* spool);
+	virtual void			FreeAll();
+	virtual void			LoadRegionData(IVirtualStream* pFile, Spool* spool) = 0;
 	void					LoadAreaData(IVirtualStream* pFile);
-
-	PACKED_CELL_OBJECT*		GetCellObject(int num) const;
 
 protected:
 	static int				UnpackCellPointers(ushort* dest_ptrs, char* src_data, int cell_slots_add, int targetRegion = 0);
 	
-	CDriver2LevelMap*		m_owner;
+	CBaseLevelMap*			m_owner;
 
 	Spool*					m_spoolInfo{ nullptr };
-
-	CELL_DATA*				m_cells{ nullptr };			// cell data that holding information about cell pointers. 3D world seeks cells first here
-	ushort*					m_cellPointers{ nullptr };		// cell pointers that holding indexes of cell objects. Designed for cell iterator
-	PACKED_CELL_OBJECT*		m_cellObjects{ nullptr };		// cell objects that represents objects placed in the world
+	
+	ushort*					m_cellPointers{ nullptr };		// cell pointers - pointing to CELL_DATA
 
 	ushort*					m_pvsData{ nullptr };			// potentially visibile set of cells
 	short*					m_roadmapData{ nullptr };		// heightfield with planes and BSP
@@ -68,82 +57,72 @@ protected:
 
 //----------------------------------------------------------------------------------
 
-// Driver 2 level map iterator
-class CDriver2LevelMap
+class CBaseLevelMap
 {
+	friend class CBaseLevelRegion;
+	friend class CDriver1LevelRegion;
 	friend class CDriver2LevelRegion;
 public:
-	CDriver2LevelMap();
-	virtual ~CDriver2LevelMap();
+	CBaseLevelMap();
+	virtual ~CBaseLevelMap();
 
-	void					FreeAll();
+	virtual void				FreeAll();
 
 	//----------------------------------------
-	void					SetLoadingCallbacks(OnRegionLoaded_t onLoaded, OnRegionFreed_t onFreed);
+
+	void						SetLoadingCallbacks(OnRegionLoaded_t onLoaded, OnRegionFreed_t onFreed);
 	
 	//----------------------------------------
 
-	void					LoadMapLump(IVirtualStream* pFile);
-	void					LoadSpoolInfoLump(IVirtualStream* pFile);
+	virtual void				LoadMapLump(IVirtualStream* pFile);
+	virtual void				LoadSpoolInfoLump(IVirtualStream* pFile);
 
-	int						GetAreaDataCount() const;
-	void					LoadInAreaTPages(IVirtualStream* pFile, int areaDataNum) const;
-	void					LoadInAreaModels(IVirtualStream* pFile, int areaDataNum) const;
+	virtual int					GetAreaDataCount() const;
+	virtual void				LoadInAreaTPages(IVirtualStream* pFile, int areaDataNum) const;
+	virtual void				LoadInAreaModels(IVirtualStream* pFile, int areaDataNum) const;
 
-	
-	
-	//----------------------------------------
-	// cell iterator
-	PACKED_CELL_OBJECT*		GetFirstPackedCop(CELL_ITERATOR* iterator, int cellx, int cellz) const;
-	PACKED_CELL_OBJECT*		GetNextPackedCop(CELL_ITERATOR* iterator) const;
+	virtual void				SpoolRegion(const XZPAIR& cell) = 0;
+	virtual void				SpoolRegion(int regionIdx) = 0;
 
-	static bool				UnpackCellObject(CELL_OBJECT& co, PACKED_CELL_OBJECT* pco, const XZPAIR& nearCell);
+	virtual CBaseLevelRegion*	GetRegion(const XZPAIR& cell) const = 0;
+	virtual CBaseLevelRegion*	GetRegion(int regionIdx) const = 0;
 
-	CDriver2LevelRegion*	GetRegion(const XZPAIR& cell) const;
-	CDriver2LevelRegion*	GetRegion(int regionIdx) const;
-
-	void					SpoolRegion(const XZPAIR& cell);
-	void					SpoolRegion(int regionIdx);
-	
 	// converters
-	void					WorldPositionToCellXZ(XZPAIR& cell, const VECTOR_NOPAD& position) const;
+	void						WorldPositionToCellXZ(XZPAIR& cell, const VECTOR_NOPAD& position) const;
 
-	int						GetCellsAcross() const;
-	int						GetCellsDown() const;
+	int							GetCellsAcross() const;
+	int							GetCellsDown() const;
 
 protected:
 
-	void					OnRegionLoaded(CDriver2LevelRegion* region);
-	void					OnRegionFreed(CDriver2LevelRegion* region);
+	void						OnRegionLoaded(CBaseLevelRegion* region);
+	void						OnRegionFreed(CBaseLevelRegion* region);
 
-	OUT_CELL_FILE_HEADER	m_mapInfo;
+	// shared
+	OUT_CELL_FILE_HEADER		m_mapInfo;
+	
+	Spool*						m_regionSpoolInfo{ nullptr };			// region data info
+	ushort*						m_regionSpoolInfoOffsets{ nullptr };	// region offset table
+	
+	AreaDataStr*				m_areaData{ nullptr };					// region model/texture data descriptors
+	AreaTPage_t*				m_areaTPages{ nullptr };				// region texpage usage table
+	bool*						m_areaDataStates{ nullptr };			// area data loading states
 
-	CDriver2LevelRegion*	m_regions{ nullptr };					// map of regions
+	int							m_numStraddlers{ 0 };
 	
-	PACKED_CELL_OBJECT*		m_straddlers { nullptr };				// cell objects between regions
+	int							m_cell_slots_add[5] { 0 };
+	int							m_cell_objects_add[5] { 0 };
+	int							m_PVS_size[4] { 0 };
 	
-	Spool*					m_regionSpoolInfo{ nullptr };			// region data info
-	ushort*					m_regionSpoolInfoOffsets{ nullptr };	// region offset table
-	
-	AreaDataStr*			m_areaData{ nullptr };					// region model/texture data descriptors
-	AreaTPage_t*			m_areaTPages{ nullptr };				// region texpage usage table
-	bool*					m_areaDataStates{ nullptr };			// area data loading states
+	int							m_numAreas{ 0 };
+	int							m_numSpoolInfoOffsets{ 0 };
+	int							m_numRegionSpools{ 0 };
 
-	int						m_numStraddlers{ 0 };
-	
-	int						m_cell_slots_add[5] { 0 };
-	int						m_cell_objects_add[5] { 0 };
-	int						m_PVS_size[4] { 0 };
-	
-	int						m_numAreas{ 0 };
-	int						m_numSpoolInfoOffsets{ 0 };
-	int						m_numRegionSpools{ 0 };
+	int							m_regions_across{ 0 };
+	int							m_regions_down{ 0 };
 
-	int						m_regions_across{ 0 };
-	int						m_regions_down{ 0 };
-
-	OnRegionLoaded_t		m_onRegionLoaded{ nullptr };
-	OnRegionFreed_t			m_onRegionFreed{ nullptr };
+	OnRegionLoaded_t			m_onRegionLoaded{ nullptr };
+	OnRegionFreed_t				m_onRegionFreed{ nullptr };
 };
 
 //-----------------------------------------------------------------------------------------
