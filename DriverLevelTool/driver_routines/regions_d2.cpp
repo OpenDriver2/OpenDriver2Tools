@@ -23,12 +23,11 @@ void CDriver2LevelRegion::FreeAll()
 	m_cellObjects = nullptr;
 }
 
-
 void CDriver2LevelRegion::LoadRegionData(IVirtualStream* pFile, Spool* spool)
 {
 	m_spoolInfo = spool;
 
-	//Msg("---------\nSpool %d %d (offset: %d)\n", x, y, g_regionSpoolInfoOffsets[sPosIdx]);
+	Msg("---------\nSpool %d %d\n", m_regionX, m_regionZ);
 	Msg(" - offset: %d\n", spool->offset);
 
 	for (int i = 0; i < spool->num_connected_areas && i < 2; i++)
@@ -75,26 +74,26 @@ void CDriver2LevelRegion::LoadRegionData(IVirtualStream* pFile, Spool* spool)
 	memset(m_cellPointers, 0xFF, sizeof(ushort) * m_owner->m_mapInfo.region_size * m_owner->m_mapInfo.region_size);
 
 	// read packed cell pointers
-	g_levStream->Seek(g_levInfo.spooldata_offset + cellPointersOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
-	g_levStream->Read(packed_cell_pointers, spool->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
+	pFile->Seek(g_levInfo.spooldata_offset + cellPointersOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
+	pFile->Read(packed_cell_pointers, spool->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
 
 	// unpack cell pointers so we can use them
 	if (UnpackCellPointers(m_cellPointers, packed_cell_pointers, 0, 0) != -1)
 	{
 		// read cell data
 		m_cells = (CELL_DATA*)malloc(spool->cell_data_size[0] * SPOOL_CD_BLOCK_SIZE);
-		g_levStream->Seek(g_levInfo.spooldata_offset + cellDataOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
-		g_levStream->Read(m_cells, spool->cell_data_size[0] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
+		pFile->Seek(g_levInfo.spooldata_offset + cellDataOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
+		pFile->Read(m_cells, spool->cell_data_size[0] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
 
 		// read cell objects
 		m_cellObjects = (PACKED_CELL_OBJECT*)malloc(spool->cell_data_size[2] * SPOOL_CD_BLOCK_SIZE);
-		g_levStream->Seek(g_levInfo.spooldata_offset + cellObjectsOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
-		g_levStream->Read(m_cellObjects, spool->cell_data_size[2] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
+		pFile->Seek(g_levInfo.spooldata_offset + cellObjectsOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
+		pFile->Read(m_cellObjects, spool->cell_data_size[2] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
 	}
 	else
 		MsgError("BAD PACKED CELL POINTER DATA, region = %d\n", m_regionNumber);
 
-	delete packed_cell_pointers;
+	delete [] packed_cell_pointers;
 
 	// even if error occured we still need it to be here
 	m_loaded = true;
@@ -102,34 +101,6 @@ void CDriver2LevelRegion::LoadRegionData(IVirtualStream* pFile, Spool* spool)
 	m_owner->OnRegionLoaded(this);
 
 	// TODO: PVS and heightmap data
-
-#if 0
-	//
-	// Driver 1 use CELL_OBJECTS directly - 16 bytes, wasteful in RAM
-	//
-
-	memset(g_cell_objects + g_numStraddlers, 0, sizeof(g_cell_objects) - g_numStraddlers * sizeof(CELL_OBJECT));
-
-	int cellPointersOffset = spool->offset + spool->roadm_size + spool->roadh_size; // SKIP road map
-	int cellDataOffset = cellPointersOffset + spool->cell_data_size[1];
-	int cellObjectsOffset = cellDataOffset + spool->cell_data_size[0];
-	int pvsDataOffset = cellObjectsOffset + spool->cell_data_size[2]; // FIXME: is it even there in Driver 1?
-
-	// read packed cell pointers
-	g_levStream->Seek(g_levInfo.spooldata_offset + cellPointersOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
-	g_levStream->Read(g_packed_cell_pointers, spool->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
-
-	// unpack cell pointers so we can use them
-	cellPointerCount = UnpackCellPointers(sPosIdx, 0, 0, g_cell_ptrs, g_packed_cell_pointers);
-
-	// read cell data
-	g_levStream->Seek(g_levInfo.spooldata_offset + cellDataOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
-	g_levStream->Read(g_cells_d1, spool->cell_data_size[0] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
-
-	// read cell objects
-	g_levStream->Seek(g_levInfo.spooldata_offset + cellObjectsOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
-	g_levStream->Read(g_cell_objects + g_numStraddlers, spool->cell_data_size[2] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
-#endif
 }
 
 PACKED_CELL_OBJECT* CDriver2LevelRegion::GetCellObject(int num) const
@@ -290,7 +261,6 @@ PACKED_CELL_OBJECT* CDriver2LevelMap::GetFirstPackedCop(CELL_ITERATOR* iterator,
 		return nullptr;
 
 	// get cell index on the region
-	const int region_square = m_mapInfo.region_size * m_mapInfo.region_size;
 	const int region_cell_x = cellx % m_mapInfo.region_size;
 	const int region_cell_z = cellz % m_mapInfo.region_size;
 

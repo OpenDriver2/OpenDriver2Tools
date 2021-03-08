@@ -437,7 +437,8 @@ void CDriverLevelTextures::LoadTextureNamesLump(IVirtualStream* pFile, int size)
 {
 	int l_ofs = pFile->Tell();
 
-	m_textureNamesData = new char[size];
+	m_textureNamesData = new char[size+1];
+	memset(m_textureNamesData, 0, size + 1);
 
 	pFile->Read(m_textureNamesData, size, 1);
 

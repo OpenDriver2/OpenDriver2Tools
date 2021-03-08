@@ -1,5 +1,8 @@
 #include "driver_level.h"
+
+#include "regions_d1.h"
 #include "regions_d2.h"
+
 #include "core/VirtualStream.h"
 #include "util/DkList.h"
 
@@ -124,8 +127,8 @@ void ProcessLumps(IVirtualStream* pFile)
 		// failed to detect Driver 1 level file - try Driver 2 loader
 		if (g_format >= LEV_FORMAT_DRIVER2_ALPHA16 || g_format == LEV_FORMAT_AUTODETECT)
 			g_levMap = new CDriver2LevelMap();
-		//else
-		//	g_levMap = new CDriver1LevelMap();
+		else
+			g_levMap = new CDriver1LevelMap();
 	}
 
 	int lump_count = 255; // Driver 2 difference: you not need to read lump count

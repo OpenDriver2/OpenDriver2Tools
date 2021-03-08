@@ -7,6 +7,15 @@
 // DRIVER 2 regions and map
 //----------------------------------------------------------------------------------
 
+struct CELL_ITERATOR
+{
+	CDriver2LevelRegion*	region;
+	CELL_DATA*				pcd;
+	PACKED_CELL_OBJECT*		ppco;
+	XZPAIR					nearCell;
+};
+
+
 // Driver 2 region
 class CDriver2LevelRegion : public CBaseLevelRegion
 {
@@ -20,14 +29,6 @@ public:
 protected:
 	CELL_DATA* m_cells{ nullptr };				// cell data that holding information about cell pointers. 3D world seeks cells first here
 	PACKED_CELL_OBJECT* m_cellObjects{ nullptr };		// cell objects that represents objects placed in the world
-};
-
-struct CELL_ITERATOR
-{
-	CDriver2LevelRegion*	region;
-	CELL_DATA*				pcd;
-	PACKED_CELL_OBJECT*		ppco;
-	XZPAIR					nearCell;
 };
 
 // Driver 2 level map

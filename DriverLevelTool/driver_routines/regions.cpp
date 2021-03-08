@@ -136,7 +136,7 @@ int CBaseLevelRegion::UnpackCellPointers(ushort* dest_ptrs, char* src_data, int 
 
 void CBaseLevelRegion::LoadAreaData(IVirtualStream* pFile)
 {
-	if (m_spoolInfo->super_region == 0xFF)
+	if (!m_spoolInfo || m_spoolInfo && m_spoolInfo->super_region == 0xFF)
 		return;
 
 	int areaDataNum = m_spoolInfo->super_region;

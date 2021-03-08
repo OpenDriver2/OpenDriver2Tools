@@ -9,6 +9,7 @@
 #include "driver_routines/d2_types.h"
 #include "driver_routines/level.h"
 #include "driver_routines/models.h"
+#include "driver_routines/regions_d1.h"
 #include "driver_routines/regions_d2.h"
 #include "driver_routines/textures.h"
 
@@ -445,6 +446,155 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 	}
 }
 
+void DrawLevelDriver1(const Vector3D& cameraPos)
+{
+	CELL_ITERATOR_D1 ci;
+	CELL_OBJECT* pco;
+
+	int i = 441 * 16;
+	int vloop = 0;
+	int hloop = 0;
+	int dir = 0;
+	XZPAIR cell;
+	XZPAIR icell;
+
+	VECTOR_NOPAD cameraPosition;
+	cameraPosition.vx = cameraPos.x * 4096;
+	cameraPosition.vy = cameraPos.y * 4096;
+	cameraPosition.vz = cameraPos.z * 4096;
+
+	CDriver1LevelMap* levMapDriver1 = (CDriver1LevelMap*)g_levMap;
+
+	levMapDriver1->WorldPositionToCellXZ(cell, cameraPosition);
+
+	// walk through all cells
+	while (i >= 0)
+	{
+		if (abs(hloop) + abs(vloop) < 256)
+		{
+			// clamped vis values
+			int vis_h = MIN(MAX(hloop, -9), 10);
+			int vis_v = MIN(MAX(vloop, -9), 10);
+
+			icell.x = cell.x + hloop;
+			icell.z = cell.z + vloop;
+
+#if 0
+			if (rightPlane < 0 &&
+				leftPlane > 0 &&
+				backPlane < farClipLimit &&  // check planes
+				PVS_ptr[vis_v * pvs_square + vis_h]) // check PVS table
+#endif
+				if (icell.x > -1 && icell.x < levMapDriver1->GetCellsAcross() &&
+					icell.z > -1 && icell.z < levMapDriver1->GetCellsDown())
+				{
+					levMapDriver1->SpoolRegion(icell);
+
+					pco = levMapDriver1->GetFirstCop(&ci, icell.x, icell.z);
+
+					// walk each cell object in cell
+					while (pco)
+					{
+						if (pco->type >= MAX_MODELS)
+						{
+							pco = levMapDriver1->GetNextCop(&ci);
+							// WHAT THE FUCK?
+							continue;
+						}
+
+						ModelRef_t* ref = g_levModels.GetModelByIndex(pco->type);
+						MODEL* model = ref->model;
+
+						float cellRotationRad = -pco->yang / 64.0f * PI_F * 2.0f;
+
+						bool isGround = false;
+
+						if (model)
+						{
+							if (model->flags2 == MODEL_FLAG_TREE)
+							{
+								cellRotationRad = DEG2RAD(g_cameraAngles.y);
+							}
+
+							if ((model->shape_flags & (SHAPE_FLAG_SUBSURFACE | SHAPE_FLAG_ALLEYWAY)) ||
+								(model->flags2 & (MODEL_FLAG_SIDEWALK | MODEL_FLAG_GRASS)))
+							{
+								isGround = true;
+							}
+						}
+
+						Vector3D absCellPosition(pco->pos.vx * EXPORT_SCALING, pco->pos.vy * -EXPORT_SCALING, pco->pos.vz * EXPORT_SCALING);
+						Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
+						GR_SetMatrix(MATRIX_WORLD, objectMatrix);
+						GR_UpdateMatrixUniforms();
+
+						if (isGround)
+						{
+							//SetupLightingProperties(0.5f, 0.5f);
+						}
+						//else
+							//SetupLightingProperties(1.0f, 1.0f);
+
+						CRenderModel* renderModel = (CRenderModel*)ref->userData;
+
+						if (renderModel)
+							renderModel->Draw();
+
+						pco = levMapDriver1->GetNextCop(&ci);
+					}
+				}
+		}
+
+		if (dir == 0)
+		{
+			//leftPlane += leftcos;
+			//backPlane += backcos;
+			//rightPlane += rightcos;
+
+			hloop++;
+
+			if (hloop + vloop == 1)
+				dir = 1;
+		}
+		else if (dir == 1)
+		{
+			//leftPlane += leftsin;
+			//backPlane += backsin;
+			//rightPlane += rightsin;
+			vloop++;
+
+			//PVS_ptr += pvs_square;
+
+			if (hloop == vloop)
+				dir = 2;
+		}
+		else if (dir == 2)
+		{
+			hloop--;
+			//leftPlane -= leftcos;
+			//backPlane -= backcos;
+			//rightPlane -= rightcos;
+
+			if (hloop + vloop == 0)
+				dir = 3;
+		}
+		else
+		{
+			//leftPlane -= leftsin;
+			//backPlane -= backsin;
+			//rightPlane -= rightsin;
+			vloop--;
+
+			//PVS_ptr -= pvs_square;
+
+			if (hloop == vloop)
+				dir = 0;
+		}
+
+		i--;
+	}
+}
+
 void RenderView()
 {
 	Vector3D forward, right;
@@ -475,7 +625,10 @@ void RenderView()
 	GR_SetDepth(1);
 	GR_SetCullMode(CULL_FRONT);
 
-	DrawLevelDriver2(cameraPos);
+	if(g_format >= LEV_FORMAT_DRIVER2_ALPHA16)
+		DrawLevelDriver2(cameraPos);
+	else
+		DrawLevelDriver1(cameraPos);
 }
 
 void OnModelLoaded(ModelRef_t* ref)
