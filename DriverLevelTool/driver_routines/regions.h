@@ -44,14 +44,13 @@ public:
 	void					LoadAreaData(IVirtualStream* pFile);
 
 	PACKED_CELL_OBJECT*		GetCellObject(int num) const;
-	ModelRef_t*				GetModel(int num) const;
-	
+
 protected:
 	static int				UnpackCellPointers(ushort* dest_ptrs, char* src_data, int cell_slots_add, int targetRegion = 0);
 	
-	ModelRef_t*				m_models{ nullptr };			// loaded region models
-
 	CDriver2LevelMap*		m_owner;
+
+	Spool*					m_spoolInfo{ nullptr };
 
 	CELL_DATA*				m_cells{ nullptr };			// cell data that holding information about cell pointers. 3D world seeks cells first here
 	ushort*					m_cellPointers{ nullptr };		// cell pointers that holding indexes of cell objects. Designed for cell iterator
@@ -63,7 +62,6 @@ protected:
 	int						m_regionX{ -1 };
 	int						m_regionZ{ -1 };
 	int						m_regionNumber{ -1 };
-	int						m_areaDataNum{ -1 };
 	int						m_regionBarrelNumber{ -1 };
 	bool					m_loaded{ false };
 };
@@ -90,7 +88,7 @@ public:
 
 	int						GetAreaDataCount() const;
 	void					LoadInAreaTPages(IVirtualStream* pFile, int areaDataNum) const;
-	ModelRef_t*				LoadInAreaModels(IVirtualStream* pFile, int areaDataNum) const;
+	void					LoadInAreaModels(IVirtualStream* pFile, int areaDataNum) const;
 
 	
 	
@@ -129,6 +127,7 @@ protected:
 	
 	AreaDataStr*			m_areaData{ nullptr };					// region model/texture data descriptors
 	AreaTPage_t*			m_areaTPages{ nullptr };				// region texpage usage table
+	bool*					m_areaDataStates{ nullptr };			// area data loading states
 
 	int						m_numStraddlers{ 0 };
 	

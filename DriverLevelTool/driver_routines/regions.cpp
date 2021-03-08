@@ -28,23 +28,12 @@ void CDriver2LevelRegion::FreeAll()
 
 	m_owner->OnRegionFreed(this);
 	
-	if(m_models)
-	{
-		for (int i = 0; i < MAX_MODELS; i++)
-		{
-			if (m_models[i].model)
-				free(m_models[i].model);
-		}
-	}
-
-	delete[] m_models;
-	m_models = nullptr;
-
 	// do I need that?
-	if(m_areaDataNum != -1)
+	if(m_spoolInfo && m_spoolInfo->super_region != 0xFF)
 	{
-		int numAreaTpages = m_owner->m_areaData[m_areaDataNum].num_tpages;
-		AreaTPage_t& areaTPages = m_owner->m_areaTPages[m_areaDataNum];
+		int areaDataNum = m_spoolInfo->super_region;
+		int numAreaTpages = m_owner->m_areaData[areaDataNum].num_tpages;
+		AreaTPage_t& areaTPages = m_owner->m_areaTPages[areaDataNum];
 
 		for (int i = 0; numAreaTpages; i++)
 		{
@@ -55,7 +44,7 @@ void CDriver2LevelRegion::FreeAll()
 			tpage->FreeBitmap();
 		}
 	}
-	m_areaDataNum = -1;
+	m_spoolInfo = nullptr;
 
 	if(m_cells)
 		free(m_cells);
@@ -154,6 +143,8 @@ int CDriver2LevelRegion::UnpackCellPointers(ushort* dest_ptrs, char* src_data, i
 
 void CDriver2LevelRegion::LoadRegionData(IVirtualStream* pFile, Spool* spool)
 {
+	m_spoolInfo = spool;
+	
 	//Msg("---------\nSpool %d %d (offset: %d)\n", x, y, g_regionSpoolInfoOffsets[sPosIdx]);
 	Msg(" - offset: %d\n", spool->offset);
 
@@ -259,12 +250,22 @@ void CDriver2LevelRegion::LoadRegionData(IVirtualStream* pFile, Spool* spool)
 }
 
 void CDriver2LevelRegion::LoadAreaData(IVirtualStream* pFile)
-{	
+{
+	if (m_spoolInfo->super_region == 0xFF)
+		return;
+
+	int areaDataNum = m_spoolInfo->super_region;
+
+	if (m_owner->m_areaDataStates[areaDataNum])
+		return;
+
 	// load in-area textures
-	m_owner->LoadInAreaTPages(pFile, m_areaDataNum);
+	m_owner->LoadInAreaTPages(pFile, areaDataNum);
 
 	// load in-area models
-	m_models = m_owner->LoadInAreaModels(pFile, m_areaDataNum);
+	m_owner->LoadInAreaModels(pFile, areaDataNum);
+
+	m_owner->m_areaDataStates[areaDataNum] = true;
 }
 
 PACKED_CELL_OBJECT* CDriver2LevelRegion::GetCellObject(int num) const
@@ -278,24 +279,6 @@ PACKED_CELL_OBJECT* CDriver2LevelRegion::GetCellObject(int num) const
 	}
 
 	return &m_owner->m_straddlers[num];
-}
-
-ModelRef_t* CDriver2LevelRegion::GetModel(int nIndex) const
-{
-	if (nIndex >= 0 && nIndex < MAX_MODELS)
-	{
-		if (!m_models)
-			return nullptr;
-
-		ModelRef_t* ref = &m_models[nIndex];
-
-		if (!ref->model)
-			return nullptr;
-
-		return ref;
-	}
-
-	return nullptr;
 }
 
 //-------------------------------------------------------------------------------------------
@@ -336,6 +319,9 @@ void CDriver2LevelMap::FreeAll()
 
 	delete[] m_areaData;
 	m_areaData = nullptr;
+
+	delete[] m_areaDataStates;
+	m_areaDataStates = nullptr;
 }
 
 //-------------------------------------------------------------
@@ -486,8 +472,6 @@ void CDriver2LevelMap::LoadSpoolInfoLump(IVirtualStream* pFile)
 
 	for (int i = 0; i < total_regions; i++)
 	{
-		ushort spoolInfoOffset = m_regionSpoolInfoOffsets[i];
-
 		const int region_x = i % m_regions_across;
 		const int region_z = (i - region_x) / m_regions_across;
 		
@@ -496,15 +480,10 @@ void CDriver2LevelMap::LoadSpoolInfoLump(IVirtualStream* pFile)
 		m_regions[i].m_regionZ = region_z;
 		m_regions[i].m_regionNumber = i;
 		m_regions[i].m_regionBarrelNumber = (region_x & 1) + (region_z & 1) * 2;
-
-		if (spoolInfoOffset != REGION_EMPTY)
-		{
-			Spool* spool = (Spool*)((ubyte*)m_regionSpoolInfo + m_regionSpoolInfoOffsets[i]);
-			m_regions[i].m_areaDataNum = spool->super_region == 255 ? -1 : spool->super_region;
-		}
-		else
-			m_regions[i].m_areaDataNum = -1;
 	}
+
+	m_areaDataStates = new bool[m_numAreas];
+	memset(m_areaDataStates, 0, m_numAreas);
 }
 
 int	CDriver2LevelMap::GetAreaDataCount() const
@@ -514,7 +493,7 @@ int	CDriver2LevelMap::GetAreaDataCount() const
 
 void CDriver2LevelMap::LoadInAreaTPages(IVirtualStream* pFile, int areaDataNum) const
 {
-	if (areaDataNum == -1)
+	if (areaDataNum == 255)
 		return;
 	
 	AreaDataStr& areaData = m_areaData[areaDataNum];
@@ -537,23 +516,23 @@ void CDriver2LevelMap::LoadInAreaTPages(IVirtualStream* pFile, int areaDataNum) 
 	}
 }
 
-ModelRef_t* CDriver2LevelMap::LoadInAreaModels(IVirtualStream* pFile, int areaDataNum) const
+void CDriver2LevelMap::LoadInAreaModels(IVirtualStream* pFile, int areaDataNum) const
 {
 	if (areaDataNum == -1)
-		return nullptr;
-	
-	// allocate model reference slots
-	ModelRef_t* newModels = new ModelRef_t[MAX_MODELS];
-	memset(newModels, 0, sizeof(ModelRef_t) * MAX_MODELS);
+		return;
 
-	const int modelsCountOffset = g_levInfo.spooldata_offset + SPOOL_CD_BLOCK_SIZE * (m_areaData->model_offset + m_areaData->model_size - 1);
-	const int modelsOffset = g_levInfo.spooldata_offset + SPOOL_CD_BLOCK_SIZE * m_areaData->model_offset;
+	AreaDataStr& areaData = m_areaData[areaDataNum];
+
+	int length = areaData.model_size;
+
+	const int modelsCountOffset = g_levInfo.spooldata_offset + (areaData.model_offset + length - 1) * SPOOL_CD_BLOCK_SIZE;
+	const int modelsOffset = g_levInfo.spooldata_offset + areaData.model_offset * SPOOL_CD_BLOCK_SIZE;
 
 	ushort numModels;
 
 	pFile->Seek(modelsCountOffset, VS_SEEK_SET);
 	pFile->Read(&numModels, 1, sizeof(ushort));
-
+	
 	// read model indexes
 	ushort* new_model_numbers = new ushort[numModels];
 	pFile->Read(new_model_numbers, numModels, sizeof(short));
@@ -568,19 +547,23 @@ ModelRef_t* CDriver2LevelMap::LoadInAreaModels(IVirtualStream* pFile, int areaDa
 
 		if (modelSize > 0)
 		{
-			ModelRef_t& ref = newModels[new_model_numbers[i]];
+			ModelRef_t* ref = g_levModels.GetModelByIndex(new_model_numbers[i]);
 
-			ref.index = new_model_numbers[i];
-			ref.model = (MODEL*)malloc(modelSize);
-			ref.size = modelSize;
+			// maybe there is a simple case of area data model duplication?
+			if (ref->model && ref->size != modelSize)
+				MsgError("Spool model in slot %d OVERLAP!\n", new_model_numbers[i]);
+			
+			ref->index = new_model_numbers[i];
+			ref->model = (MODEL*)malloc(modelSize);
+			ref->size = modelSize;
 
-			pFile->Read(ref.model, modelSize, 1);
+			pFile->Read(ref->model, modelSize, 1);
+
+			g_levModels.OnModelLoaded(ref);
 		}
 	}
 
 	delete[] new_model_numbers;
-
-	return newModels;
 }
 
 CDriver2LevelRegion* CDriver2LevelMap::GetRegion(const XZPAIR& cell) const

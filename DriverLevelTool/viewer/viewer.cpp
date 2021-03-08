@@ -355,14 +355,11 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 					GR_SetMatrix(MATRIX_WORLD, objectMatrix);
 					GR_UpdateMatrixUniforms();
 					
-					ModelRef_t* ref = ci.region->GetModel(co.type);
-					
-					if(!ref)
-						ref = g_levModels.GetModelByIndex(co.type);
-						
+					ModelRef_t* ref = g_levModels.GetModelByIndex(co.type);
+
 					CRenderModel* renderModel = (CRenderModel*)ref->userData;
 					
-					if(renderModel)
+					if (renderModel)
 						renderModel->Draw();
 					
 					ppco = g_levMap.GetNextPackedCop(&ci);
@@ -455,21 +452,7 @@ void RenderView()
 
 void OnRegionLoaded(CDriver2LevelRegion* region)
 {
-	// load tpages
-	for(int i = 0; i < MAX_MODELS; i++)
-	{
-		ModelRef_t* ref = region->GetModel(i);
-		
-		if (ref && ref->model)
-		{
-			CRenderModel* renderModel = new CRenderModel();
-			
-			if(renderModel->Initialize(ref))
-				ref->userData = renderModel;
-			else
-				delete renderModel;
-		}
-	}
+	
 }
 
 void OnModelLoaded(ModelRef_t* ref)
