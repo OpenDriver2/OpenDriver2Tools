@@ -23,46 +23,42 @@ void CDriverLevelModels::FreeAll()
 {
 	for (int i = 0; i < MAX_MODELS; i++)
 	{
-		if (m_levelModels[i].model)
-			free(m_levelModels[i].model);
+		ModelRef_t& ref = m_levelModels[i];
+
+		OnModelFreed(&ref);
+		
+		if (ref.model)
+			free(ref.model);
 	}
 
 	for (int i = 0; i < MAX_CAR_MODELS; i++)
 	{
-		if (m_carModels[i].cleanmodel)
-			free(m_carModels[i].cleanmodel);
+		CarModelData_t& carModelData = m_carModels[i];
 
-		if (m_carModels[i].dammodel)
-			free(m_carModels[i].dammodel);
+		OnCarModelFreed(&carModelData);
+		
+		if (carModelData.cleanmodel)
+			free(carModelData.cleanmodel);
 
-		if (m_carModels[i].lowmodel)
-			free(m_carModels[i].lowmodel);
+		if (carModelData.dammodel)
+			free(carModelData.dammodel);
+
+		if (carModelData.lowmodel)
+			free(carModelData.lowmodel);
 	}
 }
 
-ModelRef_t* CDriverLevelModels::GetModelByIndex(int nIndex, RegionModels_t* models) const
+ModelRef_t* CDriverLevelModels::GetModelByIndex(int nIndex) const
 {
-	if (nIndex >= 0 && nIndex < 1536)
-	{
-		// try searching in region datas
-		if (m_levelModels[nIndex].swap && models)
-		{
-			for (int i = 0; i < models->modelRefs.numElem(); i++)
-			{
-				if (models->modelRefs[i].index == nIndex)
-					return &models->modelRefs[i];
-			}
-		}
-
+	if (nIndex >= 0 && nIndex < MAX_MODELS)
 		return (ModelRef_t*)&m_levelModels[nIndex];
-	}
 
 	return nullptr;
 }
 
 int CDriverLevelModels::FindModelIndexByName(const char* name) const
 {
-	for (int i = 0; i < 1536; i++)
+	for (int i = 0; i < MAX_MODELS; i++)
 	{
 		if (!strcmp(m_model_names[i].c_str(), name))
 			return i;
@@ -111,41 +107,45 @@ void CDriverLevelModels::LoadCarModelsLump(IVirtualStream* pFile, int size)
 	{
 		Msg("car model: %d %d %d\n", model_entries[i].cleanOffset != -1, model_entries[i].damOffset != -1, model_entries[i].lowOffset != -1);
 
+		CarModelData_t& carModelData = m_carModels[i];
+		
 		if (model_entries[i].cleanOffset != -1)
 		{
 			pFile->Seek(r_ofs + model_entries[i].cleanOffset, VS_SEEK_SET);
 
-			pFile->Read(&m_carModels[i].cleanSize, 1, sizeof(int));
+			pFile->Read(&carModelData.cleanSize, 1, sizeof(int));
 
-			m_carModels[i].cleanmodel = (MODEL*)malloc(m_carModels[i].cleanSize);
-			pFile->Read(m_carModels[i].cleanmodel, 1, m_carModels[i].cleanSize);
+			carModelData.cleanmodel = (MODEL*)malloc(carModelData.cleanSize);
+			pFile->Read(carModelData.cleanmodel, 1, carModelData.cleanSize);
 		}
 		else
-			m_carModels[i].cleanmodel = nullptr;
+			carModelData.cleanmodel = nullptr;
 
 		if (model_entries[i].damOffset != -1)
 		{
 			pFile->Seek(r_ofs + model_entries[i].damOffset, VS_SEEK_SET);
 
-			pFile->Read(&m_carModels[i].damSize, 1, sizeof(int));
+			pFile->Read(&carModelData.damSize, 1, sizeof(int));
 
-			m_carModels[i].dammodel = (MODEL*)malloc(m_carModels[i].damSize);
-			pFile->Read(m_carModels[i].dammodel, 1, m_carModels[i].damSize);
+			carModelData.dammodel = (MODEL*)malloc(carModelData.damSize);
+			pFile->Read(carModelData.dammodel, 1, carModelData.damSize);
 		}
 		else
-			m_carModels[i].dammodel = nullptr;
+			carModelData.dammodel = nullptr;
 
 		if (model_entries[i].lowOffset != -1)
 		{
 			pFile->Seek(r_ofs + model_entries[i].lowOffset, VS_SEEK_SET);
 
-			pFile->Read(&m_carModels[i].lowSize, 1, sizeof(int));
+			pFile->Read(&carModelData.lowSize, 1, sizeof(int));
 
-			m_carModels[i].lowmodel = (MODEL*)malloc(m_carModels[i].lowSize);
-			pFile->Read(m_carModels[i].lowmodel, 1, m_carModels[i].lowSize);
+			carModelData.lowmodel = (MODEL*)malloc(carModelData.lowSize);
+			pFile->Read(carModelData.lowmodel, 1, carModelData.lowSize);
 		}
 		else
-			m_carModels[i].lowmodel = nullptr;
+			carModelData.lowmodel = nullptr;
+
+		OnCarModelLoaded(&carModelData);
 	}
 
 	pFile->Seek(l_ofs, VS_SEEK_SET);
@@ -200,15 +200,15 @@ void CDriverLevelModels::LoadLevelModelsLump(IVirtualStream* pFile)
 
 		if (modelSize > 0)
 		{
-			char* data = (char*)malloc(modelSize);
-
-			pFile->Read(data, modelSize, 1);
-
 			ModelRef_t& ref = m_levelModels[i];
 			ref.index = i;
-			ref.model = (MODEL*)data;
+			ref.model = (MODEL*)malloc(modelSize);
 			ref.size = modelSize;
 			ref.swap = false;
+
+			pFile->Read(ref.model, modelSize, 1);
+			
+			
 		}
 		else // leave empty as swap
 		{
@@ -220,7 +220,48 @@ void CDriverLevelModels::LoadLevelModelsLump(IVirtualStream* pFile)
 		}
 	}
 
+	for (int i = 0; i < modelCount; i++)
+	{
+		OnModelLoaded(&m_levelModels[i]);
+	}
+
 	pFile->Seek(l_ofs, VS_SEEK_SET);
+}
+
+void CDriverLevelModels::SetModelLoadingCallbacks(OnModelLoaded_t onLoaded, OnModelFreed_t onFreed)
+{
+	m_onModelLoaded = onLoaded;
+	m_onModelFreed = onFreed;
+}
+
+void CDriverLevelModels::SetCarModelLoadingCallbacks(OnCarModelLoaded_t onLoaded, OnCarModelFreed_t onFreed)
+{
+	m_onCarModelLoaded = onLoaded;
+	m_onCarModelFreed = onFreed;
+}
+
+void CDriverLevelModels::OnModelLoaded(ModelRef_t* ref)
+{
+	if (m_onModelLoaded)
+		m_onModelLoaded(ref);
+}
+
+void CDriverLevelModels::OnModelFreed(ModelRef_t* ref)
+{
+	if (m_onModelFreed)
+		m_onModelFreed(ref);
+}
+
+void CDriverLevelModels::OnCarModelLoaded(CarModelData_t* data)
+{
+	if (m_onCarModelLoaded)
+		m_onCarModelLoaded(data);
+}
+
+void CDriverLevelModels::OnCarModelFreed(CarModelData_t* data)
+{
+	if (m_onCarModelFreed)
+		m_onCarModelFreed(data);
 }
 
 //--------------------------------------------------------------------------------
@@ -316,7 +357,10 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			*(ushort*)out->uv[0] = *(uint*)&pft3->uv0;
 			*(ushort*)out->uv[1] = *(uint*)&pft3->uv1;
 			*(ushort*)out->uv[2] = *(uint*)&pft3->uv2;
-			*(uint*)out->color = *(uint*)&pft3->color;
+
+			if(ptype != 10)
+				*(uint*)out->color = *(uint*)&pft3->color;
+
 			out->page = pft3->texture_set;
 			out->detail = pft3->texture_id;
 
@@ -338,7 +382,9 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			*(ushort*)out->uv[2] = *(uint*)&pft4->uv2;
 			*(ushort*)out->uv[3] = *(uint*)&pft4->uv3;
 
-			*(uint*)out->color = *(uint*)&pft4->color;
+			if(ptype != 11)
+				*(uint*)out->color = *(uint*)&pft4->color;
+			
 			out->page = pft4->texture_set;
 			out->detail = pft4->texture_id;
 

@@ -42,7 +42,7 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 	{
 		pStream->Print("#vertex data ref model: %d (count = %d)\r\n", model->instance_number, model->num_vertices);
 
-		ModelRef_t* ref = g_levModels.GetModelByIndex(model->instance_number, regModels);
+		ModelRef_t* ref = g_levModels.GetModelByIndex(model->instance_number);//, regModels);
 
 		if (!ref)
 		{
@@ -341,7 +341,7 @@ void ExportAllModels()
 
 	for (int i = 0; i < MAX_MODELS; i++)
 	{
-		ModelRef_t* modelRef = g_levModels.GetModelByIndex(i, nullptr);
+		ModelRef_t* modelRef = g_levModels.GetModelByIndex(i);
 		const char* modelName = g_levModels.GetModelName(modelRef);
 		
 		if (!modelRef->model)

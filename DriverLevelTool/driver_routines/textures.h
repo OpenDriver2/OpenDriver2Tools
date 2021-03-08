@@ -11,8 +11,12 @@
 // forward
 class IVirtualStream;
 class CDriverLevelTextures;
+class CTexturePage;
 
 //---------------------------------------------------------------------------------------------------------------------------------
+
+typedef void (*OnTexturePageLoaded_t)(CTexturePage* tp);
+typedef void (*OnTexturePageFreed_t)(CTexturePage* tp);
 
 struct TexBitmap_t
 {
@@ -96,36 +100,46 @@ public:
 	CDriverLevelTextures();
 	virtual ~CDriverLevelTextures();
 
+	//----------------------------------------
+	void					SetLoadingCallbacks(OnTexturePageLoaded_t onLoaded, OnTexturePageFreed_t onFreed);
+
+	//----------------------------------------
 	// loaders
-	void				LoadTextureInfoLump(IVirtualStream* pFile);
-	void				LoadPermanentTPages(IVirtualStream* pFile);
-	void				LoadTextureNamesLump(IVirtualStream* pFile, int size);
-	void				ProcessPalletLump(IVirtualStream* pFile);
+	void					LoadTextureInfoLump(IVirtualStream* pFile);
+	void					LoadPermanentTPages(IVirtualStream* pFile);
+	void					LoadTextureNamesLump(IVirtualStream* pFile, int size);
+	void					ProcessPalletLump(IVirtualStream* pFile);
 
 	// release all data
-	void				FreeAll();
+	void					FreeAll();
 
 	// getters
-	CTexturePage*		GetTPage(int page) const;
-	int					GetTPageCount() const;
+	CTexturePage*			GetTPage(int page) const;
+	int						GetTPageCount() const;
 
-	TexDetailInfo_t*	FindTextureDetail(const char* name) const;
-	const char*			GetTextureDetailName(TEXINF* info) const;
+	TexDetailInfo_t*		FindTextureDetail(const char* name) const;
+	const char*				GetTextureDetailName(TEXINF* info) const;
 
 protected:
-	char*				m_textureNamesData{ nullptr };
+	void					OnTexturePageLoaded(CTexturePage* tp);
+	void					OnTexturePageFreed(CTexturePage* tp);
+	
+	char*					m_textureNamesData{ nullptr };
 
-	CTexturePage*		m_texPages{ nullptr };
-	int					m_numTexPages{ 0 };
+	CTexturePage*			m_texPages{ nullptr };
+	int						m_numTexPages{ 0 };
 
-	XYPAIR				m_permsList[16];
-	int					m_numPermanentPages{ 0 };
+	XYPAIR					m_permsList[16];
+	int						m_numPermanentPages{ 0 };
 
-	int					m_numSpecPages{ 0 };
-	XYPAIR				m_specList[16];
+	int						m_numSpecPages{ 0 };
+	XYPAIR					m_specList[16];
 
-	ExtClutData_t*		m_extraPalettes{ nullptr };
-	int					m_numExtraPalettes{ 0 };
+	ExtClutData_t*			m_extraPalettes{ nullptr };
+	int						m_numExtraPalettes{ 0 };
+
+	OnTexturePageLoaded_t	m_onTPageLoaded{ nullptr };
+	OnTexturePageFreed_t	m_onTPageFreed{ nullptr };
 };
 
 //---------------------------------------------------------------------------------------------------------------------------------

@@ -23,6 +23,11 @@ CDriver2LevelRegion::~CDriver2LevelRegion()
 
 void CDriver2LevelRegion::FreeAll()
 {
+	if (!m_loaded)
+		return;
+
+	m_owner->OnRegionFreed(this);
+	
 	if(m_models)
 	{
 		for (int i = 0; i < MAX_MODELS; i++)
@@ -220,6 +225,8 @@ void CDriver2LevelRegion::LoadRegionData(IVirtualStream* pFile, Spool* spool)
 	// even if error occured we still need it to be here
 	m_loaded = true;
 
+	m_owner->OnRegionLoaded(this);
+
 	// TODO: PVS and heightmap data
 
 #if 0
@@ -252,7 +259,7 @@ void CDriver2LevelRegion::LoadRegionData(IVirtualStream* pFile, Spool* spool)
 }
 
 void CDriver2LevelRegion::LoadAreaData(IVirtualStream* pFile)
-{
+{	
 	// load in-area textures
 	m_owner->LoadInAreaTPages(pFile, m_areaDataNum);
 
@@ -273,17 +280,22 @@ PACKED_CELL_OBJECT* CDriver2LevelRegion::GetCellObject(int num) const
 	return &m_owner->m_straddlers[num];
 }
 
-ModelRef_t* CDriver2LevelRegion::GetModel(int num) const
+ModelRef_t* CDriver2LevelRegion::GetModel(int nIndex) const
 {
-	if (!m_models)
-		return nullptr;
-	
-	ModelRef_t* ref = &m_models[num];
+	if (nIndex >= 0 && nIndex < MAX_MODELS)
+	{
+		if (!m_models)
+			return nullptr;
 
-	if (!ref->model)
-		return nullptr;
-	
-	return ref;
+		ModelRef_t* ref = &m_models[nIndex];
+
+		if (!ref->model)
+			return nullptr;
+
+		return ref;
+	}
+
+	return nullptr;
 }
 
 //-------------------------------------------------------------------------------------------
@@ -325,7 +337,6 @@ void CDriver2LevelMap::FreeAll()
 	delete[] m_areaData;
 	m_areaData = nullptr;
 }
-
 
 //-------------------------------------------------------------
 // parses LUMP_MAP and it's straddler objects
@@ -489,7 +500,7 @@ void CDriver2LevelMap::LoadSpoolInfoLump(IVirtualStream* pFile)
 		if (spoolInfoOffset != REGION_EMPTY)
 		{
 			Spool* spool = (Spool*)((ubyte*)m_regionSpoolInfo + m_regionSpoolInfoOffsets[i]);
-			m_regions[i].m_areaDataNum = spool->super_region;
+			m_regions[i].m_areaDataNum = spool->super_region == 255 ? -1 : spool->super_region;
 		}
 		else
 			m_regions[i].m_areaDataNum = -1;
@@ -738,4 +749,22 @@ void CDriver2LevelMap::WorldPositionToCellXZ(XZPAIR& cell, const VECTOR_NOPAD& p
 	
 	cell.x = (position.vx + units_across_halved) / m_mapInfo.cell_size;
 	cell.z = (position.vz + units_down_halved) / m_mapInfo.cell_size;
+}
+
+void CDriver2LevelMap::SetLoadingCallbacks(OnRegionLoaded_t onLoaded, OnRegionFreed_t onFreed)
+{
+	m_onRegionLoaded = onLoaded;
+	m_onRegionFreed = onFreed;
+}
+
+void CDriver2LevelMap::OnRegionLoaded(CDriver2LevelRegion* region)
+{
+	if (m_onRegionLoaded)
+		m_onRegionLoaded(region);
+}
+
+void CDriver2LevelMap::OnRegionFreed(CDriver2LevelRegion* region)
+{
+	if (m_onRegionFreed)
+		m_onRegionFreed(region);
 }

@@ -11,16 +11,14 @@
 class IVirtualStream;
 class CDriver2LevelRegion;
 
+// OBSOLETE
 struct RegionModels_t
 {
 	DkList<ModelRef_t> modelRefs;
 };
 
-enum ECellFormat
-{
-	CELL_FORMAT_DRIVER1,		// CELL_OBJECT are used for cells
-	CELL_FORMAT_DRIVER2			// PACKED_CELL_OBJECT are used for cells
-};
+typedef void (*OnRegionLoaded_t)(CDriver2LevelRegion* region);
+typedef void (*OnRegionFreed_t)(CDriver2LevelRegion* region);
 
 struct CELL_ITERATOR
 {
@@ -82,12 +80,19 @@ public:
 
 	void					FreeAll();
 
+	//----------------------------------------
+	void					SetLoadingCallbacks(OnRegionLoaded_t onLoaded, OnRegionFreed_t onFreed);
+	
+	//----------------------------------------
+
 	void					LoadMapLump(IVirtualStream* pFile);
 	void					LoadSpoolInfoLump(IVirtualStream* pFile);
 
 	int						GetAreaDataCount() const;
 	void					LoadInAreaTPages(IVirtualStream* pFile, int areaDataNum) const;
 	ModelRef_t*				LoadInAreaModels(IVirtualStream* pFile, int areaDataNum) const;
+
+	
 	
 	//----------------------------------------
 	// cell iterator
@@ -107,7 +112,11 @@ public:
 
 	int						GetCellsAcross() const;
 	int						GetCellsDown() const;
+
 protected:
+
+	void					OnRegionLoaded(CDriver2LevelRegion* region);
+	void					OnRegionFreed(CDriver2LevelRegion* region);
 
 	OUT_CELL_FILE_HEADER	m_mapInfo;
 
@@ -133,6 +142,9 @@ protected:
 
 	int						m_regions_across{ 0 };
 	int						m_regions_down{ 0 };
+
+	OnRegionLoaded_t		m_onRegionLoaded{ nullptr };
+	OnRegionFreed_t			m_onRegionFreed{ nullptr };
 };
 
 //-----------------------------------------------------------------------------------------

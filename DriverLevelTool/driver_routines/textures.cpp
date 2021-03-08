@@ -100,6 +100,8 @@ CTexturePage::~CTexturePage()
 // used for spooled
 void CTexturePage::FreeBitmap()
 {
+	m_owner->OnTexturePageFreed(this);
+	
 	delete[] m_bitmap.data;
 	delete[] m_bitmap.clut;
 
@@ -268,6 +270,8 @@ bool CTexturePage::LoadTPageAndCluts(IVirtualStream* pFile, bool isSpooled)
 	m_bitmap.rsize = pFile->Tell() - rStart;
 	Msg("PAGE %d (%s) datasize=%d\n", m_id, isSpooled ? "spooled" : "compressed", m_bitmap.rsize);
 
+	m_owner->OnTexturePageLoaded(this);
+	
 	return true;
 }
 
@@ -584,4 +588,22 @@ CTexturePage* CDriverLevelTextures::GetTPage(int page) const
 int CDriverLevelTextures::GetTPageCount() const
 {
 	return m_numTexPages;
+}
+
+void CDriverLevelTextures::SetLoadingCallbacks(OnTexturePageLoaded_t onLoaded, OnTexturePageFreed_t onFreed)
+{
+	m_onTPageLoaded = onLoaded;
+	m_onTPageFreed = onFreed;
+}
+
+void CDriverLevelTextures::OnTexturePageLoaded(CTexturePage* tp)
+{
+	if (m_onTPageLoaded)
+		m_onTPageLoaded(tp);
+}
+
+void CDriverLevelTextures::OnTexturePageFreed(CTexturePage* tp)
+{
+	if (m_onTPageFreed)
+		m_onTPageFreed(tp);
 }

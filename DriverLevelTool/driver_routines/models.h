@@ -15,6 +15,16 @@
 // forward
 class IVirtualStream;
 struct RegionModels_t;
+struct ModelRef_t;
+struct CarModelData_t;
+
+//------------------------------------------------------------------------------------------------------------
+
+typedef void (*OnModelLoaded_t)(ModelRef_t* tp);
+typedef void (*OnModelFreed_t)(ModelRef_t* tp);
+
+typedef void (*OnCarModelLoaded_t)(CarModelData_t* tp);
+typedef void (*OnCarModelFreed_t)(CarModelData_t* tp);
 
 struct dpoly_t
 {
@@ -75,20 +85,37 @@ public:
 	// release all data
 	void				FreeAll();
 
+	//----------------------------------------------
+	void				SetModelLoadingCallbacks(OnModelLoaded_t onLoaded, OnModelFreed_t onFreed);
+	void				SetCarModelLoadingCallbacks(OnCarModelLoaded_t onLoaded, OnCarModelFreed_t onFreed);
+
+	//----------------------------------------------
+	
 	void				LoadCarModelsLump(IVirtualStream* pFile, int size);
 	void				LoadModelNamesLump(IVirtualStream* pFile, int size);
 	void				LoadLevelModelsLump(IVirtualStream* pFile);
 
-	ModelRef_t*			GetModelByIndex(int nIndex, RegionModels_t* models) const;
+	ModelRef_t*			GetModelByIndex(int nIndex) const;
 	int					FindModelIndexByName(const char* name) const;
 	const char*			GetModelName(ModelRef_t* model) const;
 
 	CarModelData_t*		GetCarModel(int index) const;
 	
 protected:
+	void				OnModelLoaded(ModelRef_t* ref);
+	void				OnModelFreed(ModelRef_t* ref);
+
+	void				OnCarModelLoaded(CarModelData_t* data);
+	void				OnCarModelFreed(CarModelData_t* data);
+	
 	ModelRef_t			m_levelModels[MAX_MODELS];
 	CarModelData_t		m_carModels[MAX_CAR_MODELS];
 	DkList<std::string>	m_model_names;
+
+	OnModelLoaded_t		m_onModelLoaded;
+	OnModelFreed_t		m_onModelFreed;
+	OnCarModelLoaded_t	m_onCarModelLoaded;
+	OnCarModelFreed_t	m_onCarModelFreed;
 };
 
 //------------------------------------------------------------------------------------------------------------

@@ -151,9 +151,7 @@ void SDLPollEvent()
 	}
 }
 
-CRenderModel* g_renderModels[MAX_MODELS];
 TextureID g_hwTexturePages[128][32];
-
 
 //-----------------------------------------------------------------
 
@@ -356,20 +354,13 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 					Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
 					GR_SetMatrix(MATRIX_WORLD, objectMatrix);
 					GR_UpdateMatrixUniforms();
-
-					CRenderModel* renderModel = g_renderModels[co.type];
 					
 					ModelRef_t* ref = ci.region->GetModel(co.type);
-					if(ref)
-					{
-						renderModel = (CRenderModel*)ref->userData;
-						if(!renderModel)
-						{
-							renderModel = new CRenderModel();
-							renderModel->Initialize(ref);
-							ref->userData = renderModel;
-						}
-					}
+					
+					if(!ref)
+						ref = g_levModels.GetModelByIndex(co.type);
+						
+					CRenderModel* renderModel = (CRenderModel*)ref->userData;
 					
 					if(renderModel)
 						renderModel->Draw();
@@ -460,9 +451,38 @@ void RenderView()
 	GR_SetCullMode(CULL_FRONT);
 
 	DrawLevelDriver2(cameraPos);
-	
-	//if(g_renderModels[g_currentModel])
-	//	g_renderModels[g_currentModel]->Draw();
+}
+
+void OnRegionLoaded(CDriver2LevelRegion* region)
+{
+	// load tpages
+	for(int i = 0; i < MAX_MODELS; i++)
+	{
+		ModelRef_t* ref = region->GetModel(i);
+		
+		if (ref && ref->model)
+		{
+			CRenderModel* renderModel = new CRenderModel();
+			
+			if(renderModel->Initialize(ref))
+				ref->userData = renderModel;
+			else
+				delete renderModel;
+		}
+	}
+}
+
+void OnModelLoaded(ModelRef_t* ref)
+{
+	if (!ref->model)
+		return;
+
+	CRenderModel* renderModel = new CRenderModel();
+
+	if (renderModel->Initialize(ref))
+		ref->userData = renderModel;
+	else
+		delete renderModel;
 }
 
 //-------------------------------------------------------------
@@ -478,44 +498,13 @@ int ViewerMain(const char* filename)
 
 	InitModelShader();
 
+	// set loading callbacks
+	g_levMap.SetLoadingCallbacks(OnRegionLoaded, nullptr);
+	g_levTextures.SetLoadingCallbacks(InitHWTexturePage, nullptr);
+	g_levModels.SetModelLoadingCallbacks(OnModelLoaded, nullptr);
+
 	// Load level file
 	LoadLevelFile(filename);
-
-	
-	// also preload spooled area tpages
-	for (int i = 0; i < g_levMap.GetAreaDataCount(); i++)
-		g_levMap.LoadInAreaTPages(g_levStream, i);
-		
-	// Load permanent textures
-	for(int i = 0; i < g_levTextures.GetTPageCount(); i++)
-	{
-		CTexturePage* tpage = g_levTextures.GetTPage(i);
-		
-		memset(g_hwTexturePages[i], 0, sizeof(g_hwTexturePages[0]));
-
-		if(tpage->GetFlags() & (TPAGE_PERMANENT | TPAGE_AREADATA))
-			InitHWTexturePage(tpage);
-	}
-
-	// Load models
-	for(int i = 0; i < MAX_MODELS; i++)
-	{
-		g_renderModels[i] = nullptr;
-
-		CRenderModel* model = new CRenderModel();
-		if (model->Initialize(g_levModels.GetModelByIndex(i, nullptr)))
-			g_renderModels[i] = model;
-		else
-			delete model;
-	}
-
-	// Load car models
-	for (int i = 0; i < MAX_CAR_MODELS; i++)
-	{
-
-	}
-
-
 
 	do
 	{

@@ -27,8 +27,7 @@ public:
 
 protected:
 	void			GenerateBuffers();
-
-	RegionModels_t*			m_regModelData{ nullptr };
+	
 	ModelRef_t*				m_sourceModel { nullptr };
 	GrVAO*					m_vao { nullptr };
 	DkList<modelBatch_t>	m_batches;
