@@ -192,6 +192,7 @@ struct POLYGT4
 	CVECTOR color;
 };
 
+#if 0
 enum ModelFlags1	// collision flags?
 {
 	everything = 1,
@@ -231,6 +232,31 @@ enum ModelFlags2	// effect flags?
 	dontKnow15 = 16384, // ??? again: many sidewalks, some grass
 	sidewalk = 32768
 };
+#else
+enum ModelShapeFlags
+{
+	SHAPE_FLAG_SMASH_QUIET = 0x8,
+	SHAPE_FLAG_NOCOLLIDE = 0x10,
+	SHAPE_FLAG_SUBSURFACE = 0x80,		// grass, dirt, water
+	SHAPE_FLAG_ALLEYWAY = 0x400,	// alleyway
+	SHAPE_FLAG_SMASH_SPRITE = 0x4000,
+};
+
+enum ModelFlags2
+{
+	MODEL_FLAG_ANIMOBJ = 0x1,
+	MODEL_FLAG_MEDIAN = 0x20,
+	MODEL_FLAG_ALLEY = 0x80,
+	MODEL_FLAG_HASROOF = 0x100,
+	MODEL_FLAG_NOCOL_200 = 0x200,
+	MODEL_FLAG_BARRIER = 0x400,
+	MODEL_FLAG_SMASHABLE = 0x800,
+	MODEL_FLAG_LAMP = 0x1000,
+	MODEL_FLAG_TREE = 0x2000,
+	MODEL_FLAG_GRASS = 0x4000,
+	MODEL_FLAG_SIDEWALK = 0x8000,
+};
+#endif
 
 struct MODEL
 {

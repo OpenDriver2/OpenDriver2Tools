@@ -32,6 +32,7 @@
 	"	void main() {\n"\
 	"		vec4 lighting;\n"\
 	"		vec4 color = texture2D(s_texture, v_texcoord.xy);\n"\
+	"		if(color.r + color.g + color.b + color.a == 0.0f) discard;\n"\
 	"		lighting = vec4(color.rgb * u_ambientColor.rgb * u_ambientColor.a, color.a);\n"\
 	"		lighting.rgb += u_lightColor.rgb * u_lightColor.a * color.rgb * saturate(1.0 - dot(v_normal, u_lightDir));\n"\
 	"		fragColor = lighting;\n"\
@@ -241,7 +242,7 @@ void InitHWTexturePage(CTexturePage* tpage)
 	// FIXME: load indexes instead?
 
 	for (int i = 0; i < numDetails; i++)
-		tpage->ConvertIndexedTextureToRGBA(color_data, i, &bitmap.clut[i]);
+		tpage->ConvertIndexedTextureToRGBA(color_data, i, &bitmap.clut[i], false, false);
 
 	int tpageId = tpage->GetId();
 	
@@ -259,7 +260,7 @@ void InitHWTexturePage(CTexturePage* tpage)
 
 			if (detail->extraCLUTs[pal])
 			{
-				tpage->ConvertIndexedTextureToRGBA(color_data, j, detail->extraCLUTs[pal]);
+				tpage->ConvertIndexedTextureToRGBA(color_data, j, detail->extraCLUTs[pal], false, false);
 				anyMatched = true;
 			}
 		}
@@ -296,7 +297,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 	CELL_ITERATOR ci;
 	PACKED_CELL_OBJECT* ppco;
 
-	int i = 441 * 2;
+	int i = 441 * 32;
 	int vloop = 0;
 	int hloop = 0;
 	int dir = 0;
@@ -313,7 +314,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 	// walk through all cells
 	while (i >= 0)
 	{
-		if (abs(hloop) + abs(vloop) < 64)
+		if (abs(hloop) + abs(vloop) < 256)
 		{
 			// clamped vis values
 			int vis_h = MIN(MAX(hloop, -9), 10);
@@ -348,14 +349,36 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 						continue;
 					}
 
+					ModelRef_t* ref = g_levModels.GetModelByIndex(co.type);
+					MODEL* model = ref->model;
+					
 					float cellRotationRad = -co.yang / 64.0f * PI_F * 2.0f;
+
+					bool isGround = false;
+					
+					if(model)
+					{
+						if(model->flags2 == MODEL_FLAG_TREE)
+						{
+							cellRotationRad = DEG2RAD(g_cameraAngles.y);
+						}
+
+						if ((model->shape_flags & (SHAPE_FLAG_SUBSURFACE | SHAPE_FLAG_ALLEYWAY)) ||
+							(model->flags2 & (MODEL_FLAG_SIDEWALK | MODEL_FLAG_GRASS)))
+						{
+							isGround = true;
+						}
+					}
 
 					Vector3D absCellPosition(co.pos.vx * EXPORT_SCALING, co.pos.vy * -EXPORT_SCALING, co.pos.vz * EXPORT_SCALING);
 					Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
 					GR_SetMatrix(MATRIX_WORLD, objectMatrix);
 					GR_UpdateMatrixUniforms();
 					
-					ModelRef_t* ref = g_levModels.GetModelByIndex(co.type);
+					if(isGround)
+					{
+						
+					}
 
 					CRenderModel* renderModel = (CRenderModel*)ref->userData;
 					
@@ -495,7 +518,7 @@ int ViewerMain(const char* filename)
 
 		GR_BeginScene();
 		
-		GR_ClearColor(32, 32, 32);
+		GR_ClearColor(128, 158, 182);
 		GR_ClearDepth(1.0f);
 	
 		// Control and map
