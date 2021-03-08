@@ -5,6 +5,8 @@
 #ifndef LEVEL_H
 #define LEVEL_H
 
+#define SPOOL_CD_BLOCK_SIZE		2048
+
 // known lumps indexes
 enum LevLumpType
 {

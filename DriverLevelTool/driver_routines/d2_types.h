@@ -63,18 +63,18 @@ typedef struct dlevinfo_t
 //------------------------------------------------------------------------------------------------------------
 
 struct OUT_CELL_FILE_HEADER {
-	int cells_across; // size=0, offset=0
-	int cells_down; // size=0, offset=4
-	int cell_size; // size=0, offset=8
+	int cells_across;
+	int cells_down;
+	int cell_size;
 
-	int num_regions; // size=0, offset=12
-	int region_size; // size=0, offset=16
+	int num_regions;
+	int region_size;
 
-	int num_cell_objects; // size=0, offset=20
-	int num_cell_data; // size=0, offset=24
+	int num_cell_objects;
+	int num_cell_data;
 
-	int ambient_light_level; // size=0, offset=28
-	struct VECTOR_NOPAD light_source; // size=12, offset=32
+	int ambient_light_level;
+	VECTOR_NOPAD light_source;
 };
 
 //------------------------------------------------------------------------------------------------------------

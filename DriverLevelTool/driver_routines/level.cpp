@@ -13,6 +13,7 @@ char*						g_overlayMapData = nullptr;
 
 CDriverLevelTextures		g_levTextures;
 CDriverLevelModels			g_levModels;
+CDriver2LevelMap			g_levMap;
 
 //---------------------------------------------------------------------------------------------------------------------------------
 
@@ -64,6 +65,7 @@ void DetectLevelFormat(IVirtualStream* pFile)
 			case LUMP_CHAIR:
 			case LUMP_CAR_MODELS:
 			case LUMP_TEXTUREINFO:
+			case LUMP_STRAIGHTS2:
 				break;
 			case LUMP_JUNCTIONS2:
 			{
@@ -140,7 +142,7 @@ void ProcessLumps(IVirtualStream* pFile)
 				break;
 			case LUMP_MAP:
 				MsgWarning("LUMP_MAP ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadMapLump(pFile);
+				g_levMap.LoadMapLump(pFile);
 				break;
 			case LUMP_TEXTURENAMES:
 				MsgWarning("LUMP_TEXTURENAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
@@ -169,7 +171,7 @@ void ProcessLumps(IVirtualStream* pFile)
 				break;
 			case LUMP_SPOOLINFO:
 				MsgWarning("LUMP_SPOOLINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadSpoolInfoLump(pFile);
+				g_levMap.LoadSpoolInfoLump(pFile);
 				break;
 			case LUMP_STRAIGHTS2:
 				MsgWarning("LUMP_STRAIGHTS2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
@@ -320,8 +322,7 @@ void FreeLevelData()
 		delete g_levStream;
 	g_levStream = nullptr;
 
-	FreeSpoolData();
-
+	g_levMap.FreeAll();
 	g_levTextures.FreeAll();
 	g_levModels.FreeAll();
 

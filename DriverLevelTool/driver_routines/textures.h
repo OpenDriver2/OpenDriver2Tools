@@ -47,6 +47,10 @@ public:
 	CTexturePage();
 	virtual ~CTexturePage();
 
+	// free texture page data and bitmap
+	// used for spooled
+	void					FreeBitmap();
+
 	// loading texture page properties from file
 	void					InitFromFile(int id, TEXPAGE_POS& tp, IVirtualStream* pFile);
 	

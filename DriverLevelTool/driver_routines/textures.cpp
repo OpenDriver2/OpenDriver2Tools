@@ -88,13 +88,23 @@ struct SpooledTextureData_t
 
 CTexturePage::CTexturePage()
 {
+	memset(&m_bitmap, 0, sizeof(m_bitmap));
 }
 
 CTexturePage::~CTexturePage()
 {
+	delete[] m_details;
+}
+
+// free texture page data and bitmap
+// used for spooled
+void CTexturePage::FreeBitmap()
+{
 	delete[] m_bitmap.data;
 	delete[] m_bitmap.clut;
-	delete[] m_details;
+
+	m_bitmap.data = nullptr;
+	m_bitmap.clut = nullptr;
 }
 
 //-------------------------------------------------------------
@@ -256,7 +266,7 @@ bool CTexturePage::LoadTPageAndCluts(IVirtualStream* pFile, bool isSpooled)
 	}
 
 	m_bitmap.rsize = pFile->Tell() - rStart;
-	Msg("PAGE %d (%s) datasize=%d\n", m_id, isSpooled ? "compr" : "spooled", m_bitmap.rsize);
+	Msg("PAGE %d (%s) datasize=%d\n", m_id, isSpooled ? "spooled" : "compressed", m_bitmap.rsize);
 
 	return true;
 }
@@ -325,11 +335,11 @@ void CDriverLevelTextures::LoadPermanentTPages(IVirtualStream* pFile)
 
 	// simulate sectors
 	// convert current file offset to sectors
-	long sector = pFile->Tell() / 2048; 
+	long sector = pFile->Tell() / SPOOL_CD_BLOCK_SIZE;
 	int nsectors = 0;
 
 	for (int i = 0; i < m_numPermanentPages; i++)
-		nsectors += (m_permsList[i].y + 2047) / 2048;
+		nsectors += (m_permsList[i].y + SPOOL_CD_BLOCK_SIZE-1) / SPOOL_CD_BLOCK_SIZE;
 	
 	// load permanent pages
 	for(int i = 0; i < m_numPermanentPages; i++)
@@ -340,12 +350,12 @@ void CDriverLevelTextures::LoadPermanentTPages(IVirtualStream* pFile)
 		// permanents are also compressed
 		m_texPages[tpage].LoadTPageAndCluts(pFile, false);
 
-		pFile->Seek(curOfs + ((m_permsList[i].y + 2047) & -2048), VS_SEEK_SET);
+		pFile->Seek(curOfs + ((m_permsList[i].y + SPOOL_CD_BLOCK_SIZE-1) & -SPOOL_CD_BLOCK_SIZE), VS_SEEK_SET);
 	}
 
 	// simulate sectors
 	sector += nsectors;
-	pFile->Seek(sector * 2048, VS_SEEK_SET);
+	pFile->Seek(sector * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
 
 	// Driver 2 - special cars only
 	// Driver 1 - only player cars
@@ -363,7 +373,7 @@ void CDriverLevelTextures::LoadPermanentTPages(IVirtualStream* pFile)
 		// permanents are compressed
 		m_texPages[tpage].LoadTPageAndCluts(pFile, false);
 
-		pFile->Seek(curOfs + ((m_specList[i].y + 2047) & -2048), VS_SEEK_SET);
+		pFile->Seek(curOfs + ((m_specList[i].y + SPOOL_CD_BLOCK_SIZE-1) & -SPOOL_CD_BLOCK_SIZE), VS_SEEK_SET);
 	}
 }
 

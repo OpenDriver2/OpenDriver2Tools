@@ -249,12 +249,10 @@ void ExportAllTextures()
 	// preload region data if needed
 	if (!g_export_world)
 	{
-		MsgInfo("Preloading region datas (%d)\n", g_numAreas);
+		MsgInfo("Preloading area TPages (%d)\n", g_levMap.GetAreaDataCount());
 
-		for (int i = 0; i < g_numAreas; i++)
-		{
-			LoadRegionData(g_levStream, nullptr, &g_areaData[i], &g_regionPages[i]);
-		}
+		for (int i = 0; i < g_levMap.GetAreaDataCount(); i++)
+			g_levMap.LoadInAreaTPages(g_levStream, i);
 	}
 
 	MsgInfo("Exporting texture data\n");

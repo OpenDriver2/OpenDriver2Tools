@@ -7,41 +7,139 @@
 
 //------------------------------------------------------------------------------------------------------------
 
+// forward
+class IVirtualStream;
+class CDriver2LevelRegion;
+
 struct RegionModels_t
 {
 	DkList<ModelRef_t> modelRefs;
 };
 
+enum ECellFormat
+{
+	CELL_FORMAT_DRIVER1,		// CELL_OBJECT are used for cells
+	CELL_FORMAT_DRIVER2			// PACKED_CELL_OBJECT are used for cells
+};
+
+struct CELL_ITERATOR
+{
+	CDriver2LevelRegion* region;
+	CELL_DATA* pcd;
+	PACKED_CELL_OBJECT* ppco;
+	XZPAIR nearCell;
+};
+
+//----------------------------------------------------------------------------------
+
+// Driver 2 region
+class CDriver2LevelRegion
+{
+	friend class CDriver2LevelMap;
+public:
+	CDriver2LevelRegion();
+	virtual ~CDriver2LevelRegion();
+
+	void					FreeAll();
+
+	void					LoadRegionData(IVirtualStream* pFile, Spool* spool);
+	void					LoadAreaData(IVirtualStream* pFile);
+
+	PACKED_CELL_OBJECT*		GetCellObject(int num) const;
+	ModelRef_t*				GetModel(int num) const;
+	
+protected:
+	static int				UnpackCellPointers(ushort* dest_ptrs, char* src_data, int cell_slots_add, int targetRegion = 0);
+	
+	ModelRef_t*				m_models{ nullptr };			// loaded region models
+
+	CDriver2LevelMap*		m_owner;
+
+	CELL_DATA*				m_cells{ nullptr };			// cell data that holding information about cell pointers. 3D world seeks cells first here
+	ushort*					m_cellPointers{ nullptr };		// cell pointers that holding indexes of cell objects. Designed for cell iterator
+	PACKED_CELL_OBJECT*		m_cellObjects{ nullptr };		// cell objects that represents objects placed in the world
+
+	ushort*					m_pvsData{ nullptr };			// potentially visibile set of cells
+	short*					m_roadmapData{ nullptr };		// heightfield with planes and BSP
+
+	int						m_regionX{ -1 };
+	int						m_regionZ{ -1 };
+	int						m_regionNumber{ -1 };
+	int						m_areaDataNum{ -1 };
+	int						m_regionBarrelNumber{ -1 };
+	bool					m_loaded{ false };
+};
+
+//----------------------------------------------------------------------------------
+
+// Driver 2 level map iterator
+class CDriver2LevelMap
+{
+	friend class CDriver2LevelRegion;
+public:
+	CDriver2LevelMap();
+	virtual ~CDriver2LevelMap();
+
+	void					FreeAll();
+
+	void					LoadMapLump(IVirtualStream* pFile);
+	void					LoadSpoolInfoLump(IVirtualStream* pFile);
+
+	int						GetAreaDataCount() const;
+	void					LoadInAreaTPages(IVirtualStream* pFile, int areaDataNum) const;
+	ModelRef_t*				LoadInAreaModels(IVirtualStream* pFile, int areaDataNum) const;
+	
+	//----------------------------------------
+	// cell iterator
+	PACKED_CELL_OBJECT*		GetFirstPackedCop(CELL_ITERATOR* iterator, int cellx, int cellz) const;
+	PACKED_CELL_OBJECT*		GetNextPackedCop(CELL_ITERATOR* iterator) const;
+
+	static bool				UnpackCellObject(CELL_OBJECT& co, PACKED_CELL_OBJECT* pco, const XZPAIR& nearCell);
+
+	CDriver2LevelRegion*	GetRegion(const XZPAIR& cell) const;
+	CDriver2LevelRegion*	GetRegion(int regionIdx) const;
+
+	void					SpoolRegion(const XZPAIR& cell);
+	void					SpoolRegion(int regionIdx);
+	
+	// converters
+	void					WorldPositionToCellXZ(XZPAIR& cell, const VECTOR_NOPAD& position) const;
+
+	int						GetCellsAcross() const;
+	int						GetCellsDown() const;
+protected:
+
+	OUT_CELL_FILE_HEADER	m_mapInfo;
+
+	CDriver2LevelRegion*	m_regions{ nullptr };					// map of regions
+	
+	PACKED_CELL_OBJECT*		m_straddlers { nullptr };				// cell objects between regions
+	
+	Spool*					m_regionSpoolInfo{ nullptr };			// region data info
+	ushort*					m_regionSpoolInfoOffsets{ nullptr };	// region offset table
+	
+	AreaDataStr*			m_areaData{ nullptr };					// region model/texture data descriptors
+	AreaTPage_t*			m_areaTPages{ nullptr };				// region texpage usage table
+
+	int						m_numStraddlers{ 0 };
+	
+	int						m_cell_slots_add[5] { 0 };
+	int						m_cell_objects_add[5] { 0 };
+	int						m_PVS_size[4] { 0 };
+	
+	int						m_numAreas{ 0 };
+	int						m_numSpoolInfoOffsets{ 0 };
+	int						m_numRegionSpools{ 0 };
+
+	int						m_regions_across{ 0 };
+	int						m_regions_down{ 0 };
+};
+
 //-----------------------------------------------------------------------------------------
 
 extern LEVELINFO				g_levInfo;
-extern OUT_CELL_FILE_HEADER		g_mapInfo;
-
-extern AreaDataStr*				g_areaData;	// region model/texture data descriptors
-extern AreaTPage_t*				g_regionPages;		// region texpage usage table
-extern RegionModels_t*			g_regionModels;		// cached region models
-extern Spool*					g_regionSpool;		// region data info
-extern ushort*					g_spoolInfoOffsets;	// region offset table
-
-extern void*					g_straddlers;
-extern int						g_numStraddlers;
-
-extern int						g_cell_slots_add[5];
-extern int						g_cell_objects_add[5];
-extern int						g_PVS_size[4];
-
-extern int						g_numAreas;
-extern int						g_numSpoolInfoOffsets;
-extern int						g_numRegionSpools;
 
 //-----------------------------------------------------------------------------------------
 
-class IVirtualStream;
-
-void LoadMapLump(IVirtualStream* pFile);
-void LoadRegionData(IVirtualStream* pFile, RegionModels_t* models, AreaDataStr* data, AreaTPage_t* pages );
-void LoadSpoolInfoLump(IVirtualStream* pFile);
-
-void FreeSpoolData();
 
 #endif // REGIONS_H

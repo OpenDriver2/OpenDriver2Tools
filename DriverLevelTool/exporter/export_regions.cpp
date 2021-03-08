@@ -7,8 +7,6 @@
 
 #include "math/Matrix.h"
 
-#define SPOOL_CD_BLOCK_SIZE 2048
-
 extern bool						g_export_models;
 extern std::string				g_levname_moddir;
 extern std::string				g_levname;
@@ -25,145 +23,6 @@ PACKED_CELL_OBJECT g_packed_cell_objects[16384];
 // Driver 1
 CELL_OBJECT g_cell_objects[16384];
 
-//-------------------------------------------------------------
-// Region unpacking function
-//-------------------------------------------------------------
-int UnpackCellPointers(int region, int targetRegion, int cell_slots_add, ushort* dest_ptrs, char* src_data)
-{
-	ushort cell;
-	ushort* short_ptr;
-	ushort* source_packed_data;
-	int loop;
-	uint bitpos;
-	uint pcode;
-	int numCellPointers;
-
-	int packtype;
-
-	packtype = *(int*)(src_data + 4);
-	source_packed_data = (ushort*)(src_data + 8);
-
-	numCellPointers = 0;
-
-	if (packtype == 0)
-	{
-		short_ptr = dest_ptrs + targetRegion * 1024;
-
-		for (loop = 0; loop < 1024; loop++)
-			*short_ptr++ = 0xffff;
-	}
-	else if (packtype == 1)
-	{
-		short_ptr = dest_ptrs + targetRegion * 1024;
-
-		for (loop = 0; loop < 1024; loop++)
-		{
-			cell = *source_packed_data++;
-
-			if (cell != 0xffff)
-				cell += cell_slots_add;
-
-			*short_ptr++ = cell;
-			numCellPointers++;
-		}
-	}
-	else if (packtype == 2)
-	{
-		bitpos = 0x8000;
-		pcode = (uint)*source_packed_data;
-		source_packed_data++;
-		short_ptr = dest_ptrs + targetRegion * 1024;
-
-		for (loop = 0; loop < 1024; loop++)
-		{
-			if (pcode & bitpos)
-			{
-				cell = *source_packed_data++;
-				cell += cell_slots_add;
-			}
-			else
-				cell = 0xffff;
-
-			bitpos >>= 1;
-			*short_ptr++ = cell;
-			numCellPointers++;
-
-			if (bitpos == 0)
-			{
-				bitpos = 0x8000;
-				pcode = *source_packed_data++;
-			}
-		}
-	}
-	else
-	{
-		MsgError("BAD PACKED CELL POINTER DATA, region = %d\n", region);
-	}
-
-	return numCellPointers;
-}
-
-//-------------------------------------------------------------
-// returns first cell object of cell
-//-------------------------------------------------------------
-PACKED_CELL_OBJECT* GetFirstPackedCop(CELL_DATA** cell, ushort cell_ptr, int barrel_region)
-{
-	*cell = &g_cells[cell_ptr];
-
-	if ((*cell)->num & 0x8000)
-		return nullptr;
-
-	return &g_packed_cell_objects[((*cell)->num & 0x3fff) - g_cell_objects_add[barrel_region]];
-}
-
-//-------------------------------------------------------------
-// iterates cell objects
-//-------------------------------------------------------------
-PACKED_CELL_OBJECT* GetNextPackedCop(CELL_DATA** cell, int barrel_region)
-{
-	ushort num;
-	PACKED_CELL_OBJECT* ppco;
-
-	do {
-		if ((*cell)->num & 0x8000)
-			return nullptr;
-
-		(*cell) = (*cell) + 1;
-		num = (*cell)->num;
-
-		if (num & 0x4000)
-			return nullptr;
-
-		ppco = &g_packed_cell_objects[((*cell)->num & 0x3fff) - g_cell_objects_add[barrel_region]];
-	} while (ppco->value == 0xffff && (ppco->pos.vy & 1) != 0);
-
-	return ppco;
-}
-
-//-------------------------------------------------------------
-// Unpacks cell object (Driver 2 ONLY)
-//-------------------------------------------------------------
-void UnpackCellObject(PACKED_CELL_OBJECT* pco, CELL_OBJECT& co, VECTOR_NOPAD nearCell)
-{
-	//bool isStraddler = pco - cell_objects < g_numStraddlers;
-
-	co.pos.vy = (pco->pos.vy << 0x10) >> 0x11;
-
-	//if(isStraddler)
-	{
-		co.pos.vx = nearCell.vx + ((nearCell.vx - pco->pos.vx << 0x10) >> 0x10);
-		co.pos.vz = nearCell.vz + ((nearCell.vz - pco->pos.vz << 0x10) >> 0x10);
-	}
-	//else
-	{
-		co.pos.vx = nearCell.vx + pco->pos.vx;// ((pco.pos.vx - nearCell.vx << 0x10) >> 0x10);
-		co.pos.vz = nearCell.vz + pco->pos.vz;// ((pco.pos.vz - nearCell.vz << 0x10) >> 0x10);
-	}
-
-	// unpack
-	co.yang = (pco->value & 0x3f);
-	co.type = (pco->value >> 6) + ((pco->pos.vy & 0x1) ? 1024 : 0);
-}
 
 //-------------------------------------------------------------
 // Exports all level regions to OBJ file
@@ -171,7 +30,7 @@ void UnpackCellObject(PACKED_CELL_OBJECT* pco, CELL_OBJECT& co, VECTOR_NOPAD nea
 void ExportRegions()
 {
 	MsgInfo("Exporting cell points and world model...\n");
-	
+#if 0
 	int counter = 0;
 
 	int dim_x = g_mapInfo.cells_across / g_mapInfo.region_size;
@@ -185,7 +44,7 @@ void ExportRegions()
 		char str[512];
 		if(counter < dim_x)
 		{
-			str[counter] = g_spoolInfoOffsets[i] == REGION_EMPTY ? '.' : 'O';
+			str[counter] = g_regionSpoolInfoOffsets[i] == REGION_EMPTY ? '.' : 'O';
 		}
 		else
 		{
@@ -228,7 +87,7 @@ void ExportRegions()
 		{
 			int sPosIdx = y * dim_x + x;
 
-			if (g_spoolInfoOffsets[sPosIdx] == REGION_EMPTY)
+			if (g_regionSpoolInfoOffsets[sPosIdx] == REGION_EMPTY)
 				continue;
 
 			int barrel_region = (x & 1) + (y & 1) * 2;
@@ -240,9 +99,9 @@ void ExportRegions()
 			regionPos.vy = 0;
 
 			// region at offset
-			Spool* spool = (Spool*)((ubyte*)g_regionSpool + g_spoolInfoOffsets[sPosIdx]);
+			Spool* spool = (Spool*)((ubyte*)g_regionSpoolInfo + g_regionSpoolInfoOffsets[sPosIdx]);
 
-			Msg("---------\nSpool %d %d (offset: %d)\n", x, y, g_spoolInfoOffsets[sPosIdx]);
+			Msg("---------\nSpool %d %d (offset: %d)\n", x, y, g_regionSpoolInfoOffsets[sPosIdx]);
 			Msg(" - offset: %d\n", spool->offset);
 
 			for (int i = 0; i < spool->num_connected_areas; i++)
@@ -350,7 +209,7 @@ void ExportRegions()
 
 				bool isNew = (regModels->modelRefs.numElem() == 0);
 
-				LoadRegionData(g_levStream, regModels, &g_areaData[spool->super_region], &g_regionPages[spool->super_region]);
+				LoadAreaData(g_levStream, regModels, &g_areaData[spool->super_region], &g_areaTPages[spool->super_region]);
 
 				if (g_export_models && isNew)
 				{
@@ -513,4 +372,5 @@ void ExportRegions()
 
 	if (numCellObjectsRead != numCellsObjectsFile)
 		MsgError("numAllObjects mismatch: in file: %d, read %d\n", numCellsObjectsFile, numCellObjectsRead);
+#endif
 }

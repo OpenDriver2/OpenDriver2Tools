@@ -20,7 +20,7 @@
 	"	uniform mat4 u_WorldViewProj;\n"\
 	"	void main() {\n"\
 	"		v_texcoord = vec2(a_position_tu.w, 1.0-a_normal_tv.w);\n"\
-	"		v_normal = a_normal_tv.xyz;\n"\
+	"		v_normal = mat3(u_World) * a_normal_tv.xyz;\n"\
 	"		gl_Position = u_WorldViewProj * vec4(a_position_tu.xyz, 1.0);\n"\
 	"	}\n"
 
@@ -49,12 +49,15 @@ const char* model_shader =
 
 int g_quit = 0;
 
-int g_currentModel = 0;
+int g_currentModel = 191;
 bool g_holdLeft = false;
 bool g_holdRight = false;
 
 Vector3D g_cameraPosition(0);
 Vector3D g_cameraAngles(25.0f, 45.0f, 0);
+
+Vector3D g_cameraMoveDir(0);
+
 float g_cameraDistance = 0.5f;
 float g_cameraFOV = 90.0f;
 
@@ -90,8 +93,8 @@ void SDLPollEvent()
 
 				if(g_holdLeft)
 				{
-					g_cameraAngles.x += event.motion.yrel * 0.8f;
-					g_cameraAngles.y -= event.motion.xrel * 0.8f;
+					g_cameraAngles.x += event.motion.yrel * 0.25f;
+					g_cameraAngles.y -= event.motion.xrel * 0.25f;
 				}
 				else if(g_holdRight)
 				{
@@ -124,22 +127,21 @@ void SDLPollEvent()
 				else if (nKey == SDL_SCANCODE_RALT)
 					nKey = SDL_SCANCODE_LALT;
 
-				if (event.type == SDL_KEYDOWN)
+				if(nKey == SDL_SCANCODE_LEFT)
 				{
-					if(nKey == SDL_SCANCODE_LEFT)
-					{
-						g_currentModel--;
-						g_currentModel = MAX(0, g_currentModel);
-
-						Msg("Current: %d\n", g_currentModel);
-					}
-					else if (nKey == SDL_SCANCODE_RIGHT)
-					{
-						g_currentModel++;
-						g_currentModel = MIN(MAX_MODELS, g_currentModel);
-
-						Msg("Current: %d\n", g_currentModel);
-					}
+					g_cameraMoveDir.x = (event.type == SDL_KEYDOWN) ? -1.0f : 0.0f;
+				}
+				else if (nKey == SDL_SCANCODE_RIGHT)
+				{
+					g_cameraMoveDir.x = (event.type == SDL_KEYDOWN) ? 1.0f : 0.0f;
+				}
+				else if (nKey == SDL_SCANCODE_UP)
+				{
+					g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? 1.0f : 0.0f;
+				}
+				else if (nKey == SDL_SCANCODE_DOWN)
+				{
+					g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? -1.0f : 0.0f;
 				}
 
 				//Emulator_DoDebugKeys(nKey, (event.type == SDL_KEYUP) ? false : true);
@@ -165,9 +167,9 @@ struct WorldRenderProperties
 
 void SetupLightingProperties()
 {
-	g_worldRenderProperties.ambientColor = ColorRGBA(0.95f, 0.9f, 1.0f, 0.35f);
+	g_worldRenderProperties.ambientColor = ColorRGBA(0.95f, 0.9f, 1.0f, 0.25f);
 	g_worldRenderProperties.lightColor = ColorRGBA(1.0f, 1.0f, 1.0f, 0.8f);
-	g_worldRenderProperties.lightDir = normalize(Vector3D(-1, -1, -1));
+	g_worldRenderProperties.lightDir = normalize(Vector3D(1, -1, -1));
 }
 
 //-----------------------------------------------------------------
@@ -291,12 +293,152 @@ TextureID GetHWTexture(int tpage, int pal)
 extern int g_windowWidth;
 extern int g_windowHeight;
 
+void DrawLevelDriver2(const Vector3D& cameraPos)
+{
+	CELL_ITERATOR ci;
+	PACKED_CELL_OBJECT* ppco;
+
+	int i = 441 * 2;
+	int vloop = 0;
+	int hloop = 0;
+	int dir = 0;
+	XZPAIR cell;
+	XZPAIR icell;
+
+	VECTOR_NOPAD cameraPosition;
+	cameraPosition.vx = cameraPos.x * 4096;
+	cameraPosition.vy = cameraPos.y * 4096;
+	cameraPosition.vz = cameraPos.z * 4096;
+	
+	g_levMap.WorldPositionToCellXZ(cell, cameraPosition);
+
+	// walk through all cells
+	while (i >= 0)
+	{
+		if (abs(hloop) + abs(vloop) < 64)
+		{
+			// clamped vis values
+			int vis_h = MIN(MAX(hloop, -9), 10);
+			int vis_v = MIN(MAX(vloop, -9), 10);
+
+			icell.x = cell.x + hloop;
+			icell.z = cell.z + vloop;
+
+#if 0
+			if (rightPlane < 0 &&
+				leftPlane > 0 &&
+				backPlane < farClipLimit &&  // check planes
+				PVS_ptr[vis_v * pvs_square + vis_h]) // check PVS table
+#endif
+			if(icell.x > -1 && icell.x < g_levMap.GetCellsAcross() && 
+			   icell.z > -1 && icell.z < g_levMap.GetCellsDown())
+			{
+				g_levMap.SpoolRegion(icell);
+				
+				ppco = g_levMap.GetFirstPackedCop(&ci, icell.x, icell.z);
+
+				// walk each cell object in cell
+				while (ppco)
+				{
+					CELL_OBJECT co;
+					CDriver2LevelMap::UnpackCellObject(co, ppco, ci.nearCell);
+
+					if(co.type >= MAX_MODELS)
+					{
+						ppco = g_levMap.GetNextPackedCop(&ci);
+						// WHAT THE FUCK?
+						continue;
+					}
+
+					float cellRotationRad = -co.yang / 64.0f * PI_F * 2.0f;
+
+					Vector3D absCellPosition(co.pos.vx * EXPORT_SCALING, co.pos.vy * -EXPORT_SCALING, co.pos.vz * EXPORT_SCALING);
+					Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
+					GR_SetMatrix(MATRIX_WORLD, objectMatrix);
+					GR_UpdateMatrixUniforms();
+
+					CRenderModel* renderModel = g_renderModels[co.type];
+					
+					ModelRef_t* ref = ci.region->GetModel(co.type);
+					if(ref)
+					{
+						renderModel = (CRenderModel*)ref->userData;
+						if(!renderModel)
+						{
+							renderModel = new CRenderModel();
+							renderModel->Initialize(ref);
+							ref->userData = renderModel;
+						}
+					}
+					
+					if(renderModel)
+						renderModel->Draw();
+					
+					ppco = g_levMap.GetNextPackedCop(&ci);
+				}
+			}
+		}
+
+		if (dir == 0)
+		{
+			//leftPlane += leftcos;
+			//backPlane += backcos;
+			//rightPlane += rightcos;
+
+			hloop++;
+
+			if (hloop + vloop == 1)
+				dir = 1;
+		}
+		else if (dir == 1)
+		{
+			//leftPlane += leftsin;
+			//backPlane += backsin;
+			//rightPlane += rightsin;
+			vloop++;
+
+			//PVS_ptr += pvs_square;
+
+			if (hloop == vloop)
+				dir = 2;
+		}
+		else if (dir == 2)
+		{
+			hloop--;
+			//leftPlane -= leftcos;
+			//backPlane -= backcos;
+			//rightPlane -= rightcos;
+
+			if (hloop + vloop == 0)
+				dir = 3;
+		}
+		else
+		{
+			//leftPlane -= leftsin;
+			//backPlane -= backsin;
+			//rightPlane -= rightsin;
+			vloop--;
+
+			//PVS_ptr -= pvs_square;
+
+			if (hloop == vloop)
+				dir = 0;
+		}
+
+		i--;
+	}
+}
+
 void RenderView()
 {
 	Vector3D forward, right;
 	AngleVectors(g_cameraAngles, &forward, &right);
 
-	Vector3D cameraPos = g_cameraPosition - forward * g_cameraDistance;
+	// TODO: tie to framerate
+	g_cameraPosition += g_cameraMoveDir.x * right * 0.15f;
+	g_cameraPosition += g_cameraMoveDir.z * forward * 0.15f;
+
+	Vector3D cameraPos = g_cameraPosition;// -forward * g_cameraDistance;
 	Vector3D cameraAngles = VDEG2RAD(g_cameraAngles);
 
 	Matrix4x4 view, proj;
@@ -317,8 +459,10 @@ void RenderView()
 	GR_SetDepth(1);
 	GR_SetCullMode(CULL_FRONT);
 
-	if(g_renderModels[g_currentModel])
-		g_renderModels[g_currentModel]->Draw();
+	DrawLevelDriver2(cameraPos);
+	
+	//if(g_renderModels[g_currentModel])
+	//	g_renderModels[g_currentModel]->Draw();
 }
 
 //-------------------------------------------------------------
@@ -337,6 +481,11 @@ int ViewerMain(const char* filename)
 	// Load level file
 	LoadLevelFile(filename);
 
+	
+	// also preload spooled area tpages
+	for (int i = 0; i < g_levMap.GetAreaDataCount(); i++)
+		g_levMap.LoadInAreaTPages(g_levStream, i);
+		
 	// Load permanent textures
 	for(int i = 0; i < g_levTextures.GetTPageCount(); i++)
 	{
@@ -344,10 +493,8 @@ int ViewerMain(const char* filename)
 		
 		memset(g_hwTexturePages[i], 0, sizeof(g_hwTexturePages[0]));
 
-		if(tpage->GetFlags() & TPAGE_PERMANENT)
-		{
+		if(tpage->GetFlags() & (TPAGE_PERMANENT | TPAGE_AREADATA))
 			InitHWTexturePage(tpage);
-		}
 	}
 
 	// Load models
@@ -367,6 +514,8 @@ int ViewerMain(const char* filename)
 	{
 
 	}
+
+
 
 	do
 	{
