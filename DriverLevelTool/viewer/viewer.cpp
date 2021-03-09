@@ -36,7 +36,7 @@
 	"		vec4 color = texture2D(s_texture, v_texcoord.xy);\n"\
 	"		if(color.r + color.g + color.b + color.a == 0.0f) discard;\n"\
 	"		lighting = vec4(color.rgb * u_ambientColor.rgb * u_ambientColor.a, color.a);\n"\
-	"		lighting.rgb += u_lightColor.rgb * u_lightColor.a * color.rgb * saturate(1.0 - dot(v_normal, u_lightDir));\n"\
+	"		lighting.rgb += u_lightColor.rgb * u_lightColor.a * color.rgb * max(1.0 - dot(v_normal, u_lightDir), 0);\n"\
 	"		fragColor = lighting;\n"\
 	"	}\n"
 
@@ -168,8 +168,8 @@ struct WorldRenderProperties
 
 void SetupLightingProperties(float ambientScale = 1.0f, float lightScale = 1.0f)
 {
-	g_worldRenderProperties.ambientColor = ColorRGBA(0.95f, 0.9f, 1.0f, 0.45f) * ambientScale;
-	g_worldRenderProperties.lightColor = ColorRGBA(1.0f, 1.0f, 1.0f, 0.55f) * lightScale;
+	g_worldRenderProperties.ambientColor = ColorRGBA(0.95f, 0.9f, 1.0f, 0.45f * ambientScale) ;
+	g_worldRenderProperties.lightColor = ColorRGBA(1.0f, 1.0f, 1.0f, 0.4f * lightScale);
 	g_worldRenderProperties.lightDir = normalize(Vector3D(1, -0.5, 0));
 }
 
@@ -299,7 +299,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 	CELL_ITERATOR ci;
 	PACKED_CELL_OBJECT* ppco;
 
-	int i = 441;// *32;
+	int i = 441 * 16;
 	int vloop = 0;
 	int hloop = 0;
 	int dir = 0;
@@ -362,7 +362,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 					
 					if(model)
 					{
-						if(model->flags2 == MODEL_FLAG_TREE)
+						if(model->shape_flags & SHAPE_FLAG_SMASH_SPRITE)
 						{
 							cellRotationRad = DEG2RAD(g_cameraAngles.y);
 						}
@@ -511,7 +511,7 @@ void DrawLevelDriver1(const Vector3D& cameraPos)
 
 						if (model)
 						{
-							if (model->flags2 == MODEL_FLAG_TREE)
+							if (model->shape_flags & SHAPE_FLAG_SMASH_SPRITE)
 							{
 								cellRotationRad = DEG2RAD(g_cameraAngles.y);
 							}
