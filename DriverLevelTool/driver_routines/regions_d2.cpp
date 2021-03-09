@@ -69,9 +69,9 @@ void CDriver2LevelRegion::LoadRegionData(IVirtualStream* pFile, Spool* spool)
 	}
 
 	char* packed_cell_pointers = new char[spool->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE];
-	m_cellPointers = new ushort[m_owner->m_mapInfo.region_size * m_owner->m_mapInfo.region_size];
 
-	memset(m_cellPointers, 0xFF, sizeof(ushort) * m_owner->m_mapInfo.region_size * m_owner->m_mapInfo.region_size);
+	m_cellPointers = new ushort[m_owner->m_cell_objects_add[2]];
+	memset(m_cellPointers, 0xFF, sizeof(ushort) * m_owner->m_cell_objects_add[2]);
 
 	// read packed cell pointers
 	pFile->Seek(g_levInfo.spooldata_offset + cellPointersOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);

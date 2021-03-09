@@ -53,20 +53,20 @@ void CDriver1LevelRegion::LoadRegionData(IVirtualStream* pFile, Spool* spool)
 	int cellObjectsOffset = cellDataOffset + spool->cell_data_size[0];
 	int pvsDataOffset = cellObjectsOffset + spool->cell_data_size[2]; // FIXME: is it even there in Driver 1?
 
-	char* packed_cell_pointers = new char[spool->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE * 2];
-	m_cellPointers = new ushort[m_owner->m_mapInfo.region_size * m_owner->m_mapInfo.region_size * 2];
-
-	memset(m_cellPointers, 0xFF, sizeof(ushort) * m_owner->m_mapInfo.region_size * m_owner->m_mapInfo.region_size * 2);
+	char* packed_cell_pointers = new char[spool->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE];
+	
+	m_cellPointers = new ushort[m_owner->m_cell_objects_add[2]];
+	memset(m_cellPointers, 0xFF, sizeof(ushort) * m_owner->m_cell_objects_add[2]);
 
 	// read packed cell pointers
 	pFile->Seek(g_levInfo.spooldata_offset + cellPointersOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
-	pFile->Read(packed_cell_pointers, spool->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE * 2, sizeof(char));
+	pFile->Read(packed_cell_pointers, spool->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
 
 	// unpack cell pointers so we can use them
 	if (UnpackCellPointers(m_cellPointers, packed_cell_pointers, 0, 0) != -1)
 	{
 		// read cell data
-		m_cells = (CELL_DATA_D1*)malloc(spool->cell_data_size[0] * SPOOL_CD_BLOCK_SIZE * 2);
+		m_cells = (CELL_DATA_D1*)malloc(spool->cell_data_size[0] * SPOOL_CD_BLOCK_SIZE);
 		pFile->Seek(g_levInfo.spooldata_offset + cellDataOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
 		pFile->Read(m_cells, spool->cell_data_size[0] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
 

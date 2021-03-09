@@ -511,9 +511,12 @@ void CDriverLevelTextures::ProcessPalletLump(IVirtualStream* pFile)
 			pFile->Read(clutTablePtr, 16, sizeof(ushort));
 
 			// reference
-			TexDetailInfo_t& detail = m_texPages[data.tpage].m_details[info.texnum];
-			detail.extraCLUTs[data.palette] = &data.clut;
-			
+			if(info.texnum < m_texPages[data.tpage].GetDetailCount())
+			{
+				TexDetailInfo_t& detail = m_texPages[data.tpage].m_details[info.texnum];
+				detail.extraCLUTs[data.palette] = &data.clut;
+			}
+
 			added_cluts++;
 
 			// only in D1 we need to check count
@@ -531,8 +534,11 @@ void CDriverLevelTextures::ProcessPalletLump(IVirtualStream* pFile)
 			data.texnum[data.texcnt++] = info.texnum;
 
 			// reference
-			TexDetailInfo_t& detail = m_texPages[data.tpage].m_details[info.texnum];
-			detail.extraCLUTs[data.palette] = &data.clut;
+			if (info.texnum < m_texPages[data.tpage].GetDetailCount())
+			{
+				TexDetailInfo_t& detail = m_texPages[data.tpage].m_details[info.texnum];
+				detail.extraCLUTs[data.palette] = &data.clut;
+			}
 		}
 	}
 
