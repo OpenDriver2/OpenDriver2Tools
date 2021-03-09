@@ -15,7 +15,7 @@ TVec4D<ubyte> rgb5a1_ToBGRA8(ushort color, bool originalTransparencyKey /*= true
 	ubyte g = ((color >> 5) & 0x1F) * 8;
 	ubyte b = ((color >> 10) & 0x1F) * 8;
 
-	ubyte a = (color >> 15);
+	ubyte a = (color >> 15) * 255;
 
 	// restore source transparency key
 	if (originalTransparencyKey && color == 0)
@@ -34,7 +34,7 @@ TVec4D<ubyte> rgb5a1_ToRGBA8(ushort color, bool originalTransparencyKey /*= true
 	ubyte g = ((color >> 5) & 0x1F) * 8;
 	ubyte b = ((color >> 10) & 0x1F) * 8;
 
-	ubyte a = (color >> 15);
+	ubyte a = (color >> 15) * 255;
 
 	// restore source transparency key
 	if (originalTransparencyKey && color == 0)

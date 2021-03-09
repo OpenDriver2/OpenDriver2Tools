@@ -34,7 +34,7 @@
 	"	void main() {\n"\
 	"		vec4 lighting;\n"\
 	"		vec4 color = texture2D(s_texture, v_texcoord.xy);\n"\
-	"		if(color.r + color.g + color.b + color.a == 0.0f) discard;\n"\
+	"		if(color.a <= 0.5f) discard;\n"\
 	"		lighting = vec4(color.rgb * u_ambientColor.rgb * u_ambientColor.a, color.a);\n"\
 	"		lighting.rgb += u_lightColor.rgb * u_lightColor.a * color.rgb * max(1.0 - dot(v_normal, u_lightDir), 0);\n"\
 	"		fragColor = lighting;\n"\
