@@ -39,6 +39,17 @@ void SpewMessageToOutput(SpewType_t spewtype,char const* pMsgFormat, va_list arg
 	(g_fnConSpewFunc)(spewtype,pTempBuffer);
 }
 
+// developer message output
+void DevMsg(SpewType_t type, const char* fmt, ...)
+{
+#ifdef _DEBUG
+	va_list		argptr;
+
+	va_start(argptr, fmt);
+	SpewMessageToOutput(type, fmt, argptr);
+	va_end(argptr);
+#endif
+}
 
 // Simple messages
 void Msg(const char *fmt,...)

@@ -18,6 +18,9 @@ void Install_ConsoleSpewFunction();
 
 //---------------------------------------------------------------------------------------------------------------
 
+// developer message output
+void DevMsg(SpewType_t type, const char* fmt, ...);
+
 // simple message output
 void Msg(const char *fmt,...);
 

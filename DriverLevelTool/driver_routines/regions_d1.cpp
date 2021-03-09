@@ -25,24 +25,23 @@ void CDriver1LevelRegion::LoadRegionData(IVirtualStream* pFile, Spool* spool)
 {
 	m_spoolInfo = spool;
 
-	Msg("---------\nSpool %d %d\n", m_regionX, m_regionZ);
-	
-	Msg(" - offset: %d\n", spool->offset);
+	DevMsg(SPEW_NORM, "---------\nSpool %d %d\n", m_regionX, m_regionZ);
+	DevMsg(SPEW_NORM, " - offset: %d\n", spool->offset);
 
 	for (int i = 0; i < spool->num_connected_areas && i < 2; i++)
-		Msg(" - connected area %d: %d\n", i, spool->connected_areas[i]);
+		DevMsg(SPEW_NORM, " - connected area %d: %d\n", i, spool->connected_areas[i]);
 
-	Msg(" - pvs_size: %d\n", spool->pvs_size);
-	Msg(" - cell_data_size: %d %d %d\n", spool->cell_data_size[0], spool->cell_data_size[1], spool->cell_data_size[2]);
+	DevMsg(SPEW_NORM, " - pvs_size: %d\n", spool->pvs_size);
+	DevMsg(SPEW_NORM, " - cell_data_size: %d %d %d\n", spool->cell_data_size[0], spool->cell_data_size[1], spool->cell_data_size[2]);
 
-	Msg(" - super_region: %d\n", spool->super_region);
+	DevMsg(SPEW_NORM, " - super_region: %d\n", spool->super_region);
 
 	// LoadRegionData - calculate offsets
-	Msg(" - cell pointers size: %d\n", spool->cell_data_size[1]);
-	Msg(" - cell data size: %d\n", spool->cell_data_size[0]);
-	Msg(" - cell objects size: %d\n", spool->cell_data_size[2]);
-	Msg(" - PVS data size: %d\n", spool->pvs_size);
-	Msg(" - roadmap data size: %dx%d\n", spool->roadm_size, spool->roadh_size);
+	DevMsg(SPEW_NORM, " - cell pointers size: %d\n", spool->cell_data_size[1]);
+	DevMsg(SPEW_NORM, " - cell data size: %d\n", spool->cell_data_size[0]);
+	DevMsg(SPEW_NORM, " - cell objects size: %d\n", spool->cell_data_size[2]);
+	DevMsg(SPEW_NORM, " - PVS data size: %d\n", spool->pvs_size);
+	DevMsg(SPEW_NORM, " - roadmap data size: %dx%d\n", spool->roadm_size, spool->roadh_size);
 
 	//
 	// Driver 1 use CELL_OBJECTS directly - 16 bytes, wasteful in RAM

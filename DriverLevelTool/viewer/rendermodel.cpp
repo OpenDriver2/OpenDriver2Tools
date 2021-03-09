@@ -180,6 +180,9 @@ void CRenderModel::GenerateBuffers()
 		// find or create new batch
 		int tpageId = (dec_face.flags & FACE_TEXTURED) ? dec_face.page : -1;
 
+		if (tpageId == 255)
+			tpageId = -1;
+		
 		if(batch && batch->tpage != tpageId)
 			batch = FindBatch(batches, tpageId);
 		

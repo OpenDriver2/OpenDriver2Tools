@@ -283,7 +283,7 @@ TextureID GetHWTexture(int tpage, int pal)
 {
 	extern TextureID g_whiteTexture;
 	
-	if (tpage < 0 || tpage > 128)
+	if (tpage < 0 || tpage >= 128)
 		return g_whiteTexture;
 
 	return g_hwTexturePages[tpage][pal];

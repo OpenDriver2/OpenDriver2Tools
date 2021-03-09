@@ -90,7 +90,7 @@ void CDriverLevelModels::LoadCarModelsLump(IVirtualStream* pFile, int size)
 	int modelCount;
 	pFile->Read(&modelCount, sizeof(int), 1);
 
-	Msg("	all car models count: %d\n", modelCount);
+	DevMsg(SPEW_NORM, "	all car models count: %d\n", modelCount);
 
 	// read entries
 	carmodelentry_t model_entries[MAX_CAR_MODELS];
@@ -105,7 +105,7 @@ void CDriverLevelModels::LoadCarModelsLump(IVirtualStream* pFile, int size)
 	// load car models
 	for (int i = 0; i < MAX_CAR_MODELS; i++)
 	{
-		Msg("car model: %d %d %d\n", model_entries[i].cleanOffset != -1, model_entries[i].damOffset != -1, model_entries[i].lowOffset != -1);
+		DevMsg(SPEW_NORM, "car model: %d %d %d\n", model_entries[i].cleanOffset != -1, model_entries[i].damOffset != -1, model_entries[i].lowOffset != -1);
 
 		CarModelData_t& carModelData = m_carModels[i];
 		
@@ -190,7 +190,7 @@ void CDriverLevelModels::LoadLevelModelsLump(IVirtualStream* pFile)
 	int modelCount;
 	pFile->Read(&modelCount, sizeof(int), 1);
 
-	MsgInfo("	model count: %d\n", modelCount);
+	DevMsg(SPEW_INFO, "	model count: %d\n", modelCount);
 
 	for (int i = 0; i < modelCount; i++)
 	{
@@ -312,10 +312,7 @@ int decode_poly(const char* polyList, dpoly_t* out)
 	out->detail = 0xFF;
 	out->flags = 0;
 
-	*(uint*)&out->color[0] = 0;
-	*(uint*)&out->color[1] = 0;
-	*(uint*)&out->color[2] = 0;
-	*(uint*)&out->color[3] = 0;
+	*(uint*)&out->color = 0;
 
 	switch (ptype)
 	{
@@ -330,7 +327,7 @@ int decode_poly(const char* polyList, dpoly_t* out)
 		{
 			// F3
 			*(uint*)out->vindices = *(uint*)&polyList[1];
-
+			*(uint*)&out->color = *(uint*)&polyList[8];
 			// FIXME: read colours
 
 			out->flags = FACE_RGB; // RGB?
@@ -340,7 +337,8 @@ int decode_poly(const char* polyList, dpoly_t* out)
 		{
 			// F4
 			*(uint*)out->vindices = *(uint*)&polyList[1];
-
+			*(uint*)&out->color = *(uint*)&polyList[8];
+			
 			// FIXME: read colours
 
 			out->flags = FACE_RGB; // RGB?
@@ -359,7 +357,7 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			*(ushort*)out->uv[2] = *(ushort*)&pft3->uv2;
 
 			if(ptype != 10)
-				*(uint*)out->color = *(uint*)&pft3->color;
+				*(uint*)&out->color = *(uint*)&pft3->color;
 
 			out->page = pft3->texture_set;
 			out->detail = pft3->texture_id;
@@ -383,7 +381,7 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			*(ushort*)out->uv[3] = *(ushort*)&pft4->uv3;
 			
 			if(ptype != 11)
-				*(uint*)out->color = *(uint*)&pft4->color;
+				*(uint*)&out->color = *(uint*)&pft4->color;
 			
 			out->page = pft4->texture_set;
 			out->detail = pft4->texture_id;
@@ -404,7 +402,8 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			*(ushort*)out->uv[1] = *(ushort*)&pgt3->uv1;
 			*(ushort*)out->uv[2] = *(ushort*)&pgt3->uv2;
 
-			*(uint*)out->color = *(uint*)&pgt3->color;
+			*(uint*)&out->color = *(uint*)&pgt3->color;
+			
 			out->page = pgt3->texture_set;
 			out->detail = pgt3->texture_id;
 
@@ -423,7 +422,8 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			*(ushort*)out->uv[2] = *(ushort*)&pgt4->uv2;
 			*(ushort*)out->uv[3] = *(ushort*)&pgt4->uv3;
 
-			*(uint*)out->color = *(uint*)&pgt4->color;
+			*(uint*)&out->color = *(uint*)&pgt4->color;
+			
 			out->page = pgt4->texture_set;
 			out->detail = pgt4->texture_id;
 			out->flags = FACE_IS_QUAD | FACE_VERT_NORMAL | FACE_TEXTURED;

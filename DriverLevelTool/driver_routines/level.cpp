@@ -73,13 +73,13 @@ void DetectLevelFormat(IVirtualStream* pFile)
 				break;
 			case LUMP_JUNCTIONS2:
 			{
-				MsgInfo("Assuming it's a 'Driver 2 DEMO' 1.6 alpha LEV file\n");
+				MsgInfo("Detected 'Driver 2 DEMO' 1.6 alpha LEV file\n");
 				g_format = LEV_FORMAT_DRIVER2_ALPHA16; // as it is an old junction format - it's clearly a alpha 1.6 level
 				break;
 			}
 			case LUMP_JUNCTIONS2_NEW:
 			{
-				MsgInfo("Assuming it's a 'Driver 2' final LEV file\n");
+				MsgInfo("Detected 'Driver 2' final LEV file\n");
 				g_format = LEV_FORMAT_DRIVER2_RETAIL; // most recent LEV file
 				break;
 			}
@@ -92,7 +92,7 @@ void DetectLevelFormat(IVirtualStream* pFile)
 			case LUMP_SUBDIVISION:
 			default: // maybe Lump 11?
 			{
-				MsgInfo("Assuming it's a 'Driver 1' LEV file\n");
+				MsgInfo("Detected 'Driver 1' LEV file\n");
 				g_format = LEV_FORMAT_DRIVER1;
 				break;
 			}
@@ -150,67 +150,67 @@ void ProcessLumps(IVirtualStream* pFile)
 		switch (lump.type)
 		{
 			case LUMP_MODELS:
-				MsgWarning("LUMP_MODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_MODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				g_levModels.LoadLevelModelsLump(pFile);
 				break;
 			case LUMP_MAP:
-				MsgWarning("LUMP_MAP ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_MAP ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				g_levMap->LoadMapLump(pFile);
 				break;
 			case LUMP_TEXTURENAMES:
-				MsgWarning("LUMP_TEXTURENAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_TEXTURENAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				g_levTextures.LoadTextureNamesLump(pFile, lump.size);
 				break;
 			case LUMP_MODELNAMES:
-				MsgWarning("LUMP_MODELNAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_MODELNAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				g_levModels.LoadModelNamesLump(pFile, lump.size);
 				break;
 			case LUMP_SUBDIVISION:
-				MsgWarning("LUMP_SUBDIVISION ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_SUBDIVISION ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_LOWDETAILTABLE:
-				MsgWarning("LUMP_LOWDETAILTABLE ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_LOWDETAILTABLE ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_MOTIONCAPTURE:
-				MsgWarning("LUMP_MOTIONCAPTURE ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_MOTIONCAPTURE ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_OVERLAYMAP:
-				MsgWarning("LUMP_OVERLAYMAP ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_OVERLAYMAP ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				LoadOverlayMapLump(pFile, lump.size);
 				break;
 			case LUMP_PALLET:
-				MsgWarning("LUMP_PALLET ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_PALLET ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				g_levTextures.ProcessPalletLump(pFile);
 				break;
 			case LUMP_SPOOLINFO:
-				MsgWarning("LUMP_SPOOLINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_SPOOLINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				g_levMap->LoadSpoolInfoLump(pFile);
 				break;
 			case LUMP_STRAIGHTS2:
-				MsgWarning("LUMP_STRAIGHTS2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_STRAIGHTS2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_CURVES2:
-				MsgWarning("LUMP_CURVES2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_CURVES2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_JUNCTIONS2:
-				MsgWarning("LUMP_JUNCTIONS2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_JUNCTIONS2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_JUNCTIONS2_NEW:
-				MsgWarning("LUMP_JUNCTIONS2_NEW ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_JUNCTIONS2_NEW ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_CHAIR:
-				MsgWarning("LUMP_CHAIR ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_CHAIR ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_CAR_MODELS:
-				MsgWarning("LUMP_CAR_MODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_CAR_MODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				g_levModels.LoadCarModelsLump(pFile, lump.size);
 				break;
 			case LUMP_TEXTUREINFO:
-				MsgWarning("LUMP_TEXTUREINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_TEXTUREINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				g_levTextures.LoadTextureInfoLump(pFile);
 				break;
 			default:
-				MsgInfo("LUMP type: %d (0x%X) ofs=%d size=%d\n", lump.type, lump.type, pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP type: %d (0x%X) ofs=%d size=%d\n", lump.type, lump.type, pFile->Tell(), lump.size);
 		}
 
 		// skip lump
@@ -251,7 +251,7 @@ void LoadLevelFile(const char* filename)
 	// seek to begin
 	g_levStream->Seek(0, VS_SEEK_SET);
 
-	MsgWarning("-----------\nloading lev file '%s'\n", filename);
+	MsgWarning("-----------\nLoading LEV file '%s'\n", filename);
 
 	std::string fileName = filename;
 
@@ -273,17 +273,17 @@ void LoadLevelFile(const char* filename)
 	// read chunk offsets
 	g_levStream->Read(&g_levInfo, sizeof(dlevinfo_t), 1);
 
-	Msg("levdesc_offset = %d\n", g_levInfo.levdesc_offset);
-	Msg("levdesc_size = %d\n", g_levInfo.levdesc_size);
+	DevMsg(SPEW_NORM, "levdesc_offset = %d\n", g_levInfo.levdesc_offset);
+	DevMsg(SPEW_NORM, "levdesc_size = %d\n", g_levInfo.levdesc_size);
 
-	Msg("texdata_offset = %d\n", g_levInfo.texdata_offset);
-	Msg("texdata_size = %d\n", g_levInfo.texdata_size);
+	DevMsg(SPEW_NORM, "texdata_offset = %d\n", g_levInfo.texdata_offset);
+	DevMsg(SPEW_NORM, "texdata_size = %d\n", g_levInfo.texdata_size);
 
-	Msg("levdata_offset = %d\n", g_levInfo.levdata_offset);
-	Msg("levdata_size = %d\n", g_levInfo.levdata_size);
+	DevMsg(SPEW_NORM, "levdata_offset = %d\n", g_levInfo.levdata_offset);
+	DevMsg(SPEW_NORM, "levdata_size = %d\n", g_levInfo.levdata_size);
 
-	Msg("spooldata_offset = %d\n", g_levInfo.spooldata_offset);
-	Msg("spooldata_size = %d\n", g_levInfo.spooldata_size);
+	DevMsg(SPEW_NORM, "spooldata_offset = %d\n", g_levInfo.spooldata_offset);
+	DevMsg(SPEW_NORM, "spooldata_size = %d\n", g_levInfo.spooldata_size);
 
 	// read cells
 
@@ -299,7 +299,7 @@ void LoadLevelFile(const char* filename)
 		MsgError("Not a LUMP_LEVELDESC!\n");
 	}
 
-	MsgInfo("entering LUMP_LEVELDESC size = %d\n--------------\n", curLump.size);
+	DevMsg(SPEW_INFO, "entering LUMP_LEVELDESC size = %d\n--------------\n", curLump.size);
 
 	// read sublumps
 	ProcessLumps(g_levStream);
@@ -321,7 +321,7 @@ void LoadLevelFile(const char* filename)
 		MsgError("Not a lump 0x24!\n");
 	}
 
-	MsgInfo("entering LUMP_LEVELDATA size = %d\n--------------\n", curLump.size);
+	DevMsg(SPEW_INFO, "entering LUMP_LEVELDATA size = %d\n--------------\n", curLump.size);
 
 	// read sublumps
 	ProcessLumps(g_levStream);

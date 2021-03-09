@@ -35,7 +35,7 @@ struct dpoly_t
 	ubyte	vindices[4];
 	ubyte	uv[4][2];
 	ubyte	nindices[4];
-	CVECTOR	color[4];
+	CVECTOR	color;
 	// something more?
 };
 

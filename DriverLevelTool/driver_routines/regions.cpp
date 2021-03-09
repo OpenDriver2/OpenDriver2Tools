@@ -214,20 +214,20 @@ void CBaseLevelMap::LoadMapLump(IVirtualStream* pFile)
 	pFile->Read(&m_mapInfo, 1, sizeof(OUT_CELL_FILE_HEADER));
 
 	Msg("Level dimensions[%d %d], cell size: %d\n", m_mapInfo.cells_across, m_mapInfo.cells_down, m_mapInfo.cell_size);
-	Msg(" - num_regions: %d\n", m_mapInfo.num_regions);
-	Msg(" - region_size in cells: %d\n", m_mapInfo.region_size);
+	DevMsg(SPEW_NORM," - num_regions: %d\n", m_mapInfo.num_regions);
+	DevMsg(SPEW_NORM, " - region_size in cells: %d\n", m_mapInfo.region_size);
 
 	int dim_x = m_mapInfo.cells_across / m_mapInfo.region_size;
 	int dim_y = m_mapInfo.cells_down / m_mapInfo.region_size;
 
 	Msg("World size:\n [%dx%d] cells\n [%dx%d] regions\n", m_mapInfo.cells_across, m_mapInfo.cells_down, dim_x, dim_y);
 
-	Msg(" - num_cell_objects : %d\n", m_mapInfo.num_cell_objects);
-	Msg(" - num_cell_data: %d\n", m_mapInfo.num_cell_data);
+	DevMsg(SPEW_NORM, " - num_cell_objects : %d\n", m_mapInfo.num_cell_objects);
+	DevMsg(SPEW_NORM, " - num_cell_data: %d\n", m_mapInfo.num_cell_data);
 
 	// ProcessMapLump
 	pFile->Read(&m_numStraddlers, 1, sizeof(m_numStraddlers));
-	Msg(" - num straddler cells: %d\n", m_numStraddlers);
+	DevMsg(SPEW_NORM, " - num straddler cells: %d\n", m_numStraddlers);
 
 	const int pvs_square = 21;
 	const int pvs_square_sq = pvs_square * pvs_square;
@@ -244,18 +244,18 @@ void CBaseLevelMap::LoadSpoolInfoLump(IVirtualStream* pFile)
 {
 	int model_spool_buffer_size;
 	pFile->Read(&model_spool_buffer_size, 1, sizeof(int));
-	Msg("model_spool_buffer_size = %d * SPOOL_CD_BLOCK_SIZE\n", model_spool_buffer_size);
+	DevMsg(SPEW_NORM, "model_spool_buffer_size = %d * SPOOL_CD_BLOCK_SIZE\n", model_spool_buffer_size);
 
 	int Music_And_AmbientOffsetsSize;
 	pFile->Read(&Music_And_AmbientOffsetsSize, 1, sizeof(int));
-	Msg("Music_And_AmbientOffsetsSize = %d\n", Music_And_AmbientOffsetsSize);
+	DevMsg(SPEW_NORM, "Music_And_AmbientOffsetsSize = %d\n", Music_And_AmbientOffsetsSize);
 
 	// move further
 	// this was probably used in early D1 level files for sound banks
 	pFile->Seek(Music_And_AmbientOffsetsSize, VS_SEEK_CUR);
 
 	pFile->Read(&m_numAreas, 1, sizeof(int));
-	Msg("NumAreas = %d\n", m_numAreas);
+	DevMsg(SPEW_NORM, "NumAreas = %d\n", m_numAreas);
 
 	m_areaData = new AreaDataStr[m_numAreas];
 	m_areaTPages = new AreaTPage_t[m_numAreas];
@@ -297,18 +297,18 @@ void CBaseLevelMap::LoadSpoolInfoLump(IVirtualStream* pFile)
 		m_PVS_size[i] = pvs_size + 0x7ff & 0xfffff800;
 	}
 
-	Msg("cell_slots_add = {%d,%d,%d,%d}\n", m_cell_slots_add[0], m_cell_slots_add[1], m_cell_slots_add[2], m_cell_slots_add[3]);
-	Msg("cell_objects_add = {%d,%d,%d,%d}\n", m_cell_objects_add[0], m_cell_objects_add[1], m_cell_objects_add[2], m_cell_objects_add[3]);
-	Msg("PVS_size = {%d,%d,%d,%d}\n", m_PVS_size[0], m_PVS_size[1], m_PVS_size[2], m_PVS_size[3]);
+	DevMsg(SPEW_NORM, "cell_slots_add = {%d,%d,%d,%d}\n", m_cell_slots_add[0], m_cell_slots_add[1], m_cell_slots_add[2], m_cell_slots_add[3]);
+	DevMsg(SPEW_NORM, "cell_objects_add = {%d,%d,%d,%d}\n", m_cell_objects_add[0], m_cell_objects_add[1], m_cell_objects_add[2], m_cell_objects_add[3]);
+	DevMsg(SPEW_NORM, "PVS_size = {%d,%d,%d,%d}\n", m_PVS_size[0], m_PVS_size[1], m_PVS_size[2], m_PVS_size[3]);
 
 	// ... but InitCellData is here
 	{
 		int maxCellData = m_numStraddlers + m_cell_slots_add[4];
-		Msg("*** MAX cell slots = %d\n", maxCellData);
+		DevMsg(SPEW_NORM, "*** MAX cell slots = %d\n", maxCellData);
 
 		// I don't have any idea
 		pFile->Read(&m_numSpoolInfoOffsets, 1, sizeof(int));
-		Msg("numRegionOffsets: %d\n", m_numSpoolInfoOffsets);
+		DevMsg(SPEW_NORM, "numRegionOffsets: %d\n", m_numSpoolInfoOffsets);
 	}
 
 	m_regionSpoolInfoOffsets = new ushort[m_numSpoolInfoOffsets];
@@ -320,7 +320,7 @@ void CBaseLevelMap::LoadSpoolInfoLump(IVirtualStream* pFile)
 
 	//ASSERT(regionsInfoSize % sizeof(REGIONINFO) == 0);
 
-	Msg("Region spool count %d (size=%d bytes)\n", m_numRegionSpools, regionsInfoSize);
+	DevMsg(SPEW_NORM, "Region spool count %d (size=%d bytes)\n", m_numRegionSpools, regionsInfoSize);
 
 	m_regionSpoolInfo = (Spool*)malloc(regionsInfoSize);
 	pFile->Read(m_regionSpoolInfo, 1, regionsInfoSize);
@@ -375,7 +375,7 @@ void CBaseLevelMap::LoadInAreaModels(IVirtualStream* pFile, int areaDataNum) con
 	ushort* new_model_numbers = new ushort[numModels];
 	pFile->Read(new_model_numbers, numModels, sizeof(short));
 
-	MsgInfo("	model count: %d\n", numModels);
+	DevMsg(SPEW_INFO, "	model count: %d\n", numModels);
 	pFile->Seek(modelsOffset, VS_SEEK_SET);
 
 	for (int i = 0; i < numModels; i++)

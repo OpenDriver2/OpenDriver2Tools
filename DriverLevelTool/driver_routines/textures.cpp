@@ -268,7 +268,7 @@ bool CTexturePage::LoadTPageAndCluts(IVirtualStream* pFile, bool isSpooled)
 	}
 
 	m_bitmap.rsize = pFile->Tell() - rStart;
-	Msg("PAGE %d (%s) datasize=%d\n", m_id, isSpooled ? "spooled" : "compressed", m_bitmap.rsize);
+	DevMsg(SPEW_NORM, "PAGE %d (%s) datasize=%d\n", m_id, isSpooled ? "spooled" : "compressed", m_bitmap.rsize);
 
 	m_owner->OnTexturePageLoaded(this);
 	
@@ -335,7 +335,7 @@ void CDriverLevelTextures::LoadPermanentTPages(IVirtualStream* pFile)
 	
 	//-----------------------------------
 
-	Msg("Loading permanent texture pages (%d)\n", m_numPermanentPages);
+	DevMsg(SPEW_NORM,"Loading permanent texture pages (%d)\n", m_numPermanentPages);
 
 	// simulate sectors
 	// convert current file offset to sectors
@@ -363,7 +363,7 @@ void CDriverLevelTextures::LoadPermanentTPages(IVirtualStream* pFile)
 
 	// Driver 2 - special cars only
 	// Driver 1 - only player cars
-	Msg("Loading special/car texture pages (%d)\n", m_numSpecPages);
+	DevMsg(SPEW_NORM, "Loading special/car texture pages (%d)\n", m_numSpecPages);
 
 	// load compressed spec pages
 	// those are non-spooled ones
@@ -394,8 +394,8 @@ void CDriverLevelTextures::LoadTextureInfoLump(IVirtualStream* pFile)
 	int numTextures;
 	pFile->Read(&numTextures, 1, sizeof(int));
 
-	Msg("TPage count: %d\n", numPages);
-	Msg("Texture amount: %d\n", numTextures);
+	DevMsg(SPEW_NORM, "TPage count: %d\n", numPages);
+	DevMsg(SPEW_NORM, "Texture amount: %d\n", numTextures);
 
 	// read array of texutre page info
 	TEXPAGE_POS* tpage_position = new TEXPAGE_POS[numPages + 1];
@@ -414,7 +414,7 @@ void CDriverLevelTextures::LoadTextureInfoLump(IVirtualStream* pFile)
 	}
 
 	pFile->Read(&m_numPermanentPages, 1, sizeof(int));
-	Msg("Permanent TPages = %d\n", m_numPermanentPages);
+	DevMsg(SPEW_NORM,"Permanent TPages = %d\n", m_numPermanentPages);
 	pFile->Read(m_permsList, 16, sizeof(XYPAIR));
 
 	// Driver 2 - special cars only
@@ -422,7 +422,7 @@ void CDriverLevelTextures::LoadTextureInfoLump(IVirtualStream* pFile)
 	pFile->Read(&m_numSpecPages, 1, sizeof(int));
 	pFile->Read(m_specList, 16, sizeof(XYPAIR));
 
-	Msg("Special/Car TPages = %d\n", m_numSpecPages);
+	DevMsg(SPEW_NORM,"Special/Car TPages = %d\n", m_numSpecPages);
 
 	pFile->Seek(l_ofs, VS_SEEK_SET);
 
@@ -474,7 +474,7 @@ void CDriverLevelTextures::ProcessPalletLump(IVirtualStream* pFile)
 	m_extraPalettes = new ExtClutData_t[total_cluts + 1];
 	memset(m_extraPalettes, 0, sizeof(ExtClutData_t) * total_cluts);
 
-	Msg("total_cluts: %d\n", total_cluts);
+	DevMsg(SPEW_NORM, "total_cluts: %d\n", total_cluts);
 
 	int added_cluts = 0;
 	while (true)
@@ -542,7 +542,7 @@ void CDriverLevelTextures::ProcessPalletLump(IVirtualStream* pFile)
 		}
 	}
 
-	Msg("    added: %d\n", added_cluts);
+	DevMsg(SPEW_NORM,"    added: %d\n", added_cluts);
 	m_numExtraPalettes = added_cluts;
 
 	pFile->Seek(l_ofs, VS_SEEK_SET);
