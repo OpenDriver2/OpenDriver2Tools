@@ -354,9 +354,9 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			POLYFT3* pft3 = (POLYFT3*)polyList;
 
 			*(uint*)out->vindices = *(uint*)&pft3->v0;
-			*(ushort*)out->uv[0] = *(uint*)&pft3->uv0;
-			*(ushort*)out->uv[1] = *(uint*)&pft3->uv1;
-			*(ushort*)out->uv[2] = *(uint*)&pft3->uv2;
+			*(ushort*)out->uv[0] = *(ushort*)&pft3->uv0;
+			*(ushort*)out->uv[1] = *(ushort*)&pft3->uv1;
+			*(ushort*)out->uv[2] = *(ushort*)&pft3->uv2;
 
 			if(ptype != 10)
 				*(uint*)out->color = *(uint*)&pft3->color;
@@ -377,18 +377,18 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			POLYFT4* pft4 = (POLYFT4*)polyList;
 
 			*(uint*)out->vindices = *(uint*)&pft4->v0;
-			*(ushort*)out->uv[0] = *(uint*)&pft4->uv0;
-			*(ushort*)out->uv[1] = *(uint*)&pft4->uv1;
-			*(ushort*)out->uv[2] = *(uint*)&pft4->uv2;
-			*(ushort*)out->uv[3] = *(uint*)&pft4->uv3;
-
+			*(ushort*)out->uv[0] = *(ushort*)&pft4->uv0;
+			*(ushort*)out->uv[1] = *(ushort*)&pft4->uv1;
+			*(ushort*)out->uv[2] = *(ushort*)&pft4->uv2;
+			*(ushort*)out->uv[3] = *(ushort*)&pft4->uv3;
+			
 			if(ptype != 11)
 				*(uint*)out->color = *(uint*)&pft4->color;
 			
 			out->page = pft4->texture_set;
 			out->detail = pft4->texture_id;
 
-			//SwapValues(out->vindices[2], out->vindices[3]);
+			//SwapValues(out->uv[2], out->uv[3]);
 
 			out->flags = FACE_IS_QUAD | FACE_TEXTURED;
 
@@ -400,9 +400,9 @@ int decode_poly(const char* polyList, dpoly_t* out)
 
 			*(uint*)out->vindices = *(uint*)&pgt3->v0;
 			*(uint*)out->nindices = *(uint*)&pgt3->n0;
-			*(ushort*)out->uv[0] = *(uint*)&pgt3->uv0;
-			*(ushort*)out->uv[1] = *(uint*)&pgt3->uv1;
-			*(ushort*)out->uv[2] = *(uint*)&pgt3->uv2;
+			*(ushort*)out->uv[0] = *(ushort*)&pgt3->uv0;
+			*(ushort*)out->uv[1] = *(ushort*)&pgt3->uv1;
+			*(ushort*)out->uv[2] = *(ushort*)&pgt3->uv2;
 
 			*(uint*)out->color = *(uint*)&pgt3->color;
 			out->page = pgt3->texture_set;
@@ -418,10 +418,10 @@ int decode_poly(const char* polyList, dpoly_t* out)
 
 			*(uint*)out->vindices = *(uint*)&pgt4->v0;
 			*(uint*)out->nindices = *(uint*)&pgt4->n0;
-			*(ushort*)out->uv[0] = *(uint*)&pgt4->uv0;
-			*(ushort*)out->uv[1] = *(uint*)&pgt4->uv1;
-			*(ushort*)out->uv[2] = *(uint*)&pgt4->uv2;
-			*(ushort*)out->uv[3] = *(uint*)&pgt4->uv3;
+			*(ushort*)out->uv[0] = *(ushort*)&pgt4->uv0;
+			*(ushort*)out->uv[1] = *(ushort*)&pgt4->uv1;
+			*(ushort*)out->uv[2] = *(ushort*)&pgt4->uv2;
+			*(ushort*)out->uv[3] = *(ushort*)&pgt4->uv3;
 
 			*(uint*)out->color = *(uint*)&pgt4->color;
 			out->page = pgt4->texture_set;

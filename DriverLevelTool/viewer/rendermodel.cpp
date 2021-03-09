@@ -61,6 +61,10 @@ int FindGrVertexIndex(const DkList<vertexTuple_t>& whereFind, int flags, int ver
 			if (whereFind[i].normalIndex != normalIndex)
 				continue;
 		}
+		else
+		{
+			return -1;
+		}
 
 		if (flags & FACE_TEXTURED)
 		{
@@ -216,6 +220,7 @@ void CRenderModel::GenerateBuffers()
 				vertMap.flags = vflags;
 				vertMap.normalIndex = -1;
 				vertMap.vertexIndex = dec_face.vindices[VERT_IDX];
+				vertMap.uvs = *(ushort*)dec_face.uv[VERT_IDX];
 				
 				// get the vertex
 				SVECTOR* vert = vertex_ref->pVertex(dec_face.vindices[VERT_IDX]);
