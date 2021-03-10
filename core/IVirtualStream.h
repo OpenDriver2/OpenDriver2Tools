@@ -5,6 +5,8 @@
 
 enum VirtStreamType_e
 {
+	VS_TYPE_INVALID = -1,
+
 	VS_TYPE_MEMORY = 0,
 	VS_TYPE_FILE,
 	VS_TYPE_FILE_PACKAGE,

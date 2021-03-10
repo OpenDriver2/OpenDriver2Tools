@@ -203,8 +203,10 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 				UV_INFO uv = *(UV_INFO*)dec_face.uv[VERT_IDX];
 
 				float fsU, fsV;
-				fsU = float(uv.u / 2) / 128.0f;		// do /2 and *2 as textures were already 4 bit
-				fsV = float(uv.v) / 256.0f;
+				
+				// map to 0..1
+				fsU = ((float)uv.u + 0.5f) / 256.0f;
+				fsV = ((float)uv.v + 0.5f) / 256.0f;
 
 				pStream->Print("vt %g %g\r\n", fsU, 1.0f - fsV);
 

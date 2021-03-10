@@ -101,7 +101,7 @@ ShaderID	GR_CompileShader(const char* source);
 void		GR_BeginScene();
 void		GR_EndScene();
 
-void		GR_ClearColor(int r, int g, int b);
+void		GR_ClearColor(float r, float g, float b);
 void		GR_ClearDepth(float depth);
 
 void		GR_SetViewPort(int x, int y, int width, int height);

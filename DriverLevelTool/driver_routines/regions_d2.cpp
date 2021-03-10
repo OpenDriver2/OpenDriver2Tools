@@ -23,26 +23,24 @@ void CDriver2LevelRegion::FreeAll()
 	m_cellObjects = nullptr;
 }
 
-void CDriver2LevelRegion::LoadRegionData(IVirtualStream* pFile, Spool* spool)
+void CDriver2LevelRegion::LoadRegionData(IVirtualStream* pFile)
 {
-	m_spoolInfo = spool;
-
 	DevMsg(SPEW_NORM,"---------\nSpool %d %d\n", m_regionX, m_regionZ);
-	DevMsg(SPEW_NORM," - offset: %d\n", spool->offset);
+	DevMsg(SPEW_NORM," - offset: %d\n", m_spoolInfo->offset);
 
-	for (int i = 0; i < spool->num_connected_areas && i < 2; i++)
-		DevMsg(SPEW_NORM, " - connected area %d: %d\n", i, spool->connected_areas[i]);
+	for (int i = 0; i < m_spoolInfo->num_connected_areas && i < 2; i++)
+		DevMsg(SPEW_NORM, " - connected area %d: %d\n", i, m_spoolInfo->connected_areas[i]);
 
-	DevMsg(SPEW_NORM," - pvs_size: %d\n", spool->pvs_size);
-	DevMsg(SPEW_NORM," - cell_data_size: %d %d %d\n", spool->cell_data_size[0], spool->cell_data_size[1], spool->cell_data_size[2]);
+	DevMsg(SPEW_NORM," - pvs_size: %d\n", m_spoolInfo->pvs_size);
+	DevMsg(SPEW_NORM," - cell_data_size: %d %d %d\n", m_spoolInfo->cell_data_size[0], m_spoolInfo->cell_data_size[1], m_spoolInfo->cell_data_size[2]);
 
-	DevMsg(SPEW_NORM, " - super_region: %d\n", spool->super_region);
+	DevMsg(SPEW_NORM, " - super_region: %d\n", m_spoolInfo->super_region);
 
 	// LoadRegionData - calculate offsets
-	DevMsg(SPEW_NORM, " - cell pointers size: %d\n", spool->cell_data_size[1]);
-	DevMsg(SPEW_NORM, " - cell data size: %d\n", spool->cell_data_size[0]);
-	DevMsg(SPEW_NORM, " - cell objects size: %d\n", spool->cell_data_size[2]);
-	DevMsg(SPEW_NORM, " - PVS data size: %d\n", spool->roadm_size);
+	DevMsg(SPEW_NORM, " - cell pointers size: %d\n", m_spoolInfo->cell_data_size[1]);
+	DevMsg(SPEW_NORM, " - cell data size: %d\n", m_spoolInfo->cell_data_size[0]);
+	DevMsg(SPEW_NORM, " - cell objects size: %d\n", m_spoolInfo->cell_data_size[2]);
+	DevMsg(SPEW_NORM, " - PVS data size: %d\n", m_spoolInfo->roadm_size);
 
 	//
 	// Driver 2 use PACKED_CELL_OBJECTS - 8 bytes. not wasting, but tricky
@@ -55,40 +53,40 @@ void CDriver2LevelRegion::LoadRegionData(IVirtualStream* pFile, Spool* spool)
 
 	if (g_format == LEV_FORMAT_DRIVER2_RETAIL) // retail
 	{
-		cellPointersOffset = spool->offset; // SKIP PVS buffers, no need rn...
-		cellDataOffset = cellPointersOffset + spool->cell_data_size[1];
-		cellObjectsOffset = cellDataOffset + spool->cell_data_size[0];
-		pvsDataOffset = cellObjectsOffset + spool->cell_data_size[2];
+		cellPointersOffset = m_spoolInfo->offset; // SKIP PVS buffers, no need rn...
+		cellDataOffset = cellPointersOffset + m_spoolInfo->cell_data_size[1];
+		cellObjectsOffset = cellDataOffset + m_spoolInfo->cell_data_size[0];
+		pvsDataOffset = cellObjectsOffset + m_spoolInfo->cell_data_size[2];
 	}
 	else // 1.6 alpha
 	{
-		cellPointersOffset = spool->offset + spool->roadm_size;
-		cellDataOffset = cellPointersOffset + spool->cell_data_size[1];
-		cellObjectsOffset = cellDataOffset + spool->cell_data_size[0];
-		pvsDataOffset = cellObjectsOffset + spool->cell_data_size[2];
+		cellPointersOffset = m_spoolInfo->offset + m_spoolInfo->roadm_size;
+		cellDataOffset = cellPointersOffset + m_spoolInfo->cell_data_size[1];
+		cellObjectsOffset = cellDataOffset + m_spoolInfo->cell_data_size[0];
+		pvsDataOffset = cellObjectsOffset + m_spoolInfo->cell_data_size[2];
 	}
 
-	char* packed_cell_pointers = new char[spool->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE];
+	char* packed_cell_pointers = new char[m_spoolInfo->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE];
 
 	m_cellPointers = new ushort[m_owner->m_cell_objects_add[5]];
 	memset(m_cellPointers, 0xFF, sizeof(ushort) * m_owner->m_cell_objects_add[5]);
 
 	// read packed cell pointers
 	pFile->Seek(g_levInfo.spooldata_offset + cellPointersOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
-	pFile->Read(packed_cell_pointers, spool->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
+	pFile->Read(packed_cell_pointers, m_spoolInfo->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
 
 	// unpack cell pointers so we can use them
 	if (UnpackCellPointers(m_cellPointers, packed_cell_pointers, 0, 0) != -1)
 	{
 		// read cell data
-		m_cells = (CELL_DATA*)malloc(spool->cell_data_size[0] * SPOOL_CD_BLOCK_SIZE);
+		m_cells = (CELL_DATA*)malloc(m_spoolInfo->cell_data_size[0] * SPOOL_CD_BLOCK_SIZE);
 		pFile->Seek(g_levInfo.spooldata_offset + cellDataOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
-		pFile->Read(m_cells, spool->cell_data_size[0] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
+		pFile->Read(m_cells, m_spoolInfo->cell_data_size[0] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
 
 		// read cell objects
-		m_cellObjects = (PACKED_CELL_OBJECT*)malloc(spool->cell_data_size[2] * SPOOL_CD_BLOCK_SIZE);
+		m_cellObjects = (PACKED_CELL_OBJECT*)malloc(m_spoolInfo->cell_data_size[2] * SPOOL_CD_BLOCK_SIZE);
 		pFile->Seek(g_levInfo.spooldata_offset + cellObjectsOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
-		pFile->Read(m_cellObjects, spool->cell_data_size[2] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
+		pFile->Read(m_cellObjects, m_spoolInfo->cell_data_size[2] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
 	}
 	else
 		MsgError("BAD PACKED CELL POINTER DATA, region = %d\n", m_regionNumber);
@@ -118,6 +116,55 @@ PACKED_CELL_OBJECT* CDriver2LevelRegion::GetCellObject(int num) const
 	return &owner->m_straddlers[num];
 }
 
+CELL_DATA* CDriver2LevelRegion::GetCellData(int num) const
+{
+	return &m_cells[num];
+}
+
+// cell iterator
+PACKED_CELL_OBJECT* CDriver2LevelRegion::StartIterator(CELL_ITERATOR* iterator, int cellNumber) const
+{
+	ushort cell_ptr = m_cellPointers[cellNumber];
+
+	if (cell_ptr == 0xFFFF)
+		return nullptr;
+
+	const OUT_CELL_FILE_HEADER& mapInfo = m_owner->m_mapInfo;
+
+	iterator->region = (CDriver2LevelRegion*)this;
+
+	// IDK if it gonna work correct
+	XZPAIR cpos;
+	m_owner->WorldPositionToCellXZ(cpos, {0,0,0});
+
+	// convert cell number to XZ
+	int cellx = cellNumber % mapInfo.region_size;
+	int cellz = (cellNumber - cellx) / mapInfo.region_size;
+
+	cellx += m_regionX * mapInfo.region_size;
+	cellz += m_regionZ * mapInfo.region_size;
+	
+	// get the near cell position in the world
+	iterator->nearCell.x = (cellx - (mapInfo.cells_across / 2))* mapInfo.cell_size;
+	iterator->nearCell.z = (cellz - (mapInfo.cells_down / 2))* mapInfo.cell_size;
+
+	// get the packed cell data start and near cell
+	CELL_DATA& cell = m_cells[cell_ptr];
+
+	if (cell.num & 0x4000) // FIXME: other objects are flagged with 0x8000 etc
+		return nullptr;
+
+	PACKED_CELL_OBJECT* ppco = GetCellObject(cell.num & 0x3fff);
+
+	iterator->pcd = &cell;
+
+	if (ppco->value == 0xffff && (ppco->pos.vy & 1))
+		ppco = ((CDriver2LevelMap*)m_owner)->GetNextPackedCop(iterator);
+
+	iterator->ppco = ppco;
+
+	return ppco;
+}
 
 //-------------------------------------------------------------------------------------------
 
@@ -178,18 +225,7 @@ void CDriver2LevelMap::LoadSpoolInfoLump(IVirtualStream* pFile)
 	m_regions = new CDriver2LevelRegion[total_regions];
 
 	for (int i = 0; i < total_regions; i++)
-	{
-		CDriver2LevelRegion& region = m_regions[i];
-		
-		const int region_x = i % m_regions_across;
-		const int region_z = (i - region_x) / m_regions_across;
-
-		region.m_owner = this;
-		region.m_regionX = region_x;
-		region.m_regionZ = region_z;
-		region.m_regionNumber = i;
-		region.m_regionBarrelNumber = (region_x & 1) + (region_z & 1) * 2;
-	}
+		InitRegion(&m_regions[i], i);
 
 	// seek back
 	pFile->Seek(l_ofs, VS_SEEK_SET);
@@ -217,8 +253,7 @@ void CDriver2LevelMap::SpoolRegion(const XZPAIR& cell)
 	{
 		if (m_regionSpoolInfoOffsets[region->m_regionNumber] != REGION_EMPTY)
 		{
-			Spool* spool = (Spool*)((ubyte*)m_regionSpoolInfo + m_regionSpoolInfoOffsets[region->m_regionNumber]);
-			region->LoadRegionData(g_levStream, spool);
+			region->LoadRegionData(g_levStream);
 			region->LoadAreaData(g_levStream);
 		}
 		else
@@ -234,8 +269,7 @@ void CDriver2LevelMap::SpoolRegion(int regionIdx)
 	{
 		if (m_regionSpoolInfoOffsets[region->m_regionNumber] != REGION_EMPTY)
 		{
-			Spool* spool = (Spool*)((ubyte*)m_regionSpoolInfo + m_regionSpoolInfoOffsets[region->m_regionNumber]);
-			region->LoadRegionData(g_levStream, spool);
+			region->LoadRegionData(g_levStream);
 			region->LoadAreaData(g_levStream);
 		}
 		else
@@ -281,7 +315,7 @@ PACKED_CELL_OBJECT* CDriver2LevelMap::GetFirstPackedCop(CELL_ITERATOR* iterator,
 	// get the packed cell data start and near cell
 	CELL_DATA& cell = region.m_cells[cell_ptr];
 
-	if (cell.num & 0x4000)
+	if (cell.num & 0x4000) // FIXME: other objects are flagged with 0x8000 etc
 		return nullptr;
 
 	PACKED_CELL_OBJECT* ppco = region.GetCellObject(cell.num & 0x3fff);
@@ -311,7 +345,7 @@ PACKED_CELL_OBJECT* CDriver2LevelMap::GetNextPackedCop(CELL_ITERATOR* iterator) 
 		iterator->pcd++;
 		num = iterator->pcd->num;
 
-		if (num & 0x4000)
+		if (num & 0x4000) // FIXME: other objects are flagged with 0x8000 etc
 			return nullptr;
 
 		ppco = iterator->region->GetCellObject(num & 0x3fff);

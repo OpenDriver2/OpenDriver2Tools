@@ -5,6 +5,9 @@
 #include "core/VirtualStream.h"
 #include "util/util.h"
 
+#include "driver_routines/regions_d1.h"
+#include "driver_routines/regions_d2.h"
+
 #include "math/Matrix.h"
 
 extern bool						g_export_models;
@@ -23,6 +26,118 @@ PACKED_CELL_OBJECT g_packed_cell_objects[16384];
 // Driver 1
 CELL_OBJECT g_cell_objects[16384];
 
+//-------------------------------------------------------------
+// Processes Driver 1 region
+//-------------------------------------------------------------
+int ExportRegionDriver1(CDriver1LevelRegion* region, IVirtualStream* cellsFileStream, IVirtualStream* levelFileStream, int& lobj_first_v, int& lobj_first_t)
+{
+	CDriver1LevelMap* levMapDriver1 = (CDriver1LevelMap*)g_levMap;
+	const OUT_CELL_FILE_HEADER& mapInfo = levMapDriver1->GetMapInfo();
+
+	int numRegionObjects = 0;
+	
+	// walk through all cell data
+	for(int i = 0; i < mapInfo.region_size * mapInfo.region_size; i++)
+	{	
+		CELL_ITERATOR_D1 iterator;
+		CELL_OBJECT* co = region->StartIterator(&iterator, i);
+
+		if (!co)
+			continue;
+
+		while(co)
+		{
+			Vector3D absCellPosition(co->pos.vx * -EXPORT_SCALING, co->pos.vy * -EXPORT_SCALING, co->pos.vz * EXPORT_SCALING);
+			float cellRotationRad = co->yang / 64.0f * PI_F * 2.0f;
+
+			if (cellsFileStream)
+			{
+				cellsFileStream->Print("# m %d r %d\r\n", co->type, co->yang);
+				cellsFileStream->Print("v %g %g %g\r\n", absCellPosition.x, absCellPosition.y, absCellPosition.z);
+			}
+
+			ModelRef_t* ref = g_levModels.GetModelByIndex(co->type);
+
+			if (ref)
+			{
+				// transform objects and save
+				Matrix4x4 transform = translate(absCellPosition);
+				transform = transform * rotateY4(cellRotationRad) * scale4(1.0f, 1.0f, 1.0f);
+
+				const char* modelNamePrefix = varargs("reg%d", region->GetNumber());
+
+				WriteMODELToObjStream(levelFileStream, ref->model, ref->size, co->type, modelNamePrefix, false, transform, &lobj_first_v, &lobj_first_t);
+			}
+
+			numRegionObjects++;
+			
+			co = levMapDriver1->GetNextCop(&iterator);
+		}
+	}
+
+	if (cellsFileStream)
+		cellsFileStream->Print("# total region cells %d\r\n", numRegionObjects);
+
+	return numRegionObjects;
+}
+
+//-------------------------------------------------------------
+// Processes Driver 2 region
+//-------------------------------------------------------------
+int ExportRegionDriver2(CDriver2LevelRegion* region, IVirtualStream* cellsFileStream, IVirtualStream* levelFileStream, int& lobj_first_v, int& lobj_first_t)
+{
+	CDriver2LevelMap* levMapDriver2 = (CDriver2LevelMap*)g_levMap;
+	const OUT_CELL_FILE_HEADER& mapInfo = levMapDriver2->GetMapInfo();
+
+	int numRegionObjects = 0;
+
+	// walk through all cell data
+	for (int i = 0; i < mapInfo.region_size * mapInfo.region_size; i++)
+	{
+		CELL_ITERATOR iterator;
+		PACKED_CELL_OBJECT* pco = region->StartIterator(&iterator, i);
+
+		if (!pco)
+			continue;
+
+		while (pco)
+		{
+			CELL_OBJECT co;
+			CDriver2LevelMap::UnpackCellObject(co, pco, iterator.nearCell);
+			
+			Vector3D absCellPosition(co.pos.vx * -EXPORT_SCALING, co.pos.vy * -EXPORT_SCALING, co.pos.vz * EXPORT_SCALING);
+			float cellRotationRad = co.yang / 64.0f * PI_F * 2.0f;
+
+			if (cellsFileStream)
+			{
+				cellsFileStream->Print("# m %d r %d\r\n", co.type, co.yang);
+				cellsFileStream->Print("v %g %g %g\r\n", absCellPosition.x, absCellPosition.y, absCellPosition.z);
+			}
+
+			ModelRef_t* ref = g_levModels.GetModelByIndex(co.type);
+
+			if (ref)
+			{
+				// transform objects and save
+				Matrix4x4 transform = translate(absCellPosition);
+				transform = transform * rotateY4(cellRotationRad) * scale4(1.0f, 1.0f, 1.0f);
+
+				const char* modelNamePrefix = varargs("reg%d", region->GetNumber());
+
+				WriteMODELToObjStream(levelFileStream, ref->model, ref->size, co.type, modelNamePrefix, false, transform, &lobj_first_v, &lobj_first_t);
+			}
+
+			numRegionObjects++;
+
+			pco = levMapDriver2->GetNextPackedCop(&iterator);
+		}
+	}
+
+	if (cellsFileStream)
+		cellsFileStream->Print("# total region cells %d\r\n", numRegionObjects);
+
+	return numRegionObjects;
+}
 
 //-------------------------------------------------------------
 // Exports all level regions to OBJ file
@@ -30,21 +145,22 @@ CELL_OBJECT g_cell_objects[16384];
 void ExportRegions()
 {
 	MsgInfo("Exporting cell points and world model...\n");
-#if 0
+	const OUT_CELL_FILE_HEADER& mapInfo = g_levMap->GetMapInfo();
+
 	int counter = 0;
 
-	int dim_x = g_mapInfo.cells_across / g_mapInfo.region_size;
-	int dim_y = g_mapInfo.cells_down / g_mapInfo.region_size;
+	int dim_x = g_levMap->GetRegionsAcross();
+	int dim_y = g_levMap->GetRegionsDown();
 
-	Msg("World size:\n [%dx%d] cells\n [%dx%d] regions\n", g_mapInfo.cells_across, g_mapInfo.cells_down, dim_x, dim_y);
+	Msg("World size:\n [%dx%d] cells\n [%dx%d] regions\n", g_levMap->GetCellsAcross(), g_levMap->GetCellsDown(), dim_x, dim_y);
 
 	// Debug information: Print the map to the console.
-	for (int i = 0; i < g_numSpoolInfoOffsets; i++, counter++)
+	for (int i = 0; i < dim_x* dim_y; i++, counter++)
 	{
 		char str[512];
 		if(counter < dim_x)
 		{
-			str[counter] = g_regionSpoolInfoOffsets[i] == REGION_EMPTY ? '.' : 'O';
+			str[counter] = g_levMap->GetRegion(i)->IsEmpty() ? '.' : 'O';
 		}
 		else
 		{
@@ -68,309 +184,36 @@ void ExportRegions()
 
 	int lobj_first_v = 0;
 	int lobj_first_t = 0;
-
-	// copy straddlers to cell objects
-	if (g_format >= LEV_FORMAT_DRIVER2_ALPHA16)
-	{
-		memcpy(g_packed_cell_objects, g_straddlers, sizeof(PACKED_CELL_OBJECT) * g_numStraddlers);
-	}
-	else
-	{
-		memcpy(g_cell_objects, g_straddlers, sizeof(CELL_OBJECT) * g_numStraddlers);
-	}
-
-	// dump 2d region map
-	// easy seeking
+	
 	for (int y = 0; y < dim_y; y++)
 	{
 		for (int x = 0; x < dim_x; x++)
 		{
-			int sPosIdx = y * dim_x + x;
+			int regIdx = y * dim_x + x;
 
-			if (g_regionSpoolInfoOffsets[sPosIdx] == REGION_EMPTY)
+			CBaseLevelRegion* region = g_levMap->GetRegion(regIdx);
+
+			if (region->IsEmpty())
 				continue;
 
-			int barrel_region = (x & 1) + (y & 1) * 2;
+			// load region
+			// it will also load area data models for it
+			g_levMap->SpoolRegion(regIdx);
 
-			// determine region position
-			VECTOR_NOPAD regionPos;
-			regionPos.vx = (x - dim_x / 2) * g_mapInfo.region_size * g_mapInfo.cell_size;
-			regionPos.vz = (y - dim_y / 2) * g_mapInfo.region_size * g_mapInfo.cell_size;
-			regionPos.vy = 0;
-
-			// region at offset
-			Spool* spool = (Spool*)((ubyte*)g_regionSpoolInfo + g_regionSpoolInfoOffsets[sPosIdx]);
-
-			Msg("---------\nSpool %d %d (offset: %d)\n", x, y, g_regionSpoolInfoOffsets[sPosIdx]);
-			Msg(" - offset: %d\n", spool->offset);
-
-			for (int i = 0; i < spool->num_connected_areas; i++)
-				Msg(" - connected area %d: %d\n", i, spool->connected_areas[i]);
-
-			Msg(" - pvs_size: %d\n", spool->pvs_size);
-			Msg(" - cell_data_size: %d %d %d\n", spool->cell_data_size[0], spool->cell_data_size[1], spool->cell_data_size[2]);
-
-			Msg(" - super_region: %d\n", spool->super_region);
-
-			// LoadRegionData - calculate offsets
-			Msg(" - cell pointers size: %d\n", spool->cell_data_size[1]);
-			Msg(" - cell data size: %d\n", spool->cell_data_size[0]);
-			Msg(" - cell objects size: %d\n", spool->cell_data_size[2]);
-			Msg(" - PVS data size: %d\n", spool->roadm_size);
-
-			// prepare
-			int cellPointerCount = 0;
-
-			memset(g_packed_cell_pointers, 0, sizeof(g_packed_cell_pointers));
-
-			memset(g_cells, 0, sizeof(g_cells));
-
-			memset(g_cells_d1, 0, sizeof(g_cells_d1));
-
-			if (g_format >= LEV_FORMAT_DRIVER2_ALPHA16)	// any Driver 2
+			if(g_format >= LEV_FORMAT_DRIVER2_ALPHA16)
 			{
-				//
-				// Driver 2 use PACKED_CELL_OBJECTS - 8 bytes. not wasting, but tricky
-				//
-
-				memset(g_packed_cell_objects + g_numStraddlers, 0, sizeof(g_packed_cell_objects) - g_numStraddlers * sizeof(PACKED_CELL_OBJECT));
-
-				int cellPointersOffset;
-				int cellDataOffset;
-				int cellObjectsOffset;
-				int pvsDataOffset;
-
-				if (g_format == LEV_FORMAT_DRIVER2_RETAIL) // retail
-				{
-					cellPointersOffset = spool->offset; // SKIP PVS buffers, no need rn...
-					cellDataOffset = cellPointersOffset + spool->cell_data_size[1];
-					cellObjectsOffset = cellDataOffset + spool->cell_data_size[0];
-					pvsDataOffset = cellObjectsOffset + spool->cell_data_size[2];
-				}
-				else // 1.6 alpha
-				{
-					cellPointersOffset = spool->offset + spool->roadm_size;
-					cellDataOffset = cellPointersOffset + spool->cell_data_size[1];
-					cellObjectsOffset = cellDataOffset + spool->cell_data_size[0];
-					pvsDataOffset = cellObjectsOffset + spool->cell_data_size[2];
-				}
-
-				// read packed cell pointers
-				g_levStream->Seek(g_levInfo.spooldata_offset + cellPointersOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
-				g_levStream->Read(g_packed_cell_pointers, spool->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
-
-				// unpack cell pointers so we can use them
-				cellPointerCount = UnpackCellPointers(sPosIdx, 0, 0, g_cell_ptrs, g_packed_cell_pointers);
-
-				// read cell data
-				g_levStream->Seek(g_levInfo.spooldata_offset + cellDataOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
-				g_levStream->Read(g_cells, spool->cell_data_size[0] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
-
-				// read cell objects
-				g_levStream->Seek(g_levInfo.spooldata_offset + cellObjectsOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
-				g_levStream->Read(g_packed_cell_objects + g_numStraddlers, spool->cell_data_size[2] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
+				numCellObjectsRead += ExportRegionDriver2((CDriver2LevelRegion*)region, &cellsFileStream, &levelFileStream, lobj_first_v, lobj_first_t);
 			}
-			else if (g_format == LEV_FORMAT_DRIVER1) // Driver 1
+			else
 			{
-				//
-				// Driver 1 use CELL_OBJECTS directly - 16 bytes, wasteful in RAM
-				//
-
-				memset(g_cell_objects + g_numStraddlers, 0, sizeof(g_cell_objects) - g_numStraddlers * sizeof(CELL_OBJECT));
-
-				int cellPointersOffset = spool->offset + spool->roadm_size + spool->roadh_size; // SKIP road map
-				int cellDataOffset = cellPointersOffset + spool->cell_data_size[1];
-				int cellObjectsOffset = cellDataOffset + spool->cell_data_size[0];
-				int pvsDataOffset = cellObjectsOffset + spool->cell_data_size[2]; // FIXME: is it even there in Driver 1?
-
-																				  // read packed cell pointers
-				g_levStream->Seek(g_levInfo.spooldata_offset + cellPointersOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
-				g_levStream->Read(g_packed_cell_pointers, spool->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
-
-				// unpack cell pointers so we can use them
-				cellPointerCount = UnpackCellPointers(sPosIdx, 0, 0, g_cell_ptrs, g_packed_cell_pointers);
-
-				// read cell data
-				g_levStream->Seek(g_levInfo.spooldata_offset + cellDataOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
-				g_levStream->Read(g_cells_d1, spool->cell_data_size[0] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
-
-				// read cell objects
-				g_levStream->Seek(g_levInfo.spooldata_offset + cellObjectsOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
-				g_levStream->Read(g_cell_objects + g_numStraddlers, spool->cell_data_size[2] * SPOOL_CD_BLOCK_SIZE, sizeof(char));
+				numCellObjectsRead += ExportRegionDriver1((CDriver1LevelRegion*)region, &cellsFileStream, &levelFileStream, lobj_first_v, lobj_first_t);
 			}
-
-			// read cell objects after we spool additional area data
-			RegionModels_t* regModels = nullptr;
-
-			// if region data is available, load models and textures
-			if (spool->super_region != SUPERREGION_NONE)
-			{
-				regModels = &g_regionModels[spool->super_region];
-
-				bool isNew = (regModels->modelRefs.numElem() == 0);
-
-				LoadAreaData(g_levStream, regModels, &g_areaData[spool->super_region], &g_areaTPages[spool->super_region]);
-
-				if (g_export_models && isNew)
-				{
-					// export region models
-					for (int i = 0; i < regModels->modelRefs.numElem(); i++)
-					{
-						ModelRef_t* modelRef = &regModels->modelRefs[i];
-						const char* modelName = g_levModels.GetModelName(modelRef);
-
-						std::string modelFileName = varargs("%s/ZREG%d_MOD_%d", g_levname_moddir.c_str(), spool->super_region, modelRef->index);
-
-						if (modelName && modelName[0] != 0)
-							modelFileName = varargs("%s/ZREG%d_%d_%s", g_levname_moddir.c_str(), spool->super_region, i, modelName);
-
-						// export model
-						ExportDMODELToOBJ(modelRef->model, modelFileName.c_str(), modelRef->index, modelRef->size);
-					}
-				}
-			}
-
-			int numRegionObjects = 0;
-
-			if (g_format >= LEV_FORMAT_DRIVER2_ALPHA16)	// any Driver 2
-			{
-				CELL_DATA* celld;
-				PACKED_CELL_OBJECT* pcop;
-
-				// go through all cell pointers
-				for (int i = 0; i < cellPointerCount; i++)
-				{
-					ushort cell_ptr = g_cell_ptrs[i];
-					if (cell_ptr == 0xffff)
-						continue;
-
-					// iterate just like game would
-					if (pcop = GetFirstPackedCop(&celld, cell_ptr, barrel_region))
-					{
-						do
-						{
-							// unpack cell object
-							CELL_OBJECT co;
-							UnpackCellObject(pcop, co, regionPos);
-
-							{
-								Vector3D absCellPosition(co.pos.vx * -EXPORT_SCALING, co.pos.vy * -EXPORT_SCALING, co.pos.vz * EXPORT_SCALING);
-								float cellRotationRad = co.yang / 64.0f * PI_F * 2.0f;
-
-								if (cellsFile)
-								{
-									cellsFileStream.Print("# m %d r %d\r\n", co.type, co.yang);
-									cellsFileStream.Print("v %g %g %g\r\n", absCellPosition.x, absCellPosition.y, absCellPosition.z);
-								}
-
-								ModelRef_t* mdref = g_levModels.GetModelByIndex(co.type, regModels);
-
-								if (mdref)
-								{
-									// transform objects and save
-									Matrix4x4 transform = translate(absCellPosition);
-									transform = transform * rotateY4(cellRotationRad) * scale4(1.0f, 1.0f, 1.0f);
-
-									const char* modelNamePrefix = varargs("reg%d", sPosIdx);
-
-									WriteMODELToObjStream(&levelFileStream, mdref->model, mdref->size, co.type, modelNamePrefix, false, transform, &lobj_first_v, &lobj_first_t, regModels);
-								}
-
-								numRegionObjects++;
-							}
-						} while (pcop = GetNextPackedCop(&celld, barrel_region));
-					}
-				}
-			}
-			else if (g_format == LEV_FORMAT_DRIVER1) // Driver 1
-			{
-				CELL_DATA_D1* celld;
-
-				// go through all cell pointers
-				for (int i = 0; i < cellPointerCount; i++)
-				{
-					ushort cell_ptr = g_cell_ptrs[i];
-
-					// iterate just like game would
-					while (cell_ptr != 0xffff)
-					{
-						celld = &g_cells_d1[cell_ptr];
-
-						int number = (celld->num & 0x3fff);// -g_cell_objects_add[barrel_region];
-
-						{
-							// barrel_region doesn't work here
-							int val = 0;
-							for (int j = 0; j < 4; j++)
-							{
-								if (number >= g_cell_objects_add[j])
-									val = g_cell_objects_add[j];
-							}
-
-							number -= val;
-						}
-
-						CELL_OBJECT& co = g_cell_objects[number];
-
-						{
-							Vector3D absCellPosition(co.pos.vx * -EXPORT_SCALING, co.pos.vy * -EXPORT_SCALING, co.pos.vz * EXPORT_SCALING);
-							float cellRotationRad = co.yang / 64.0f * PI_F * 2.0f;
-
-							if (cellsFile)
-							{
-								cellsFileStream.Print("# m %d r %d\r\n", co.type, co.yang);
-								cellsFileStream.Print("v %g %g %g\r\n", absCellPosition.x, absCellPosition.y, absCellPosition.z);
-							}
-
-							ModelRef_t* mdref = g_levModels.GetModelByIndex(co.type, regModels);
-
-							if (mdref)
-							{
-								// transform objects and save
-								Matrix4x4 transform = translate(absCellPosition);
-								transform = transform * rotateY4(cellRotationRad) * scale4(1.0f, 1.0f, 1.0f);
-
-								const char* modelNamePrefix = varargs("reg%d", sPosIdx);
-
-								WriteMODELToObjStream(&levelFileStream, mdref->model, mdref->size, co.type, modelNamePrefix, false, transform, &lobj_first_v, &lobj_first_t, regModels);
-							}
-
-							numRegionObjects++;
-						}
-
-						cell_ptr = celld->next_ptr;
-
-						if (cell_ptr != 0xffff)
-						{
-							// barrel_region doesn't work here
-							int val = 0;
-							for (int j = 0; j < 4; j++)
-							{
-								if (cell_ptr >= g_cell_slots_add[j])
-									val = g_cell_slots_add[j];
-							}
-
-							cell_ptr -= val;
-						}
-					}
-				}
-			}
-
-			if (cellsFile)
-			{
-				cellsFileStream.Print("# total region cells %d\r\n", numRegionObjects);
-			}
-
-			numCellObjectsRead += numRegionObjects;
 		}
 	}
 
-	fclose(cellsFile);
-	fclose(levelFile);
+	// @FIXME: it doesn't really match up but still correct
+	//int numCellsObjectsFile = mapInfo.num_cell_objects;
 
-	int numCellsObjectsFile = g_mapInfo.num_cell_objects;
-
-	if (numCellObjectsRead != numCellsObjectsFile)
-		MsgError("numAllObjects mismatch: in file: %d, read %d\n", numCellsObjectsFile, numCellObjectsRead);
-#endif
+	//if (numCellObjectsRead != numCellsObjectsFile)
+	//	MsgError("numAllObjects mismatch: in file: %d, read %d\n", numCellsObjectsFile, numCellObjectsRead);
 }

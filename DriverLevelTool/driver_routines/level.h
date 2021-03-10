@@ -69,7 +69,7 @@ extern ELevelFormat g_format;
 //------------------------------------------------------------------------------------------------------------
 // functions
 
-void	LoadLevelFile(const char* filename);
+bool	LoadLevelFile(const char* filename);
 void	FreeLevelData();
 
 #endif // LEVEL_H

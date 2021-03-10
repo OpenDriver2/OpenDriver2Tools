@@ -20,9 +20,12 @@ class CDriver1LevelRegion : public CBaseLevelRegion
 	friend class CDriver1LevelMap;
 public:
 	void					FreeAll() override;
-	void					LoadRegionData(IVirtualStream* pFile, Spool* spool) override;
+	void					LoadRegionData(IVirtualStream* pFile) override;
 
 	CELL_OBJECT*			GetCellObject(int num) const;
+
+	// cell iterator
+	CELL_OBJECT*			StartIterator(CELL_ITERATOR_D1* iterator, int cellNumber) const;
 
 protected:
 	CELL_DATA_D1*			m_cells{ nullptr };				// cell data that holding information about cell pointers. 3D world seeks cells first here

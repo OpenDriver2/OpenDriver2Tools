@@ -270,7 +270,7 @@ void CRenderModel::GenerateBuffers()
 					UV_INFO uv = *(UV_INFO*)dec_face.uv[VERT_IDX];
 
 					// map to 0..1
-					newVert.tc_u = ((float)uv.u + 0.5f) / 256.0f;		// do /2 and *2 as textures were already 4 bit
+					newVert.tc_u = ((float)uv.u + 0.5f) / 256.0f;
 					newVert.tc_v = ((float)uv.v + 0.5f) / 256.0f;
 				}
 

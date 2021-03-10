@@ -33,8 +33,11 @@ public:
 	virtual ~CBaseLevelRegion();
 
 	virtual void			FreeAll();
-	virtual void			LoadRegionData(IVirtualStream* pFile, Spool* spool) = 0;
+	virtual void			LoadRegionData(IVirtualStream* pFile) = 0;
 	void					LoadAreaData(IVirtualStream* pFile);
+
+	bool					IsEmpty() const;
+	int						GetNumber() const;
 
 protected:
 	static int				UnpackCellPointers(ushort* dest_ptrs, char* src_data, int cell_slots_add, int targetRegion = 0);
@@ -90,10 +93,17 @@ public:
 	// converters
 	void						WorldPositionToCellXZ(XZPAIR& cell, const VECTOR_NOPAD& position) const;
 
+	const OUT_CELL_FILE_HEADER&	GetMapInfo() const;
+	
 	int							GetCellsAcross() const;
 	int							GetCellsDown() const;
 
+	int							GetRegionsAcross() const;
+	int							GetRegionsDown() const;
+
 protected:
+
+	void						InitRegion(CBaseLevelRegion* region, int index) const;
 
 	void						OnRegionLoaded(CBaseLevelRegion* region);
 	void						OnRegionFreed(CBaseLevelRegion* region);

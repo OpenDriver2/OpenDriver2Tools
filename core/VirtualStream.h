@@ -39,7 +39,7 @@ public:
 	// flushes stream, doesn't affects on memory stream
 	int					Flush();
 
-	VirtStreamType_e	GetType() { return VS_TYPE_MEMORY; }
+	VirtStreamType_e	GetType() { return m_pStart ? VS_TYPE_MEMORY : VS_TYPE_INVALID; }
 
 	// reads file to this stream
 	bool				ReadFromFileStream( FILE* pFile );
@@ -85,7 +85,7 @@ public:
 
 	long				GetSize();
 
-	VirtStreamType_e	GetType() {return VS_TYPE_FILE;}
+	VirtStreamType_e	GetType() {return m_pFilePtr ? VS_TYPE_FILE : VS_TYPE_INVALID;}
 
 protected:
 	FILE*				m_pFilePtr;

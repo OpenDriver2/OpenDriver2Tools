@@ -54,7 +54,7 @@ const char* model_shader =
 
 int g_quit = 0;
 int g_night = 0;
-int g_cellsDrawDistance = 441 * 16;
+int g_cellsDrawDistance = 441;
 
 int g_currentModel = 191;
 bool g_holdLeft = false;
@@ -173,7 +173,7 @@ void SDLPollEvent()
 	}
 }
 
-TextureID g_hwTexturePages[128][32];
+TextureID g_hwTexturePages[128][16];
 
 //-----------------------------------------------------------------
 
@@ -234,7 +234,7 @@ void InitHWTexturePage(CTexturePage* tpage)
 
 	if (bitmap.data == nullptr)
 		return;
-	
+
 	int imgSize = TEXPAGE_SIZE * 4;
 	uint* color_data = (uint*)malloc(imgSize);
 
@@ -298,14 +298,25 @@ void InitHWTexturePage(CTexturePage* tpage)
 	free(color_data);
 }
 
+extern TextureID g_whiteTexture;
+
 TextureID GetHWTexture(int tpage, int pal)
 {
-	extern TextureID g_whiteTexture;
-	
-	if (tpage < 0 || tpage >= 128)
+	if (tpage < 0 || tpage >= 128 ||
+		pal < 0 || pal >= 32)
 		return g_whiteTexture;
 
 	return g_hwTexturePages[tpage][pal];
+}
+
+void InitHWTextures()
+{
+	for (int i = 0; i < 128; i++)
+	{
+		for (int j = 0; j < 32; j++)
+			g_hwTexturePages[i][j] = g_whiteTexture;
+	}
+
 }
 
 //-----------------------------------------------------------------
@@ -422,9 +433,6 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 		else if (dir == 1)
 		{
 			vloop++;
-
-			//PVS_ptr += pvs_square;
-
 			if (hloop == vloop)
 				dir = 2;
 		}
@@ -437,9 +445,6 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 		else
 		{
 			vloop--;
-
-			//PVS_ptr -= pvs_square;
-
 			if (hloop == vloop)
 				dir = 0;
 		}
@@ -525,7 +530,7 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 					GR_SetMatrix(MATRIX_WORLD, objectMatrix);
 					GR_UpdateMatrixUniforms();
 
-					if (isGround && g_night)
+					if (g_night)
 						SetupLightingProperties(0.5f, 0.5f);
 					else
 						SetupLightingProperties(1.0f, 1.0f);
@@ -554,9 +559,6 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 		else if (dir == 1)
 		{
 			vloop++;
-
-			//PVS_ptr += pvs_square;
-
 			if (hloop == vloop)
 				dir = 2;
 		}
@@ -570,9 +572,6 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 		else
 		{
 			vloop--;
-
-			//PVS_ptr -= pvs_square;
-
 			if (hloop == vloop)
 				dir = 0;
 		}
@@ -644,13 +643,18 @@ int ViewerMain(const char* filename)
 	}
 
 	InitModelShader();
+	InitHWTextures();
 
 	// set loading callbacks
 	g_levTextures.SetLoadingCallbacks(InitHWTexturePage, nullptr);
 	g_levModels.SetModelLoadingCallbacks(OnModelLoaded, nullptr);
 
 	// Load level file
-	LoadLevelFile(filename);
+	if (!LoadLevelFile(filename))
+	{
+		GR_Shutdown();
+		return -1;
+	}
 
 	do
 	{
@@ -658,17 +662,13 @@ int ViewerMain(const char* filename)
 
 		GR_BeginScene();
 
-		if(g_night)
-			GR_ClearColor(19, 23, 25);
-		else
-			GR_ClearColor(128, 158, 182);
-	
 		GR_ClearDepth(1.0f);
-	
-		// Control and map
 
-		// Spool map
-		
+		if(g_night)
+			GR_ClearColor(19 / 255.0f, 23 / 255.0f, 25 / 255.0f);
+		else
+			GR_ClearColor(128 / 255.0f, 158 / 255.0f, 182 / 255.0f);
+
 		// Render stuff
 		RenderView();
 

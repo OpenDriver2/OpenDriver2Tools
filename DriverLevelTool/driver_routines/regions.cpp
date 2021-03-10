@@ -55,6 +55,16 @@ void CBaseLevelRegion::FreeAll()
 	m_loaded = false;
 }
 
+bool CBaseLevelRegion::IsEmpty() const
+{
+	return m_spoolInfo == nullptr;
+}
+
+int	CBaseLevelRegion::GetNumber() const
+{
+	return m_regionNumber;
+}
+
 //-------------------------------------------------------------
 // Region unpacking function
 //-------------------------------------------------------------
@@ -186,6 +196,11 @@ int	CBaseLevelMap::GetAreaDataCount() const
 	return m_numAreas;
 }
 
+const OUT_CELL_FILE_HEADER& CBaseLevelMap::GetMapInfo() const
+{
+	return m_mapInfo;
+}
+
 int	CBaseLevelMap::GetCellsAcross() const
 {
 	return m_mapInfo.cells_across;
@@ -194,6 +209,16 @@ int	CBaseLevelMap::GetCellsAcross() const
 int	CBaseLevelMap::GetCellsDown() const
 {
 	return m_mapInfo.cells_down;
+}
+
+int CBaseLevelMap::GetRegionsAcross() const
+{
+	return m_regions_across;
+}
+
+int CBaseLevelMap::GetRegionsDown() const
+{
+	return m_regions_down;
 }
 
 void CBaseLevelMap::WorldPositionToCellXZ(XZPAIR& cell, const VECTOR_NOPAD& position) const
@@ -402,6 +427,23 @@ void CBaseLevelMap::LoadInAreaModels(IVirtualStream* pFile, int areaDataNum) con
 	}
 
 	delete[] new_model_numbers;
+}
+
+void CBaseLevelMap::InitRegion(CBaseLevelRegion* region, int index) const
+{
+	ushort spoolOffset = m_regionSpoolInfoOffsets[index];
+
+	if (spoolOffset != REGION_EMPTY)
+		region->m_spoolInfo = (Spool*)((ubyte*)m_regionSpoolInfo + spoolOffset);
+
+	const int region_x = index % m_regions_across;
+	const int region_z = (index - region_x) / m_regions_across;
+
+	region->m_owner = (CBaseLevelMap*)this;
+	region->m_regionX = region_x;
+	region->m_regionZ = region_z;
+	region->m_regionNumber = index;
+	region->m_regionBarrelNumber = (region_x & 1) + (region_z & 1) * 2;
 }
 
 void CBaseLevelMap::SetLoadingCallbacks(OnRegionLoaded_t onLoaded, OnRegionFreed_t onFreed)

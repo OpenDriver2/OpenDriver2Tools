@@ -22,13 +22,17 @@ class CDriver2LevelRegion : public CBaseLevelRegion
 	friend class CDriver2LevelMap;
 public:
 	void					FreeAll() override;
-	void					LoadRegionData(IVirtualStream* pFile, Spool* spool) override;
+	void					LoadRegionData(IVirtualStream* pFile) override;
 
 	PACKED_CELL_OBJECT*		GetCellObject(int num) const;
+	CELL_DATA*				GetCellData(int num) const;
 
+	// cell iterator
+	PACKED_CELL_OBJECT*		StartIterator(CELL_ITERATOR* iterator, int cellNumber) const;
+	
 protected:
-	CELL_DATA* m_cells{ nullptr };				// cell data that holding information about cell pointers. 3D world seeks cells first here
-	PACKED_CELL_OBJECT* m_cellObjects{ nullptr };		// cell objects that represents objects placed in the world
+	CELL_DATA*				m_cells{ nullptr };				// cell data that holding information about cell pointers. 3D world seeks cells first here
+	PACKED_CELL_OBJECT*		m_cellObjects{ nullptr };		// cell objects that represents objects placed in the world
 };
 
 // Driver 2 level map

@@ -102,6 +102,8 @@ int GR_InitWindow(char* windowName, int width, int height, int fullscreen)
 	return 1;
 }
 
+void GR_GenerateCommonTextures();
+
 //-------------------------------------------------------------
 // Loads OpenGL
 //-------------------------------------------------------------
@@ -188,6 +190,8 @@ int GR_InitGL()
 	s_uniformFuncs[CONSTANT_MATRIX2x2] = (void*)glUniformMatrix2fv;
 	s_uniformFuncs[CONSTANT_MATRIX3x3] = (void*)glUniformMatrix3fv;
 	s_uniformFuncs[CONSTANT_MATRIX4x4] = (void*)glUniformMatrix4fv;
+
+	GR_GenerateCommonTextures();
 
 	return 1;
 }
@@ -426,10 +430,12 @@ void GR_GenerateCommonTextures()
 	unsigned int pixelData = 0xFFFFFFFF;
 
 	glGenTextures(1, &g_whiteTexture);
+	
 	glBindTexture(GL_TEXTURE_2D, g_whiteTexture);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, &pixelData);
+	
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
@@ -443,7 +449,7 @@ TextureID GR_CreateRGBATexture(int width, int height, ubyte* data)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 
-	glFinish();
+	glBindTexture(GL_TEXTURE_2D, 0);
 
 	return newTexture;
 }
@@ -469,17 +475,17 @@ void GR_SetTexture(TextureID texture)
 
 //----------------------------------------------------------------
 
-void GR_ClearColor(int r, int g, int b)
+void GR_ClearColor(float r, float g, float b)
 {
-	glClearColor(r / 255.0f, g / 255.0f, b / 255.0f, 1.0f);
+	glClearColor(r, g, b, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 }
 
 void GR_ClearDepth(float depth)
 {
 	glClearDepth(depth);
-	glClear(GL_DEPTH_BUFFER_BIT);
-	glClear(GL_STENCIL_BUFFER_BIT);
+
+	glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
 void GR_BeginScene()
@@ -597,22 +603,22 @@ GrVAO* GR_CreateVAO(int numVertices, int numIndices, GrVertex* verts /*= nullptr
 
 	// gen vertex buffer and index buffer
 	glGenVertexArrays(1, &vertexArray);
+	glGenBuffers(numIndices > 0 ? 2 : 1, buffers);
 	{
-		glGenBuffers(2, buffers);
-
 		glBindVertexArray(vertexArray);
 
 		glBindBuffer(GL_ARRAY_BUFFER, buffers[0]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(GrVertex) * numVertices, verts, dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
 
 		glEnableVertexAttribArray(a_position_tu);
 		glEnableVertexAttribArray(a_normal_tv);
 		glEnableVertexAttribArray(a_color);
-
+		
 		glVertexAttribPointer(a_position_tu, 4, GL_FLOAT, GL_FALSE, sizeof(GrVertex), &((GrVertex*)nullptr)->vx);
 		glVertexAttribPointer(a_normal_tv, 4, GL_FLOAT, GL_FALSE, sizeof(GrVertex), &((GrVertex*)nullptr)->nx);
 		glVertexAttribPointer(a_color, 4, GL_FLOAT, GL_TRUE, sizeof(GrVertex), &((GrVertex*)nullptr)->cr);
 
+		glBufferData(GL_ARRAY_BUFFER, sizeof(GrVertex) * numVertices, verts, dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+		
 		if(numIndices)
 		{
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[1]);
@@ -620,6 +626,8 @@ GrVAO* GR_CreateVAO(int numVertices, int numIndices, GrVertex* verts /*= nullptr
 		}
 
 		glBindVertexArray(0);
+		//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		//glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 
 	GrVAO* newVAO = new GrVAO();

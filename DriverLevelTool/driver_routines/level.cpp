@@ -222,7 +222,7 @@ void ProcessLumps(IVirtualStream* pFile)
 	}
 }
 
-void LoadLevelFile(const char* filename)
+bool LoadLevelFile(const char* filename)
 {
 	// try load driver2 lev file
 	FILE* pReadFile = fopen(filename, "rb");
@@ -230,7 +230,7 @@ void LoadLevelFile(const char* filename)
 	if (!pReadFile)
 	{
 		MsgError("Failed to open LEV file!\n");
-		return;
+		return false;
 	}
 
 	CMemoryStream* stream = new CMemoryStream();
@@ -245,7 +245,7 @@ void LoadLevelFile(const char* filename)
 	else
 	{
 		delete stream;
-		return;
+		return false;
 	}
 
 	// seek to begin
@@ -267,7 +267,7 @@ void LoadLevelFile(const char* filename)
 	if (curLump.type != LUMP_LUMPDESC)
 	{
 		MsgError("Not a LEV file!\n");
-		return;
+		return false;
 	}
 
 	// read chunk offsets
@@ -325,6 +325,8 @@ void LoadLevelFile(const char* filename)
 
 	// read sublumps
 	ProcessLumps(g_levStream);
+
+	return true;
 }
 
 void FreeLevelData()
