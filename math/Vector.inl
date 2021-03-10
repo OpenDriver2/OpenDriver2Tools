@@ -1,7 +1,15 @@
+//////////////////////////////////////////////////////////////////////////////////
+// Copyright © Inspiration Byte
+// 2009-2020
+//////////////////////////////////////////////////////////////////////////////////
+// Description: Vector math base - inline
+//////////////////////////////////////////////////////////////////////////////////
+
 #ifndef VECTOR_INLINE_H
 #define VECTOR_INLINE_H
 
 #include "Vector.h"
+#include "stdlib.h"		// for strtol
 
 /* --------------------------------------------------------------------------------- */
 
@@ -670,9 +678,15 @@ inline TVec4D<T> cerp(const TVec4D<T> &u0, const TVec4D<T> &u1, const TVec4D<T> 
 }
 
 template <typename T>
+inline T sameSign(T a, T b)
+{
+	return a * b >= 0;
+}
+
+template <typename T>
 inline T sign(const T v)
 {
-	return (T) ((v > 0) ? 1 : (v < 0)? -1 : 0);
+	return (T)(v > 0) - (v < 0);
 }
 
 template <typename T>
@@ -693,66 +707,84 @@ inline TVec4D<T> sign(const TVec4D<T> &v)
 	return TVec4D<T>(sign(v.x), sign(v.y), sign(v.z), sign(v.w));
 }
 
-template <typename T, typename T2>
-inline T clamp(const T v, const T2 color, const T2 c1)
+template <typename T>
+T approachValue(T v, T t, T s)
 {
-	return min(max(v, color), c1);
+	const T newValue = v + s;
+
+	const T diffBefore = v - t;
+	const T diffAfter = newValue - t;
+
+	return diffBefore * diffAfter < 0 ? t : newValue;
 }
 
 template <typename T, typename T2>
-inline TVec2D<T> clamp(const TVec2D<T> &v, const T2 color, const T2 c1)
+inline T clamp(const T v, const T2 c0, const T2 c1)
 {
-	return TVec2D<T>(min(max(v.x, color), c1), min(max(v.y, color), c1));
+	return min((T)max((T)v, (T)c0), (T)c1);
+}
+
+template <typename T, typename T2>
+inline TVec2D<T> clamp(const TVec2D<T> &v, const T2 c0, const T2 c1)
+{
+	return TVec2D<T>(min(max(v.x, c0), c1), min(max(v.y, c0), c1));
 }
 
 template <typename T>
-inline TVec2D<T> clamp(const TVec2D<T> &v, const TVec2D<T> &color, const TVec2D<T> &c1)
+inline TVec2D<T> clamp(const TVec2D<T> &v, const TVec2D<T> &c0, const TVec2D<T> &c1)
 {
-	return TVec2D<T>(min(max(v.x, color.x), c1.x), min(max(v.y, color.y), c1.y));
+	return TVec2D<T>(min(max(v.x, c0.x), c1.x), min(max(v.y, c0.y), c1.y));
 }
 
 template <typename T, typename T2>
-inline TVec3D<T> clamp(const TVec3D<T> &v, const T2 color, const T2 c1)
+inline TVec3D<T> clamp(const TVec3D<T> &v, const T2 c0, const T2 c1)
 {
-	return TVec3D<T>(min(max(v.x, color), c1), min(max(v.y, color), c1), min(max(v.z, color), c1));
+	return TVec3D<T>(min(max(v.x, c0), c1), min(max(v.y, c0), c1), min(max(v.z, c0), c1));
 }
 
 template <typename T>
-inline TVec3D<T> clamp(const TVec3D<T> &v, const TVec3D<T> &color, const TVec3D<T> &c1)
+inline TVec3D<T> clamp(const TVec3D<T> &v, const TVec3D<T> &c0, const TVec3D<T> &c1)
 {
-	return TVec3D<T>(min(max(v.x, color.x), c1.x), min(max(v.y, color.y), c1.y), min(max(v.z, color.z), c1.z));
+	return TVec3D<T>(min(max(v.x, c0.x), c1.x), min(max(v.y, c0.y), c1.y), min(max(v.z, c0.z), c1.z));
 }
 
 template <typename T, typename T2>
-inline TVec4D<T> clamp(const TVec4D<T> &v, const T2 color, const T2 c1)
+inline TVec4D<T> clamp(const TVec4D<T> &v, const T2 c0, const T2 c1)
 {
-	return TVec4D<T>(min(max(v.x, color), c1), min(max(v.y, color), c1), min(max(v.z, color), c1), min(max(v.z, color), c1));
+	return TVec4D<T>(min(max(v.x, c0), c1), min(max(v.y, c0), c1), min(max(v.z, c0), c1), min(max(v.z, c0), c1));
 }
 
 template <typename T>
-inline TVec4D<T> clamp(const TVec4D<T> &v, const TVec4D<T> &color, const TVec4D<T> &c1)
+inline TVec4D<T> clamp(const TVec4D<T> &v, const TVec4D<T> &c0, const TVec4D<T> &c1)
 {
-	return TVec4D<T>(min(max(v.x, color.x), c1.x), min(max(v.y, color.y), c1.y), min(max(v.z, color.z), c1.z), min(max(v.w, color.w), c1.w));
+	return TVec4D<T>(min(max(v.x, c0.x), c1.x), min(max(v.y, c0.y), c1.y), min(max(v.z, c0.z), c1.z), min(max(v.w, c0.w), c1.w));
+}
+
+template <typename T>
+inline T normalize(const T v)
+{
+	T invLen = T(1.0) / sqrt(v * v);
+	return v * invLen;
 }
 
 template <typename T>
 inline TVec2D<T> normalize(const TVec2D<T> &v)
 {
-	T invLen = 1.0f / sqrt(v.x * v.x + v.y * v.y);
+	T invLen = T(1.0) / sqrt(v.x * v.x + v.y * v.y);
 	return v * invLen;
 }
 
 template <typename T>
 inline TVec3D<T> normalize(const TVec3D<T> &v)
 {
-	T invLen = 1.0f / sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+	T invLen = T(1.0) / sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 	return v * invLen;
 }
 
 template <typename T>
 inline TVec4D<T> normalize(const TVec4D<T> &v)
 {
-	T invLen = 1.0f / sqrt(v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w);
+	T invLen = T(1.0) / sqrt(v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w);
 	return v * invLen;
 }
 
@@ -1057,6 +1089,54 @@ inline bool fixNormal(TVec3D<T> &vec)
 	}
 
 	return false;
+}
+
+const float _oneBy255 = 1.0f / 255.0f;
+
+template <typename CHAR_T>
+inline ColorRGB hexToColor3(CHAR_T* rgb)
+{
+	// parse color string
+	char hexcolor[6];
+
+	for (int i = 0; i < 6 && *rgb; i++)
+		hexcolor[i] = *rgb++;
+
+	// This looks weird
+	char* pend;
+
+	char r[3] = { hexcolor[0], hexcolor[1], 0 };
+	char g[3] = { hexcolor[2], hexcolor[3], 0 };
+	char b[3] = { hexcolor[4], hexcolor[5], 0 };
+
+	return ColorRGB(
+		strtol(r, &pend, 16) * _oneBy255,
+		strtol(g, &pend, 16) * _oneBy255,
+		strtol(b, &pend, 16) * _oneBy255);
+}
+
+template <typename CHAR_T>
+inline ColorRGBA hexToColor4(CHAR_T* rgba)
+{
+	// parse color string
+	char hexcolor[8];
+
+	for (int i = 0; i < 8 && *rgba; i++)
+		hexcolor[i] = *rgba++;
+
+	// This looks weird
+	char* pend;
+
+	char r[3] = { hexcolor[0], hexcolor[1], 0 };
+	char g[3] = { hexcolor[2], hexcolor[3], 0 };
+	char b[3] = { hexcolor[4], hexcolor[5], 0 };
+	char a[3] = { hexcolor[6], hexcolor[7], 0 };
+
+	return ColorRGBA(
+		strtol(r, &pend, 16) * _oneBy255,
+		strtol(g, &pend, 16) * _oneBy255,
+		strtol(b, &pend, 16) * _oneBy255,
+		strtol(a, &pend, 16) * _oneBy255);
 }
 
 #endif // VECTOR_INLINE_H

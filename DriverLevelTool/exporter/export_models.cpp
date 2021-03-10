@@ -12,7 +12,6 @@
 extern bool						g_extract_dmodels;
 extern std::string				g_levname_moddir;
 extern std::string				g_levname_texdir;
-extern DkList<std::string>	g_model_names;
 
 //-------------------------------------------------------------
 // writes Wavefront OBJ into stream
@@ -43,7 +42,7 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 	{
 		pStream->Print("#vertex data ref model: %d (count = %d)\r\n", model->instance_number, model->num_vertices);
 
-		ModelRef_t* ref = FindModelByIndex(model->instance_number, regModels);
+		ModelRef_t* ref = g_levModels.GetModelByIndex(model->instance_number);//, regModels);
 
 		if (!ref)
 		{
@@ -71,7 +70,7 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 	// store GT3/GT4 vertex normals
 	for (int i = 0; i < vertex_ref->num_point_normals; i++)
 	{
-		SVECTOR* norm = vertex_ref->pNormal(i);
+		SVECTOR* norm = vertex_ref->pPointNormal(i);
 		Vector3D sfNorm = Vector3D(norm->x * -EXPORT_SCALING, norm->y * -EXPORT_SCALING, norm->z * EXPORT_SCALING);
 
 		pStream->Print("vn %g %g %g\r\n", 
@@ -204,8 +203,10 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 				UV_INFO uv = *(UV_INFO*)dec_face.uv[VERT_IDX];
 
 				float fsU, fsV;
-				fsU = float(uv.u / 2) / 128.0f;		// do /2 and *2 as textures were already 4 bit
-				fsV = float(uv.v) / 256.0f;
+				
+				// map to 0..1
+				fsU = ((float)uv.u + 0.5f) / 256.0f;
+				fsV = ((float)uv.v + 0.5f) / 256.0f;
 
 				pStream->Print("vt %g %g\r\n", fsU, 1.0f - fsV);
 
@@ -282,7 +283,7 @@ void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, in
 
 	const char* selFilename = model_name;
 
-	if (strchr(model_name, '.') == NULL)
+	if (strchr(model_name, '.') == nullptr)
 		selFilename = varargs("%s.obj", model_name);
 	
 	FILE* mdlFile = fopen(selFilename, "wb");
@@ -323,7 +324,7 @@ void SaveModelPagesMTL()
 
 	if (pMtlFile)
 	{
-		for (int i = 0; i < g_numTexPages; i++)
+		for (int i = 0; i < g_levTextures.GetTPageCount(); i++)
 		{
 			fprintf(pMtlFile, "newmtl page_%d\r\n", i);
 			fprintf(pMtlFile, "map_Kd ../../%s/PAGE_%d.tga\r\n", g_levname_texdir.c_str(), i);
@@ -340,24 +341,27 @@ void ExportAllModels()
 {
 	MsgInfo("Exporting all models...\n");
 
-	for (int i = 0; i < 1536; i++)
+	for (int i = 0; i < MAX_MODELS; i++)
 	{
-		if (!g_levelModels[i].model)
+		ModelRef_t* modelRef = g_levModels.GetModelByIndex(i);
+		const char* modelName = g_levModels.GetModelName(modelRef);
+		
+		if (!modelRef->model)
 			continue;
 
 		std::string modelFileName(varargs("%s/ZMOD_%d", g_levname_moddir.c_str(), i));
 
-		if (g_model_names[i].size())
-			modelFileName = varargs("%s/%d_%s", g_levname_moddir.c_str(), i, g_model_names[i].c_str());
+		if (modelName && modelName[0] != 0)
+			modelFileName = varargs("%s/%d_%s", g_levname_moddir.c_str(), i, modelName);
 
 		// export model
-		ExportDMODELToOBJ(g_levelModels[i].model, modelFileName.c_str(), i, g_levelModels[i].size);
+		ExportDMODELToOBJ(modelRef->model, modelFileName.c_str(), i, modelRef->size);
 
 		// save original dmodel2
 		FILE* dFile = fopen(varargs("%s.dmodel", modelFileName.c_str()), "wb");
 		if (dFile)
 		{
-			fwrite(g_levelModels[i].model, g_levelModels[i].size, 1, dFile);
+			fwrite(modelRef->model, modelRef->size, 1, dFile);
 			fclose(dFile);
 		}
 	}
@@ -372,8 +376,10 @@ void ExportAllCarModels()
 
 	for (int i = 0; i < MAX_CAR_MODELS; i++)
 	{
-		ExportCarModel(g_carModels[i].cleanmodel, g_carModels[i].cleanSize, i, "clean");
-		ExportCarModel(g_carModels[i].dammodel, g_carModels[i].cleanSize, i, "damaged");
-		ExportCarModel(g_carModels[i].lowmodel, g_carModels[i].lowSize, i, "low");
+		CarModelData_t* modelRef = g_levModels.GetCarModel(i);
+		
+		ExportCarModel(modelRef->cleanmodel, modelRef->cleanSize, i, "clean");
+		ExportCarModel(modelRef->dammodel, modelRef->cleanSize, i, "damaged");
+		ExportCarModel(modelRef->lowmodel, modelRef->lowSize, i, "low");
 	}
 }

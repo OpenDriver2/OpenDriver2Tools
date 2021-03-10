@@ -1,6 +1,8 @@
 #ifndef DKLIST_H
 #define DKLIST_H
 
+#include <assert.h>
+
 #define USE_QSORT
 
 #define DEBUG_CHECK_LIST_BOUNDS
@@ -203,7 +205,7 @@ inline void DkList<T>::setGranularity( int newgranularity )
 {
 	int newsize;
 
-	ASSERT( newgranularity > 0);
+	assert( newgranularity > 0);
 
 	m_nGranularity = newgranularity;
 
@@ -593,7 +595,7 @@ inline T *DkList<T>::find( T const & obj ) const
 	if ( i >= 0 )
 		return &m_pListPtr[ i ];
 
-	return NULL;
+	return nullptr;
 }
 
 // -----------------------------------------------------------------
@@ -610,7 +612,7 @@ inline T *DkList<T>::findFirst( COMPAREFUNC comparator  ) const
 			return &m_pListPtr[i];
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 // -----------------------------------------------------------------
@@ -627,7 +629,7 @@ inline T *DkList<T>::findLast( COMPAREFUNC comparator ) const
 			return &m_pListPtr[i];
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 // -----------------------------------------------------------------
@@ -641,9 +643,9 @@ inline bool DkList<T>::removeIndex( int index )
 	int i;
 
 #ifdef DEBUG_CHECK_LIST_BOUNDS
-	ASSERT( m_pListPtr != NULL );
-	ASSERT( index >= 0 );
-	ASSERT( index < m_nNumElem );
+	assert( m_pListPtr != nullptr );
+	assert( index >= 0 );
+	assert( index < m_nNumElem );
 #endif // DEBUG_CHECK_LIST_BOUNDS
 
 	if (( index < 0 ) || ( index >= m_nNumElem ))
@@ -666,9 +668,9 @@ template< class T >
 inline bool DkList<T>::fastRemoveIndex( int index )
 {
 #ifdef DEBUG_CHECK_LIST_BOUNDS
-	ASSERT( m_pListPtr != NULL );
-	ASSERT( index >= 0 );
-	ASSERT( index < m_nNumElem );
+	assert( m_pListPtr != nullptr );
+	assert( index >= 0 );
+	assert( index < m_nNumElem );
 #endif // DEBUG_CHECK_LIST_BOUNDS
 
 	if (( index < 0 ) || ( index >= m_nNumElem ))

@@ -33,7 +33,7 @@ bool isNewLine(const char ch)
 
 Tokenizer::Tokenizer(unsigned int nBuffers)
 {
-	str = NULL;
+	str = nullptr;
 	capacity = 0;
 	currentBuffer = 0;
 	
@@ -77,7 +77,7 @@ bool Tokenizer::setFile(const char *fileName)
 	delete [] str;
 
 	FILE *file = fopen(fileName, "rb");
-	if (file != NULL)
+	if (file != nullptr)
 	{
 		fseek(file, 0, SEEK_END);
 		length = ftell(file);
@@ -160,7 +160,7 @@ char *Tokenizer::next(BOOLFUNC isAlpha)
 		buffer[size] = '\0';
 		return buffer;
 	}
-	return NULL;
+	return nullptr;
 }
 
 char *Tokenizer::nextAfterToken(const char *token, BOOLFUNC isAlpha)
@@ -173,7 +173,7 @@ char *Tokenizer::nextAfterToken(const char *token, BOOLFUNC isAlpha)
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 char *Tokenizer::nextLine()
@@ -186,7 +186,7 @@ char *Tokenizer::nextLine()
 		buffer[size] = '\0';
 		return buffer;
 	}
-	return NULL;
+	return nullptr;
 }
 
 char *Tokenizer::getBuffer(unsigned int size)

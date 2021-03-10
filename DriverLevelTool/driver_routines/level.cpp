@@ -1,4 +1,8 @@
 #include "driver_level.h"
+
+#include "regions_d1.h"
+#include "regions_d2.h"
+
 #include "core/VirtualStream.h"
 #include "util/DkList.h"
 
@@ -8,270 +12,14 @@ ELevelFormat g_format = LEV_FORMAT_AUTODETECT;
 
 std::string					g_levname;
 
-IVirtualStream*				g_levStream = NULL;
-char*						g_overlayMapData = NULL;
+IVirtualStream*				g_levStream = nullptr;
+char*						g_overlayMapData = nullptr;
 
-extern DkList<std::string>	g_model_names;
-
-//-------------------------------------------------------------
-// parses model lumps and exports models to OBJ
-//-------------------------------------------------------------
-void LoadCarModelsLump(IVirtualStream* pFile, int ofs, int size)
-{
-	int l_ofs = pFile->Tell();
-
-	int modelCount;
-	pFile->Read(&modelCount, sizeof(int), 1);
-
-	Msg("	all car models count: %d\n", modelCount);
-
-	// read entries
-	carmodelentry_t model_entries[MAX_CAR_MODELS];
-	pFile->Read(&model_entries, sizeof(carmodelentry_t), MAX_CAR_MODELS);
-
-	// position
-	int r_ofs = pFile->Tell();
-
-	int pad; // really padding?
-	pFile->Read(&pad, sizeof(int), 1);
-
-	// load car models
-	for (int i = 0; i < MAX_CAR_MODELS; i++)
-	{
-		Msg("car model: %d %d %d\n", model_entries[i].cleanOffset != -1, model_entries[i].damOffset != -1, model_entries[i].lowOffset != -1);
-
-		if (model_entries[i].cleanOffset != -1)
-		{
-			pFile->Seek(r_ofs + model_entries[i].cleanOffset, VS_SEEK_SET);
-
-			pFile->Read(&g_carModels[i].cleanSize, 1, sizeof(int));
-
-			g_carModels[i].cleanmodel = (MODEL*)malloc(g_carModels[i].cleanSize);
-			pFile->Read(g_carModels[i].cleanmodel, 1, g_carModels[i].cleanSize);
-		}
-		else
-			g_carModels[i].cleanmodel = NULL;
-
-		if (model_entries[i].damOffset != -1)
-		{
-			pFile->Seek(r_ofs + model_entries[i].damOffset, VS_SEEK_SET);
-
-			pFile->Read(&g_carModels[i].damSize, 1, sizeof(int));
-
-			g_carModels[i].dammodel = (MODEL*)malloc(g_carModels[i].damSize);
-			pFile->Read(g_carModels[i].dammodel, 1, g_carModels[i].damSize);
-		}
-		else
-			g_carModels[i].dammodel = NULL;
-
-		if (model_entries[i].lowOffset != -1)
-		{
-			pFile->Seek(r_ofs + model_entries[i].lowOffset, VS_SEEK_SET);
-
-			pFile->Read(&g_carModels[i].lowSize, 1, sizeof(int));
-
-			g_carModels[i].lowmodel = (MODEL*)malloc(g_carModels[i].lowSize);
-			pFile->Read(g_carModels[i].lowmodel, 1, g_carModels[i].lowSize);
-		}
-		else
-			g_carModels[i].lowmodel = NULL;
-	}
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
-}
-
-//-------------------------------------------------------------
-// load model names
-//-------------------------------------------------------------
-void LoadModelNamesLump(IVirtualStream* pFile, int size)
-{
-	int l_ofs = pFile->Tell();
-
-	char* modelnames = new char[size];
-	pFile->Read(modelnames, size, 1);
-
-	int len = strlen(modelnames);
-	int sz = 0;
-
-	do
-	{
-		char* str = modelnames + sz;
-
-		len = strlen(str);
-
-		g_model_names.append(str);
-
-		sz += len + 1;
-	} while (sz < size);
-
-	delete[] modelnames;
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
-}
-
-//-------------------------------------------------------------
-// load texture names, same as model names
-//-------------------------------------------------------------
-void LoadTextureNamesLump(IVirtualStream* pFile, int size)
-{
-	int l_ofs = pFile->Tell();
-
-	g_textureNamesData = new char[size];
-
-	pFile->Read(g_textureNamesData, size, 1);
-
-	int len = strlen(g_textureNamesData);
-	int sz = 0;
-
-	do
-	{
-		char* str = g_textureNamesData + sz;
-
-		len = strlen(str);
-
-		sz += len + 1;
-	} while (sz < size);
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
-}
-
-//-------------------------------------------------------------
-// parses model lumps and exports models to OBJ
-//-------------------------------------------------------------
-void LoadLevelModelsLump(IVirtualStream* pFile)
-{
-	int l_ofs = pFile->Tell();
-
-	int modelCount;
-	pFile->Read(&modelCount, sizeof(int), 1);
-
-	MsgInfo("	model count: %d\n", modelCount);
-
-	for (int i = 0; i < modelCount; i++)
-	{
-		int modelSize;
-
-		pFile->Read(&modelSize, sizeof(int), 1);
-
-		if (modelSize > 0)
-		{
-			char* data = (char*)malloc(modelSize);
-
-			pFile->Read(data, modelSize, 1);
-
-			ModelRef_t& ref = g_levelModels[i];
-			ref.index = i;
-			ref.model = (MODEL*)data;
-			ref.size = modelSize;
-			ref.swap = false;
-		}
-		else // leave empty as swap
-		{
-			ModelRef_t& ref = g_levelModels[i];
-			ref.index = i;
-			ref.model = NULL;
-			ref.size = modelSize;
-			ref.swap = true;
-		}
-	}
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
-}
+CDriverLevelTextures		g_levTextures;
+CDriverLevelModels			g_levModels;
+CBaseLevelMap*				g_levMap = nullptr;
 
 //---------------------------------------------------------------------------------------------------------------------------------
-
-struct PAL_INFO
-{
-	int palette;
-	int texnum;
-	int tpage;
-	int clut_number;
-};
-
-struct PAL_INFO_D1
-{
-	int palette;
-	int texnum;
-	int tpage;
-};
-
-//-------------------------------------------------------------
-// Loads car and pedestrians palletes
-//-------------------------------------------------------------
-void ProcessPalletLump(IVirtualStream* pFile, int lump_size)
-{
-	ushort* clutTablePtr;
-	int total_cluts;
-	int l_ofs = pFile->Tell();
-
-	pFile->Read(&total_cluts, 1, sizeof(int));
-
-	if (total_cluts == 0)
-		return;
-
-	g_extraPalettes = new extclutdata_t[total_cluts + 1];
-	memset(g_extraPalettes, 0, sizeof(extclutdata_t) * total_cluts);
-
-	Msg("total_cluts: %d\n", total_cluts);
-
-	int added_cluts = 0;
-	while (true)
-	{
-		PAL_INFO info;
-
-		if (g_format == LEV_FORMAT_DRIVER1)
-		{
-			PAL_INFO_D1 infod1;
-			pFile->Read(&infod1, 1, sizeof(info) - sizeof(int));
-			info.clut_number = -1; // D1 doesn't have that
-			info.tpage = infod1.tpage;
-			info.texnum = infod1.texnum;
-			info.palette = infod1.palette;
-		}
-		else
-		{
-			pFile->Read(&info, 1, sizeof(info));
-		}
-
-		if (info.palette == -1)
-			break;
-
-		if (info.clut_number == -1)
-		{
-			extclutdata_t& data = g_extraPalettes[added_cluts];
-			data.texnum[data.texcnt++] = info.texnum;
-			data.tpage = info.tpage;
-			data.palette = info.palette;
-
-			clutTablePtr = data.clut.colors;
-
-			pFile->Read(clutTablePtr, 16, sizeof(ushort));
-
-			added_cluts++;
-
-			// only in D1 we need to check count
-			if (g_format == LEV_FORMAT_DRIVER1)
-			{
-				if (added_cluts >= total_cluts)
-					break;
-			}
-		}
-		else
-		{
-			//Msg("    reference clut: %d, tex %d\n", info.clut_number, info.texnum);
-
-			extclutdata_t& data = g_extraPalettes[info.clut_number];
-
-			// add texture number to existing clut
-			data.texnum[data.texcnt++] = info.texnum;
-		}
-	}
-
-	Msg("    added: %d\n", added_cluts);
-	g_numExtraPalettes = added_cluts;
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
-}
 
 //-------------------------------------------------------------
 // Loads overhead map lump
@@ -321,16 +69,17 @@ void DetectLevelFormat(IVirtualStream* pFile)
 			case LUMP_CHAIR:
 			case LUMP_CAR_MODELS:
 			case LUMP_TEXTUREINFO:
+			case LUMP_STRAIGHTS2:
 				break;
 			case LUMP_JUNCTIONS2:
 			{
-				MsgInfo("Assuming it's a 'Driver 2 DEMO' 1.6 alpha LEV file\n");
+				MsgInfo("Detected 'Driver 2 DEMO' 1.6 alpha LEV file\n");
 				g_format = LEV_FORMAT_DRIVER2_ALPHA16; // as it is an old junction format - it's clearly a alpha 1.6 level
 				break;
 			}
 			case LUMP_JUNCTIONS2_NEW:
 			{
-				MsgInfo("Assuming it's a 'Driver 2' final LEV file\n");
+				MsgInfo("Detected 'Driver 2' final LEV file\n");
 				g_format = LEV_FORMAT_DRIVER2_RETAIL; // most recent LEV file
 				break;
 			}
@@ -341,8 +90,9 @@ void DetectLevelFormat(IVirtualStream* pFile)
 			case LUMP_ROADBOUNDS:
 			case LUMP_JUNCBOUNDS:
 			case LUMP_SUBDIVISION:
+			default: // maybe Lump 11?
 			{
-				MsgInfo("Assuming it's a 'Driver 1' LEV file\n");
+				MsgInfo("Detected 'Driver 1' LEV file\n");
 				g_format = LEV_FORMAT_DRIVER1;
 				break;
 			}
@@ -371,7 +121,16 @@ void ProcessLumps(IVirtualStream* pFile)
 	// perform auto-detection if format is not specified
 	if(g_format == LEV_FORMAT_AUTODETECT)
 		DetectLevelFormat(pFile);
-	
+
+	if(!g_levMap)
+	{
+		// failed to detect Driver 1 level file - try Driver 2 loader
+		if (g_format >= LEV_FORMAT_DRIVER2_ALPHA16 || g_format == LEV_FORMAT_AUTODETECT)
+			g_levMap = new CDriver2LevelMap();
+		else
+			g_levMap = new CDriver1LevelMap();
+	}
+
 	int lump_count = 255; // Driver 2 difference: you not need to read lump count
 
 	// Driver 1 has lump count
@@ -391,67 +150,67 @@ void ProcessLumps(IVirtualStream* pFile)
 		switch (lump.type)
 		{
 			case LUMP_MODELS:
-				MsgWarning("LUMP_MODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadLevelModelsLump(pFile);
+				DevMsg(SPEW_WARNING, "LUMP_MODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				g_levModels.LoadLevelModelsLump(pFile);
 				break;
 			case LUMP_MAP:
-				MsgWarning("LUMP_MAP ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadMapLump(pFile);
+				DevMsg(SPEW_WARNING, "LUMP_MAP ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				g_levMap->LoadMapLump(pFile);
 				break;
 			case LUMP_TEXTURENAMES:
-				MsgWarning("LUMP_TEXTURENAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadTextureNamesLump(pFile, lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_TEXTURENAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				g_levTextures.LoadTextureNamesLump(pFile, lump.size);
 				break;
 			case LUMP_MODELNAMES:
-				MsgWarning("LUMP_MODELNAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadModelNamesLump(pFile, lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_MODELNAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				g_levModels.LoadModelNamesLump(pFile, lump.size);
 				break;
 			case LUMP_SUBDIVISION:
-				MsgWarning("LUMP_SUBDIVISION ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_SUBDIVISION ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_LOWDETAILTABLE:
-				MsgWarning("LUMP_LOWDETAILTABLE ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_LOWDETAILTABLE ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_MOTIONCAPTURE:
-				MsgWarning("LUMP_MOTIONCAPTURE ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_MOTIONCAPTURE ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_OVERLAYMAP:
-				MsgWarning("LUMP_OVERLAYMAP ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_OVERLAYMAP ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				LoadOverlayMapLump(pFile, lump.size);
 				break;
 			case LUMP_PALLET:
-				MsgWarning("LUMP_PALLET ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				ProcessPalletLump(pFile, lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_PALLET ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				g_levTextures.ProcessPalletLump(pFile);
 				break;
 			case LUMP_SPOOLINFO:
-				MsgWarning("LUMP_SPOOLINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadSpoolInfoLump(pFile);
+				DevMsg(SPEW_WARNING, "LUMP_SPOOLINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				g_levMap->LoadSpoolInfoLump(pFile);
 				break;
 			case LUMP_STRAIGHTS2:
-				MsgWarning("LUMP_STRAIGHTS2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_STRAIGHTS2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_CURVES2:
-				MsgWarning("LUMP_CURVES2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_CURVES2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_JUNCTIONS2:
-				MsgWarning("LUMP_JUNCTIONS2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_JUNCTIONS2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_JUNCTIONS2_NEW:
-				MsgWarning("LUMP_JUNCTIONS2_NEW ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_JUNCTIONS2_NEW ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_CHAIR:
-				MsgWarning("LUMP_CHAIR ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_CHAIR ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_CAR_MODELS:
-				MsgWarning("LUMP_CAR_MODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadCarModelsLump(pFile, pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP_CAR_MODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				g_levModels.LoadCarModelsLump(pFile, lump.size);
 				break;
 			case LUMP_TEXTUREINFO:
-				MsgWarning("LUMP_TEXTUREINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadTextureInfoLump(pFile);
+				DevMsg(SPEW_WARNING, "LUMP_TEXTUREINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				g_levTextures.LoadTextureInfoLump(pFile);
 				break;
 			default:
-				MsgInfo("LUMP type: %d (0x%X) ofs=%d size=%d\n", lump.type, lump.type, pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "LUMP type: %d (0x%X) ofs=%d size=%d\n", lump.type, lump.type, pFile->Tell(), lump.size);
 		}
 
 		// skip lump
@@ -463,7 +222,7 @@ void ProcessLumps(IVirtualStream* pFile)
 	}
 }
 
-void LoadLevelFile(const char* filename)
+bool LoadLevelFile(const char* filename)
 {
 	// try load driver2 lev file
 	FILE* pReadFile = fopen(filename, "rb");
@@ -471,11 +230,11 @@ void LoadLevelFile(const char* filename)
 	if (!pReadFile)
 	{
 		MsgError("Failed to open LEV file!\n");
-		return;
+		return false;
 	}
 
 	CMemoryStream* stream = new CMemoryStream();
-	stream->Open(NULL, VS_OPEN_WRITE | VS_OPEN_READ, 0);
+	stream->Open(nullptr, VS_OPEN_WRITE | VS_OPEN_READ, 0);
 
 	// read file into stream
 	if (stream->ReadFromFileStream(pReadFile))
@@ -486,13 +245,13 @@ void LoadLevelFile(const char* filename)
 	else
 	{
 		delete stream;
-		return;
+		return false;
 	}
 
 	// seek to begin
 	g_levStream->Seek(0, VS_SEEK_SET);
 
-	MsgWarning("-----------\nloading lev file '%s'\n", filename);
+	MsgWarning("-----------\nLoading LEV file '%s'\n", filename);
 
 	std::string fileName = filename;
 
@@ -508,23 +267,23 @@ void LoadLevelFile(const char* filename)
 	if (curLump.type != LUMP_LUMPDESC)
 	{
 		MsgError("Not a LEV file!\n");
-		return;
+		return false;
 	}
 
 	// read chunk offsets
 	g_levStream->Read(&g_levInfo, sizeof(dlevinfo_t), 1);
 
-	Msg("levdesc_offset = %d\n", g_levInfo.levdesc_offset);
-	Msg("levdesc_size = %d\n", g_levInfo.levdesc_size);
+	DevMsg(SPEW_NORM, "levdesc_offset = %d\n", g_levInfo.levdesc_offset);
+	DevMsg(SPEW_NORM, "levdesc_size = %d\n", g_levInfo.levdesc_size);
 
-	Msg("texdata_offset = %d\n", g_levInfo.texdata_offset);
-	Msg("texdata_size = %d\n", g_levInfo.texdata_size);
+	DevMsg(SPEW_NORM, "texdata_offset = %d\n", g_levInfo.texdata_offset);
+	DevMsg(SPEW_NORM, "texdata_size = %d\n", g_levInfo.texdata_size);
 
-	Msg("levdata_offset = %d\n", g_levInfo.levdata_offset);
-	Msg("levdata_size = %d\n", g_levInfo.levdata_size);
+	DevMsg(SPEW_NORM, "levdata_offset = %d\n", g_levInfo.levdata_offset);
+	DevMsg(SPEW_NORM, "levdata_size = %d\n", g_levInfo.levdata_size);
 
-	Msg("spooldata_offset = %d\n", g_levInfo.spooldata_offset);
-	Msg("spooldata_size = %d\n", g_levInfo.spooldata_size);
+	DevMsg(SPEW_NORM, "spooldata_offset = %d\n", g_levInfo.spooldata_offset);
+	DevMsg(SPEW_NORM, "spooldata_size = %d\n", g_levInfo.spooldata_size);
 
 	// read cells
 
@@ -540,7 +299,7 @@ void LoadLevelFile(const char* filename)
 		MsgError("Not a LUMP_LEVELDESC!\n");
 	}
 
-	MsgInfo("entering LUMP_LEVELDESC size = %d\n--------------\n", curLump.size);
+	DevMsg(SPEW_INFO, "entering LUMP_LEVELDESC size = %d\n--------------\n", curLump.size);
 
 	// read sublumps
 	ProcessLumps(g_levStream);
@@ -548,7 +307,7 @@ void LoadLevelFile(const char* filename)
 	//-----------------------------------------------------
 	// read global textures
 
-	LoadPermanentTPages(g_levStream);
+	g_levTextures.LoadPermanentTPages(g_levStream);
 
 	//-----------------------------------------------------
 	// seek to section 3 - lump data 2
@@ -562,10 +321,12 @@ void LoadLevelFile(const char* filename)
 		MsgError("Not a lump 0x24!\n");
 	}
 
-	MsgInfo("entering LUMP_LEVELDATA size = %d\n--------------\n", curLump.size);
+	DevMsg(SPEW_INFO, "entering LUMP_LEVELDATA size = %d\n--------------\n", curLump.size);
 
 	// read sublumps
 	ProcessLumps(g_levStream);
+
+	return true;
 }
 
 void FreeLevelData()
@@ -574,47 +335,11 @@ void FreeLevelData()
 
 	if (g_levStream)
 		delete g_levStream;
-	g_levStream = NULL;
+	g_levStream = nullptr;
 
-	FreeSpoolData();
+	g_levMap->FreeAll();
+	g_levTextures.FreeAll();
+	g_levModels.FreeAll();
 
-	for (int i = 0; i < MAX_MODELS; i++)
-	{
-		if (g_levelModels[i].model)
-			free(g_levelModels[i].model);
-	}
-
-	for (int i = 0; i < MAX_CAR_MODELS; i++)
-	{
-		if (g_carModels[i].cleanmodel)
-			free(g_carModels[i].cleanmodel);
-
-		if (g_carModels[i].dammodel)
-			free(g_carModels[i].dammodel);
-
-		if (g_carModels[i].lowmodel)
-			free(g_carModels[i].lowmodel);
-	}
-
-	delete[] g_textureNamesData;
-
-	// delete texture data
-	for (int i = 0; i < g_numTexPages; i++)
-	{
-		if (g_texPageData[i].data)
-			delete[] g_texPageData[i].data;
-
-		delete[] g_texPages[i].details;
-	}
-
-	delete[] g_texPageData;
-	delete[] g_texPagePos;
-	delete[] g_texPages;
-	delete[] g_extraPalettes;
 	delete[] g_overlayMapData;
-
-	g_texPageData = NULL;
-	g_texPagePos = NULL;
-	g_texPagePos = NULL;
-	g_extraPalettes = NULL;
 }

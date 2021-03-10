@@ -63,18 +63,18 @@ typedef struct dlevinfo_t
 //------------------------------------------------------------------------------------------------------------
 
 struct OUT_CELL_FILE_HEADER {
-	int cells_across; // size=0, offset=0
-	int cells_down; // size=0, offset=4
-	int cell_size; // size=0, offset=8
+	int cells_across;
+	int cells_down;
+	int cell_size;
 
-	int num_regions; // size=0, offset=12
-	int region_size; // size=0, offset=16
+	int num_regions;
+	int region_size;
 
-	int num_cell_objects; // size=0, offset=20
-	int num_cell_data; // size=0, offset=24
+	int num_cell_objects;
+	int num_cell_data;
 
-	int ambient_light_level; // size=0, offset=28
-	struct VECTOR_NOPAD light_source; // size=12, offset=32
+	int ambient_light_level;
+	VECTOR_NOPAD light_source;
 };
 
 //------------------------------------------------------------------------------------------------------------
@@ -192,6 +192,7 @@ struct POLYGT4
 	CVECTOR color;
 };
 
+#if 0
 enum ModelFlags1	// collision flags?
 {
 	everything = 1,
@@ -231,6 +232,31 @@ enum ModelFlags2	// effect flags?
 	dontKnow15 = 16384, // ??? again: many sidewalks, some grass
 	sidewalk = 32768
 };
+#else
+enum ModelShapeFlags
+{
+	SHAPE_FLAG_SMASH_QUIET = 0x8,
+	SHAPE_FLAG_NOCOLLIDE = 0x10,
+	SHAPE_FLAG_SUBSURFACE = 0x80,		// grass, dirt, water
+	SHAPE_FLAG_ALLEYWAY = 0x400,	// alleyway
+	SHAPE_FLAG_SMASH_SPRITE = 0x4000,
+};
+
+enum ModelFlags2
+{
+	MODEL_FLAG_ANIMOBJ = 0x1,
+	MODEL_FLAG_MEDIAN = 0x20,
+	MODEL_FLAG_ALLEY = 0x80,
+	MODEL_FLAG_HASROOF = 0x100,
+	MODEL_FLAG_NOCOL_200 = 0x200,
+	MODEL_FLAG_BARRIER = 0x400,
+	MODEL_FLAG_SMASHABLE = 0x800,
+	MODEL_FLAG_LAMP = 0x1000,
+	MODEL_FLAG_TREE = 0x2000,
+	MODEL_FLAG_GRASS = 0x4000,
+	MODEL_FLAG_SIDEWALK = 0x8000,
+};
+#endif
 
 struct MODEL
 {
@@ -259,6 +285,11 @@ struct MODEL
 	}
 
 	SVECTOR* pNormal(int i) const
+	{
+		return (SVECTOR*)(((ubyte*)this) + normals) + i;
+	}
+	
+	SVECTOR* pPointNormal(int i) const
 	{
 		return (SVECTOR *)(((ubyte *)this) + point_normals) + i;
 	}
@@ -331,5 +362,20 @@ struct Spool {
 };
 
 #define REGION_EMPTY	(0xFFFF)
+
+struct PALLET_INFO
+{
+	int palette;
+	int texnum;
+	int tpage;
+	int clut_number;
+};
+
+struct PALLET_INFO_D1
+{
+	int palette;
+	int texnum;
+	int tpage;
+};
 
 #endif

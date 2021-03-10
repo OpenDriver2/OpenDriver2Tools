@@ -174,8 +174,8 @@ static void split_data(ini_t *ini) {
 
 
 ini_t* ini_load(const char *filename) {
-  ini_t *ini = NULL;
-  FILE *fp = NULL;
+  ini_t *ini = nullptr;
+  FILE *fp = nullptr;
   int n, sz;
 
   /* Init ini struct */
@@ -215,7 +215,7 @@ ini_t* ini_load(const char *filename) {
 fail:
   if (fp) fclose(fp);
   if (ini) ini_free(ini);
-  return NULL;
+  return nullptr;
 }
 
 
@@ -253,7 +253,7 @@ const char* ini_get(ini_t *ini, const char *section, const char *key) {
     p = next(ini, p);
   }
 
-  return NULL;
+  return nullptr;
 }
 
 

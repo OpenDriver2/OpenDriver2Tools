@@ -3,6 +3,7 @@
 set config=Debug:Release
 for %%c in (%config::= %) do (
     cd %project_folder%\DriverLevelTool\bin\%%c
+	copy %windows_sdl2_dir%\lib\x86\SDL2.dll SDL2.dll /Y
 
     xcopy /e /v %data_folder% .\ /Y
     7z a "DriverLevelTool_%%c.zip" ".\*"

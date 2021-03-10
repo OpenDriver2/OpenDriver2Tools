@@ -1,5 +1,8 @@
 -- premake5.lua
 
+-- you can redefine dependencies
+SDL2_DIR = os.getenv("SDL2_DIR") or "../dependencies/SDL2"
+
 project "DriverLevelTool"
     kind "ConsoleApp"
     language "C++"
@@ -11,6 +14,7 @@ project "DriverLevelTool"
 	}
 
     files {
+		"**.c",
         "**.cpp",
         "**.h",
 		"driver_routines/**.cpp",
@@ -22,8 +26,28 @@ project "DriverLevelTool"
             "-Wno-narrowing",
             "-fpermissive",
         }
+		includedirs {
+            "/usr/include/SDL2"
+        }
+		links {
+            "GL",
+            "SDL2",
+			"dl"
+        }
         
         cppdialect "C++11"
+		
+	filter "system:windows"
+		includedirs {
+			SDL2_DIR.."/include"
+		}
+		links { 
+            "SDL2", 
+        }
+		libdirs { 
+			SDL2_DIR.."/lib/x86",
+		}
+
 
     filter "configurations:Debug"
 		targetsuffix "_dbg"

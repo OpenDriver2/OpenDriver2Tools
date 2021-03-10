@@ -1,14 +1,32 @@
 #ifndef MODEL_H
 #define MODEL_H
 
+#include <string>
+
 #include "math/dktypes.h"
 #include "math/psx_math_types.h"
 #include "d2_types.h"
+#include "util/DkList.h"
 
+#define MAX_MODELS				1536	// maximum models (this is limited by PACKED_CELL_OBJECT)
 
 //------------------------------------------------------------------------------------------------------------
 
-typedef struct dpoly_t
+// forward
+class IVirtualStream;
+struct RegionModels_t;
+struct ModelRef_t;
+struct CarModelData_t;
+
+//------------------------------------------------------------------------------------------------------------
+
+typedef void (*OnModelLoaded_t)(ModelRef_t* tp);
+typedef void (*OnModelFreed_t)(ModelRef_t* tp);
+
+typedef void (*OnCarModelLoaded_t)(CarModelData_t* tp);
+typedef void (*OnCarModelFreed_t)(CarModelData_t* tp);
+
+struct dpoly_t
 {
 	ubyte	flags;
 	ubyte	page;
@@ -17,9 +35,9 @@ typedef struct dpoly_t
 	ubyte	vindices[4];
 	ubyte	uv[4][2];
 	ubyte	nindices[4];
-	CVECTOR	color[4];
+	CVECTOR	color;
 	// something more?
-}FACE;
+};
 
 enum EFaceFlags_e
 {
@@ -33,21 +51,19 @@ struct ModelRef_t
 {
 	ModelRef_t()
 	{
-		model = NULL;
-		userData = NULL;
+		model = nullptr;
+		userData = nullptr;
 	}
 
 	MODEL*	model;
 	int		index;
 	int		size;
 	bool	swap;
-
+	
 	void*	userData; // might contain a hardware model pointer
 };
 
 //------------------------------------------------------------------------------------------------------------
-
-#define MAX_MODELS				1536	// maximum models (this is limited by PACKED_CELL_OBJECT)
 
 struct CarModelData_t
 {
@@ -60,22 +76,54 @@ struct CarModelData_t
 	int lowSize;
 };
 
+class CDriverLevelModels
+{
+	friend class CBaseLevelMap;
+public:
+	CDriverLevelModels();
+	virtual ~CDriverLevelModels();
 
-extern ModelRef_t				g_levelModels[MAX_MODELS];
-extern CarModelData_t			g_carModels[MAX_CAR_MODELS];
+	// release all data
+	void				FreeAll();
+
+	//----------------------------------------------
+	void				SetModelLoadingCallbacks(OnModelLoaded_t onLoaded, OnModelFreed_t onFreed);
+	void				SetCarModelLoadingCallbacks(OnCarModelLoaded_t onLoaded, OnCarModelFreed_t onFreed);
+
+	//----------------------------------------------
+	
+	void				LoadCarModelsLump(IVirtualStream* pFile, int size);
+	void				LoadModelNamesLump(IVirtualStream* pFile, int size);
+	void				LoadLevelModelsLump(IVirtualStream* pFile);
+
+	ModelRef_t*			GetModelByIndex(int nIndex) const;
+	int					FindModelIndexByName(const char* name) const;
+	const char*			GetModelName(ModelRef_t* model) const;
+
+	CarModelData_t*		GetCarModel(int index) const;
+	
+protected:
+	void				OnModelLoaded(ModelRef_t* ref);
+	void				OnModelFreed(ModelRef_t* ref);
+
+	void				OnCarModelLoaded(CarModelData_t* data);
+	void				OnCarModelFreed(CarModelData_t* data);
+	
+	ModelRef_t			m_levelModels[MAX_MODELS];
+	CarModelData_t		m_carModels[MAX_CAR_MODELS];
+	DkList<std::string>	m_model_names;
+
+	OnModelLoaded_t		m_onModelLoaded;
+	OnModelFreed_t		m_onModelFreed;
+	OnCarModelLoaded_t	m_onCarModelLoaded;
+	OnCarModelFreed_t	m_onCarModelFreed;
+};
 
 //------------------------------------------------------------------------------------------------------------
-
-struct RegionModels_t;
-ModelRef_t*		FindModelByIndex(int nIndex, RegionModels_t* models);
-int				GetModelIndexByName(const char* name);
 
 void			PrintUnknownPolys();
 int				decode_poly(const char* face, dpoly_t* out);
 
 //-------------------------------------------------------------------------------
-
-// research function
-void			DumpFaceTypes();
 
 #endif // MODEL_H

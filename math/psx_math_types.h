@@ -36,9 +36,16 @@ struct CVECTOR_NOPAD
 	ubyte b;
 };
 
-struct XYPAIR {
-	int x; // size=0, offset=0
-	int y; // size=0, offset=4
+struct XYPAIR
+{
+	int x;
+	int y;
+};
+
+struct XZPAIR
+{
+	int x;
+	int z;
 };
 
 struct UV_INFO

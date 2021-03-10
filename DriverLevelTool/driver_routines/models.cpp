@@ -5,43 +5,263 @@
 #include <string>
 
 #include "core/cmdlib.h"
+#include "core/IVirtualStream.h"
+
 #include "d2_types.h"
 
 //--------------------------------------------------------------------------------
 
-DkList<std::string>	g_model_names;
-ModelRef_t					g_levelModels[1536];		// level models
-CarModelData_t				g_carModels[MAX_CAR_MODELS];
-
-ModelRef_t* FindModelByIndex(int nIndex, RegionModels_t* models)
+CDriverLevelModels::CDriverLevelModels()
 {
-	if (nIndex >= 0 && nIndex < 1536)
-	{
-		// try searching in region datas
-		if (g_levelModels[nIndex].swap && models)
-		{
-			for (int i = 0; i < models->modelRefs.numElem(); i++)
-			{
-				if (models->modelRefs[i].index == nIndex)
-					return &models->modelRefs[i];
-			}
-		}
-
-		return &g_levelModels[nIndex];
-	}
-
-	return NULL;
 }
 
-int GetModelIndexByName(const char* name)
+CDriverLevelModels::~CDriverLevelModels()
 {
-	for (int i = 0; i < 1536; i++)
+}
+
+void CDriverLevelModels::FreeAll()
+{
+	for (int i = 0; i < MAX_MODELS; i++)
 	{
-		if (!strcmp(g_model_names[i].c_str(), name))
+		ModelRef_t& ref = m_levelModels[i];
+
+		OnModelFreed(&ref);
+		
+		if (ref.model)
+			free(ref.model);
+	}
+
+	for (int i = 0; i < MAX_CAR_MODELS; i++)
+	{
+		CarModelData_t& carModelData = m_carModels[i];
+
+		OnCarModelFreed(&carModelData);
+		
+		if (carModelData.cleanmodel)
+			free(carModelData.cleanmodel);
+
+		if (carModelData.dammodel)
+			free(carModelData.dammodel);
+
+		if (carModelData.lowmodel)
+			free(carModelData.lowmodel);
+	}
+}
+
+ModelRef_t* CDriverLevelModels::GetModelByIndex(int nIndex) const
+{
+	if (nIndex >= 0 && nIndex < MAX_MODELS)
+		return (ModelRef_t*)&m_levelModels[nIndex];
+
+	return nullptr;
+}
+
+int CDriverLevelModels::FindModelIndexByName(const char* name) const
+{
+	for (int i = 0; i < MAX_MODELS; i++)
+	{
+		if (!strcmp(m_model_names[i].c_str(), name))
 			return i;
 	}
 
 	return -1;
+}
+
+const char* CDriverLevelModels::GetModelName(ModelRef_t* model) const
+{
+	if (!model)
+		return nullptr;
+
+	return m_model_names[model->index].c_str();
+}
+
+CarModelData_t* CDriverLevelModels::GetCarModel(int index) const
+{
+	return (CarModelData_t*)&m_carModels[index];
+}
+
+//-------------------------------------------------------------
+// parses model lumps and exports models to OBJ
+//-------------------------------------------------------------
+void CDriverLevelModels::LoadCarModelsLump(IVirtualStream* pFile, int size)
+{
+	int l_ofs = pFile->Tell();
+
+	int modelCount;
+	pFile->Read(&modelCount, sizeof(int), 1);
+
+	DevMsg(SPEW_NORM, "	all car models count: %d\n", modelCount);
+
+	// read entries
+	carmodelentry_t model_entries[MAX_CAR_MODELS];
+	pFile->Read(&model_entries, sizeof(carmodelentry_t), MAX_CAR_MODELS);
+
+	// position
+	int r_ofs = pFile->Tell();
+
+	int pad; // really padding?
+	pFile->Read(&pad, sizeof(int), 1);
+
+	// load car models
+	for (int i = 0; i < MAX_CAR_MODELS; i++)
+	{
+		DevMsg(SPEW_NORM, "car model: %d %d %d\n", model_entries[i].cleanOffset != -1, model_entries[i].damOffset != -1, model_entries[i].lowOffset != -1);
+
+		CarModelData_t& carModelData = m_carModels[i];
+		
+		if (model_entries[i].cleanOffset != -1)
+		{
+			pFile->Seek(r_ofs + model_entries[i].cleanOffset, VS_SEEK_SET);
+
+			pFile->Read(&carModelData.cleanSize, 1, sizeof(int));
+
+			carModelData.cleanmodel = (MODEL*)malloc(carModelData.cleanSize);
+			pFile->Read(carModelData.cleanmodel, 1, carModelData.cleanSize);
+		}
+		else
+			carModelData.cleanmodel = nullptr;
+
+		if (model_entries[i].damOffset != -1)
+		{
+			pFile->Seek(r_ofs + model_entries[i].damOffset, VS_SEEK_SET);
+
+			pFile->Read(&carModelData.damSize, 1, sizeof(int));
+
+			carModelData.dammodel = (MODEL*)malloc(carModelData.damSize);
+			pFile->Read(carModelData.dammodel, 1, carModelData.damSize);
+		}
+		else
+			carModelData.dammodel = nullptr;
+
+		if (model_entries[i].lowOffset != -1)
+		{
+			pFile->Seek(r_ofs + model_entries[i].lowOffset, VS_SEEK_SET);
+
+			pFile->Read(&carModelData.lowSize, 1, sizeof(int));
+
+			carModelData.lowmodel = (MODEL*)malloc(carModelData.lowSize);
+			pFile->Read(carModelData.lowmodel, 1, carModelData.lowSize);
+		}
+		else
+			carModelData.lowmodel = nullptr;
+
+		OnCarModelLoaded(&carModelData);
+	}
+
+	pFile->Seek(l_ofs, VS_SEEK_SET);
+}
+
+//-------------------------------------------------------------
+// load model names
+//-------------------------------------------------------------
+void CDriverLevelModels::LoadModelNamesLump(IVirtualStream* pFile, int size)
+{
+	int l_ofs = pFile->Tell();
+
+	char* modelnames = new char[size];
+	pFile->Read(modelnames, size, 1);
+
+	int len = strlen(modelnames);
+	int sz = 0;
+
+	do
+	{
+		char* str = modelnames + sz;
+
+		len = strlen(str);
+
+		m_model_names.append(str);
+
+		sz += len + 1;
+	} while (sz < size);
+
+	delete[] modelnames;
+
+	pFile->Seek(l_ofs, VS_SEEK_SET);
+}
+
+//-------------------------------------------------------------
+// parses model lumps and exports models to OBJ
+//-------------------------------------------------------------
+void CDriverLevelModels::LoadLevelModelsLump(IVirtualStream* pFile)
+{
+	int l_ofs = pFile->Tell();
+
+	int modelCount;
+	pFile->Read(&modelCount, sizeof(int), 1);
+
+	DevMsg(SPEW_INFO, "	model count: %d\n", modelCount);
+
+	for (int i = 0; i < modelCount; i++)
+	{
+		int modelSize;
+
+		pFile->Read(&modelSize, sizeof(int), 1);
+
+		if (modelSize > 0)
+		{
+			ModelRef_t& ref = m_levelModels[i];
+			ref.index = i;
+			ref.model = (MODEL*)malloc(modelSize);
+			ref.size = modelSize;
+			ref.swap = false;
+
+			pFile->Read(ref.model, modelSize, 1);
+			
+			
+		}
+		else // leave empty as swap
+		{
+			ModelRef_t& ref = m_levelModels[i];
+			ref.index = i;
+			ref.model = nullptr;
+			ref.size = modelSize;
+			ref.swap = true;
+		}
+	}
+
+	for (int i = 0; i < modelCount; i++)
+	{
+		OnModelLoaded(&m_levelModels[i]);
+	}
+
+	pFile->Seek(l_ofs, VS_SEEK_SET);
+}
+
+void CDriverLevelModels::SetModelLoadingCallbacks(OnModelLoaded_t onLoaded, OnModelFreed_t onFreed)
+{
+	m_onModelLoaded = onLoaded;
+	m_onModelFreed = onFreed;
+}
+
+void CDriverLevelModels::SetCarModelLoadingCallbacks(OnCarModelLoaded_t onLoaded, OnCarModelFreed_t onFreed)
+{
+	m_onCarModelLoaded = onLoaded;
+	m_onCarModelFreed = onFreed;
+}
+
+void CDriverLevelModels::OnModelLoaded(ModelRef_t* ref)
+{
+	if (m_onModelLoaded)
+		m_onModelLoaded(ref);
+}
+
+void CDriverLevelModels::OnModelFreed(ModelRef_t* ref)
+{
+	if (m_onModelFreed)
+		m_onModelFreed(ref);
+}
+
+void CDriverLevelModels::OnCarModelLoaded(CarModelData_t* data)
+{
+	if (m_onCarModelLoaded)
+		m_onCarModelLoaded(data);
+}
+
+void CDriverLevelModels::OnCarModelFreed(CarModelData_t* data)
+{
+	if (m_onCarModelFreed)
+		m_onCarModelFreed(data);
 }
 
 //--------------------------------------------------------------------------------
@@ -69,6 +289,7 @@ void PrintUnknownPolys()
 		MsgWarning("%d (sz=%d), ", *itr, PolySizes[*itr]);
 	}
 	MsgError("\n\n");
+	g_UnknownPolyTypes.clear();
 }
 
 // 5 (sz=20), 11 (sz=16), 10 (sz=16), 17 (sz=12), 9 (sz=12), 16 (sz=12), 8 (sz=8),
@@ -91,10 +312,7 @@ int decode_poly(const char* polyList, dpoly_t* out)
 	out->detail = 0xFF;
 	out->flags = 0;
 
-	*(uint*)&out->color[0] = 0;
-	*(uint*)&out->color[1] = 0;
-	*(uint*)&out->color[2] = 0;
-	*(uint*)&out->color[3] = 0;
+	*(uint*)&out->color = 0;
 
 	switch (ptype)
 	{
@@ -109,7 +327,7 @@ int decode_poly(const char* polyList, dpoly_t* out)
 		{
 			// F3
 			*(uint*)out->vindices = *(uint*)&polyList[1];
-
+			*(uint*)&out->color = *(uint*)&polyList[8];
 			// FIXME: read colours
 
 			out->flags = FACE_RGB; // RGB?
@@ -119,7 +337,8 @@ int decode_poly(const char* polyList, dpoly_t* out)
 		{
 			// F4
 			*(uint*)out->vindices = *(uint*)&polyList[1];
-
+			*(uint*)&out->color = *(uint*)&polyList[8];
+			
 			// FIXME: read colours
 
 			out->flags = FACE_RGB; // RGB?
@@ -133,10 +352,13 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			POLYFT3* pft3 = (POLYFT3*)polyList;
 
 			*(uint*)out->vindices = *(uint*)&pft3->v0;
-			*(ushort*)out->uv[0] = *(uint*)&pft3->uv0;
-			*(ushort*)out->uv[1] = *(uint*)&pft3->uv1;
-			*(ushort*)out->uv[2] = *(uint*)&pft3->uv2;
-			*(uint*)out->color = *(uint*)&pft3->color;
+			*(ushort*)out->uv[0] = *(ushort*)&pft3->uv0;
+			*(ushort*)out->uv[1] = *(ushort*)&pft3->uv1;
+			*(ushort*)out->uv[2] = *(ushort*)&pft3->uv2;
+
+			if(ptype != 10)
+				*(uint*)&out->color = *(uint*)&pft3->color;
+
 			out->page = pft3->texture_set;
 			out->detail = pft3->texture_id;
 
@@ -153,16 +375,18 @@ int decode_poly(const char* polyList, dpoly_t* out)
 			POLYFT4* pft4 = (POLYFT4*)polyList;
 
 			*(uint*)out->vindices = *(uint*)&pft4->v0;
-			*(ushort*)out->uv[0] = *(uint*)&pft4->uv0;
-			*(ushort*)out->uv[1] = *(uint*)&pft4->uv1;
-			*(ushort*)out->uv[2] = *(uint*)&pft4->uv2;
-			*(ushort*)out->uv[3] = *(uint*)&pft4->uv3;
-
-			*(uint*)out->color = *(uint*)&pft4->color;
+			*(ushort*)out->uv[0] = *(ushort*)&pft4->uv0;
+			*(ushort*)out->uv[1] = *(ushort*)&pft4->uv1;
+			*(ushort*)out->uv[2] = *(ushort*)&pft4->uv2;
+			*(ushort*)out->uv[3] = *(ushort*)&pft4->uv3;
+			
+			if(ptype != 11)
+				*(uint*)&out->color = *(uint*)&pft4->color;
+			
 			out->page = pft4->texture_set;
 			out->detail = pft4->texture_id;
 
-			//SwapValues(out->vindices[2], out->vindices[3]);
+			//SwapValues(out->uv[2], out->uv[3]);
 
 			out->flags = FACE_IS_QUAD | FACE_TEXTURED;
 
@@ -174,11 +398,12 @@ int decode_poly(const char* polyList, dpoly_t* out)
 
 			*(uint*)out->vindices = *(uint*)&pgt3->v0;
 			*(uint*)out->nindices = *(uint*)&pgt3->n0;
-			*(ushort*)out->uv[0] = *(uint*)&pgt3->uv0;
-			*(ushort*)out->uv[1] = *(uint*)&pgt3->uv1;
-			*(ushort*)out->uv[2] = *(uint*)&pgt3->uv2;
+			*(ushort*)out->uv[0] = *(ushort*)&pgt3->uv0;
+			*(ushort*)out->uv[1] = *(ushort*)&pgt3->uv1;
+			*(ushort*)out->uv[2] = *(ushort*)&pgt3->uv2;
 
-			*(uint*)out->color = *(uint*)&pgt3->color;
+			*(uint*)&out->color = *(uint*)&pgt3->color;
+			
 			out->page = pgt3->texture_set;
 			out->detail = pgt3->texture_id;
 
@@ -192,12 +417,13 @@ int decode_poly(const char* polyList, dpoly_t* out)
 
 			*(uint*)out->vindices = *(uint*)&pgt4->v0;
 			*(uint*)out->nindices = *(uint*)&pgt4->n0;
-			*(ushort*)out->uv[0] = *(uint*)&pgt4->uv0;
-			*(ushort*)out->uv[1] = *(uint*)&pgt4->uv1;
-			*(ushort*)out->uv[2] = *(uint*)&pgt4->uv2;
-			*(ushort*)out->uv[3] = *(uint*)&pgt4->uv3;
+			*(ushort*)out->uv[0] = *(ushort*)&pgt4->uv0;
+			*(ushort*)out->uv[1] = *(ushort*)&pgt4->uv1;
+			*(ushort*)out->uv[2] = *(ushort*)&pgt4->uv2;
+			*(ushort*)out->uv[3] = *(ushort*)&pgt4->uv3;
 
-			*(uint*)out->color = *(uint*)&pgt4->color;
+			*(uint*)&out->color = *(uint*)&pgt4->color;
+			
 			out->page = pgt4->texture_set;
 			out->detail = pgt4->texture_id;
 			out->flags = FACE_IS_QUAD | FACE_VERT_NORMAL | FACE_TEXTURED;

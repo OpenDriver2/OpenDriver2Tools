@@ -5,6 +5,8 @@
 #ifndef LEVEL_H
 #define LEVEL_H
 
+#define SPOOL_CD_BLOCK_SIZE		2048
+
 // known lumps indexes
 enum LevLumpType
 {
@@ -52,8 +54,12 @@ enum ELevelFormat
 
 	LEV_FORMAT_DRIVER1 = 0,			// driver 1
 	LEV_FORMAT_DRIVER2_ALPHA16,		// driver 2 alpha 1.6 format
-	LEV_FORMAT_DRIVER2_RETAIL,			// driver 2 retail format
+	LEV_FORMAT_DRIVER2_RETAIL,		// driver 2 retail format
 };
+
+// forward
+class IVirtualStream;
+struct RegionModels_t;
 
 //------------------------------------------------------------------------------------------------------------
 // globals
@@ -63,13 +69,7 @@ extern ELevelFormat g_format;
 //------------------------------------------------------------------------------------------------------------
 // functions
 
-class IVirtualStream;
-struct RegionModels_t;
-
-void	LoadModelNamesLump(IVirtualStream* pFile, int size);
-void	LoadTextureNamesLump(IVirtualStream* pFile, int size);
-
-void	LoadLevelFile(const char* filename);
+bool	LoadLevelFile(const char* filename);
 void	FreeLevelData();
 
 #endif // LEVEL_H

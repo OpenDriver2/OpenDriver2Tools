@@ -1,3 +1,11 @@
+//////////////////////////////////////////////////////////////////////////////////
+// Copyright © Inspiration Byte
+// 2009-2020
+//////////////////////////////////////////////////////////////////////////////////
+// Description: Vector math base (2D,3D,4D)
+//////////////////////////////////////////////////////////////////////////////////
+
+
 #ifndef VECTOR_H
 #define VECTOR_H
 
@@ -5,9 +13,16 @@
 #include <float.h>
 
 #include "dktypes.h"
-
-// is here for some veeery useful functions
 #include "math_common.h"
+
+struct half
+{
+	unsigned short sh;
+
+	half() {};
+    half(const float x);
+	operator float () const;
+};
 
 // Vector 2D
 template <class T>
@@ -18,18 +33,16 @@ struct TVec2D
 	TVec2D<T>() {}
 
 	template <class T2>
-	TVec2D(const TVec2D<T2>& other) : x(other.x), y(other.y) {}
+	TVec2D(const TVec2D<T2>& other) 
+		: x((T)other.x), y((T)other.y) {}
 
-	TVec2D<T>(const T ixy)
-	{
-		x = y = ixy;
-	}
+	TVec2D<T>(const T ixy) 
+		: x(ixy), y(ixy)
+	{}
 
 	TVec2D<T>(const T ix, const T iy)
-	{
-		x = ix;
-		y = iy;
-	}
+		: x(ix), y(iy)
+	{}
 
 	operator T *() const { return (T *) &x; }
 
@@ -115,43 +128,37 @@ bool operator == (const TVec2D<T> &u, const TVec2D<T2> &v);
 /* --------------------------------------------------------------------------------- */
 
 template <class T>
-struct TVec3D 
+struct TVec3D
 {
 	T x, y, z;
 
 	TVec3D<T>() {}
 
 	template <class T2>
-	TVec3D(const TVec3D<T2>& other) : x((T)other.x), y((T)other.y), z((T)other.z) {}
+	TVec3D(const TVec3D<T2>& other) 
+		: x((T)other.x), y((T)other.y), z((T)other.z)
+	{}
 
 	TVec3D<T>(const T ixyz)
-	{
-		x = y = z = ixyz;
-	}
+		: x(ixyz), y(ixyz), z(ixyz)
+	{}
 
 	TVec3D<T>(const T ix, const T iy, const T iz)
-	{
-		x = ix;
-		y = iy;
-		z = iz;
-	}
+		: x(ix), y(iy), z(iz)
+	{}
+
 	TVec3D<T>(const TVec2D<T>& iv, const T iz)
-	{
-		x = iv.x;
-		y = iv.y;
-		z = iz;
-	}
+		: x(iv.x), y(iv.y), z(iz)
+	{}
+
 	TVec3D<T>(const T ix, const TVec2D<T>& iv)
-	{
-		x = ix;
-		y = iv.x;
-		z = iv.y;
-	}
+		: x(ix), y(iv.x), z(iv.y)
+	{}
 
 	operator T *() const { return (T *) &x; }
 
-	TVec2D<T> xy() const { return TVec2D<T>(x, y); }
-	TVec2D<T> yz() const { return TVec2D<T>(y, z); }
+	const TVec2D<T>& xy() const { return *(TVec2D<T>*)&x; }
+	const TVec2D<T>& yz() const { return *(TVec2D<T>*)&y; }
 	TVec2D<T> xz() const { return TVec2D<T>(x, z); }
 
 	template <class T2>
@@ -243,80 +250,61 @@ bool operator > (const TVec3D<T> &u, const TVec3D<T2> &v);
 /* --------------------------------------------------------------------------------- */
 
 template <class T>
-struct TVec4D 
+struct TVec4D
 {
 	T x, y, z, w;
 
 	TVec4D<T>() {}
 
 	template <class T2>
-	TVec4D(const TVec4D<T2>& other) : x(other.x), y(other.y), z(other.z), w(other.w) {}
+	TVec4D(const TVec4D<T2>& other) 
+		: x((T)other.x), y((T)other.y), z((T)other.z), w((T)other.w) 
+	{}
 
 	TVec4D<T>(const T ixyzw)
-	{
-		x = y = z = w = ixyzw;
-	}
+		: x(ixyzw), y(ixyzw), z(ixyzw), w(ixyzw)
+	{}
 
 	TVec4D<T>(const T ix, const T iy, const T iz, const T iw)
-	{
-		x = ix;
-		y = iy;
-		z = iz;
-		w = iw;
-	}
+		: x(ix), y(iy), z(iz), w(iw)
+	{}
+
 	TVec4D<T>(const TVec2D<T>& iv, const T iz, const T iw)
-	{
-		x = iv.x;
-		y = iv.y;
-		z = iz;
-		w = iw;
-	}
+		: x(iv.x), y(iv.y), z(iz), w(iw)
+	{}
+
 	TVec4D<T>(const T ix, const TVec2D<T>& iv, const T iw)
-	{
-		x = ix;
-		y = iv.x;
-		z = iv.y;
-		w = iw;
-	}
+		: x(ix), y(iv.x), z(iv.y), w(iw)
+	{}
+
 	TVec4D<T>(const T ix, const T iy, const TVec2D<T>& iv)
-	{
-		x = ix;
-		y = iy;
-		z = iv.x;
-		w = iv.y;
-	}
+		: x(ix), y(iy), z(iv.x), w(iv.y)
+	{}
+
 	TVec4D<T>(const TVec2D<T>& iv0, const TVec2D<T>& iv1)
-	{
-		x = iv0.x;
-		y = iv0.y;
-		z = iv1.x;
-		w = iv1.y;
-	}
+		: x(iv0.x), y(iv0.y), z(iv1.x), w(iv1.y)
+	{}
+
 	TVec4D<T>(const TVec3D<T>& iv, const T iw)
-	{
-		x = iv.x;
-		y = iv.y;
-		z = iv.z;
-		w = iw;
-	}
+		: x(iv.x), y(iv.y), z(iv.z), w(iw)
+	{}
+
 	TVec4D<T>(const T ix, const TVec3D<T>& iv)
-	{
-		x = ix;
-		y = iv.x;
-		z = iv.y;
-		w = iv.z;
-	}
+		: x(ix), y(iv.x), z(iv.y), w(iv.z)
+	{}
+
 	operator T *() const { return (T *) &x; }
 
-	TVec2D<T> xy() const { return TVec2D<T>(x, y); }
+	const TVec3D<T>& xyz() const { return *(TVec3D<T>*)&x; }
+	const TVec3D<T>& yzw() const { return *(TVec3D<T>*)&y; }
+
+	const TVec2D<T>& xy() const { return *(TVec2D<T>*)&x; }
+	const TVec2D<T>& yz() const { return *(TVec2D<T>*)&y; }
+	const TVec2D<T>& zw() const { return *(TVec2D<T>*)&z; }
+
 	TVec2D<T> xz() const { return TVec2D<T>(x, z); }
 	TVec2D<T> xw() const { return TVec2D<T>(x, w); }
-	TVec2D<T> yz() const { return TVec2D<T>(y, z); }
 	TVec2D<T> yw() const { return TVec2D<T>(y, w); }
-	TVec2D<T> zw() const { return TVec2D<T>(z, w); }
-
-	TVec3D<T> xyz() const { return TVec3D<T>(x, y, z); }
-	TVec3D<T> yzw() const { return TVec3D<T>(y, z, w); }
 
 	template <class T2>
 	void operator += (const T2 s);
@@ -465,6 +453,10 @@ TVec3D<T>	cerp(const TVec3D<T> &u0, const TVec3D<T> &u1, const TVec3D<T> &u2, co
 template <typename T>
 TVec4D<T>	cerp(const TVec4D<T> &u0, const TVec4D<T> &u1, const TVec4D<T> &u2, const TVec4D<T> &u3, float x);
 
+// sign comparison
+template <typename T>
+T			sameSign(T a, T b);
+
 // returns sign of value (-1 or 1)
 template <typename T>
 T			sign(const T v);
@@ -481,33 +473,37 @@ TVec3D<T>	sign(const TVec3D<T> &v);
 template <typename T>
 TVec4D<T>	sign(const TVec4D<T> &v);
 
+// returns value + step with error correction of difference overflowing a target value
+template <typename T>
+T			approachValue(T v, T t, T s);
+
 // clamps value (v) to min (c0) and max (c1)
 template <typename T, typename T2>
-T			clamp(const T v, const T2 color, const T2 c1);
+T			clamp(const T v, const T2 c0, const T2 c1);
 
 // clamps vector2 value (v) to min (c0) and max (c1)
 template <typename T, typename T2>
-TVec2D<T>	clamp(const TVec2D<T> &v, const T2 color, const T2 c1);
+TVec2D<T>	clamp(const TVec2D<T> &v, const T2 c0, const T2 c1);
 
 // clamps vector2 value (v) to min vector2 (c0) and max vector2 (c1)
 template <typename T>
-TVec2D<T>	clamp(const TVec2D<T> &v, const TVec2D<T> &color, const TVec2D<T> &c1);
+TVec2D<T>	clamp(const TVec2D<T> &v, const TVec2D<T> &c0, const TVec2D<T> &c1);
 
 // clamps vector3 value (v) to min (c0) and max (c1)
 template <typename T, typename T2>
-TVec3D<T>	clamp(const TVec3D<T> &v, const T2 color, const T2 c1);
+TVec3D<T>	clamp(const TVec3D<T> &v, const T2 c0, const T2 c1);
 
 // clamps vector3 value (v) to min vector3 (c0) and max vector3 (c1)
 template <typename T>
-TVec3D<T>	clamp(const TVec3D<T> &v, const TVec3D<T> &color, const TVec3D<T> &c1);
+TVec3D<T>	clamp(const TVec3D<T> &v, const TVec3D<T> &c0, const TVec3D<T> &c1);
 
 // clamps vector2 value (v) to min (c0) and max (c1)
 template <typename T, typename T2>
-TVec4D<T>	clamp(const TVec4D<T> &v, const T2 color, const T2 c1);
+TVec4D<T>	clamp(const TVec4D<T> &v, const T2 c0, const T2 c1);
 
 // clamps vector4 value (v) to min vector4 (c0) and max vector4 (c1)
 template <typename T>
-TVec4D<T>	clamp(const TVec4D<T> &v, const TVec4D<T> &color, const TVec4D<T> &c1);
+TVec4D<T>	clamp(const TVec4D<T> &v, const TVec4D<T> &c0, const TVec4D<T> &c1);
 
 // OpenGL-like function
 #define		saturate(x) clamp(x, 0.0f, 1.0f)
@@ -655,15 +651,15 @@ uint		toRGBA(const ColorRGBA &u);
 // converts Ting-point colors to single UINT color (as in D3D)
 uint		toBGRA(const ColorRGBA &u);
 
+template <typename CHAR_T>
+ColorRGB	hexToColor3(unsigned char* rgb);
+
+template <typename CHAR_T>
+ColorRGBA	hexToColor4(unsigned char* rgba);
+
 ColorRGB	rgbeToRGB(unsigned char *rgbe);
 uint		rgbToRGBE8(const ColorRGB &rgb);
 uint		rgbToRGB9E5(const ColorRGB &rgb);
-
-inline Vector3D NormalOfTriangle(const Vector3D& v0, const Vector3D& v1, const Vector3D& v2)
-{
-	//Calculate vectors along polygon sides
-	return fastNormalize(cross(v2 - v1, v0 - v1));
-}
 
 // as quake's vec3_origin, but for all vector types
 #define vec2_zero TVec2D<float>(0.0f)
@@ -678,6 +674,6 @@ inline Vector3D NormalOfTriangle(const Vector3D& v0, const Vector3D& v1, const V
 #define color3_white ColorRGB(1.0f)
 #define color4_white ColorRGBA(1.0f)
 
-#include "Vector_Inline.h"
+#include "Vector.inl"
 
 #endif //VECTOR_H

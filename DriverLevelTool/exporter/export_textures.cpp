@@ -14,64 +14,38 @@ extern bool g_export_overmap;
 extern int g_overlaymap_width;
 extern bool g_explode_tpages;
 extern bool g_export_world;
+extern bool g_originalTransparencyKey;
+extern char* g_overlayMapData;
 
-int clutSortFunc(extclutdata_t* const& i, extclutdata_t* const& j)
+void GetTPageDetailPalettes(DkList<TEXCLUT*>& out, CTexturePage* tpage, TexDetailInfo_t* detail)
 {
-	return (i->palette - j->palette);
-}
-
-void GetTPageDetailPalettes(DkList<TEXCLUT*>& out, int nPage, int detail)
-{
-	texdata_t* page = &g_texPageData[nPage];
+	const TexBitmap_t& bitmap = tpage->GetBitmap();
 
 	// ofc, add default
-	out.append(&page->clut[detail]);
+	out.append(&bitmap.clut[detail->info.id]);
 
-	DkList<extclutdata_t*> extra_cluts;
-
-	for (int i = 0; i < g_numExtraPalettes; i++)
-	{
-		if (g_extraPalettes[i].tpage != nPage)
-			continue;
-
-		bool found = false;
-
-		for (int j = 0; j < g_extraPalettes[i].texcnt; j++)
-		{
-			if (g_extraPalettes[i].texnum[j] == detail)
-			{
-				found = true;
-				break;
-			}
-		}
-
-		if (found)
-			extra_cluts.append(&g_extraPalettes[i]);
-	}
-
-	extra_cluts.sort(clutSortFunc);
-
-	for (int i = 0; i < extra_cluts.numElem(); i++)
-		out.append(&extra_cluts[i]->clut);
+	for(int i = 0; i < detail->numExtraCLUTs; i++)
+		out.append(detail->extraCLUTs[i]);
 }
 
 //-------------------------------------------------------------
 // writes 4-bit TIM image file from TPAGE
 //-------------------------------------------------------------
-void ExportTIM(int nPage, int detail)
+void ExportTIM(CTexturePage* tpage, int detail)
 {
-	texdata_t* page = &g_texPageData[nPage];
-
-	if (!(detail < g_texPages[nPage].numDetails))
+	if (!(detail < tpage->GetDetailCount()))
 	{
 		MsgError("Cannot apply palette to non-existent detail! Programmer error?\n");
 		return;
 	}
 
-	int ox = g_texPages[nPage].details[detail].x;
-	int oy = g_texPages[nPage].details[detail].y;
-	int w = g_texPages[nPage].details[detail].width;
-	int h = g_texPages[nPage].details[detail].height;
+	const TexBitmap_t& bitmap = tpage->GetBitmap();
+	TexDetailInfo_t* texdetail = tpage->GetTextureDetail(detail);
+	
+	int ox = texdetail->info.x;
+	int oy = texdetail->info.y;
+	int w = texdetail->info.width;
+	int h = texdetail->info.height;
 
 	if (w == 0)
 		w = 256;
@@ -80,9 +54,9 @@ void ExportTIM(int nPage, int detail)
 		h = 256;
 
 	DkList<TEXCLUT*> palettes;
-	GetTPageDetailPalettes(palettes, nPage, detail);
+	GetTPageDetailPalettes(palettes, tpage, texdetail);
 
-	char* textureName = g_textureNamesData + g_texPages[nPage].details[detail].nameoffset;
+	const char* textureName = g_levTextures.GetTextureDetailName(&texdetail->info);
 
 	Msg("Saving %s' %d (xywh: %d %d %d %d)\n", textureName, detail, ox, oy, w, h);
 
@@ -112,7 +86,7 @@ void ExportTIM(int nPage, int detail)
 
 			if (py * half_w + half_px < img_size)
 			{
-				image_data[py * half_w + half_px] = page->data[y * 128 + half_x];
+				image_data[py * half_w + half_px] = bitmap.data[y * 128 + half_x];
 			}
 			else
 			{
@@ -127,12 +101,10 @@ void ExportTIM(int nPage, int detail)
 
 	// copy cluts
 	for (int i = 0; i < palettes.numElem(); i++)
-	{
 		memcpy(&clut_data[i], palettes[i], sizeof(TEXCLUT));
-	}
 
 	// compose TIMs
-	SaveTIM_4bit(varargs("%s/PAGE_%d/%s_%d.TIM", g_levname_texdir.c_str(), nPage, textureName, detail), 
+	SaveTIM_4bit(varargs("%s/PAGE_%d/%s_%d.TIM", g_levname_texdir.c_str(), tpage->GetId(), textureName, detail),
 		image_data, img_size, ox, oy, w, h, 
 		(ubyte*)clut_data, palettes.numElem() );
 
@@ -143,23 +115,23 @@ void ExportTIM(int nPage, int detail)
 //-------------------------------------------------------------
 // Exports entire texture page
 //-------------------------------------------------------------
-void ExportTexturePage(int nPage)
+void ExportTexturePage(CTexturePage* tpage)
 {
 	//
 	// This is where texture is converted from paletted BGR5A1 to BGRA8
 	// Also saving to LEVEL_texture/PAGE_*
 	//
 
-	texdata_t* page = &g_texPageData[nPage];
+	const TexBitmap_t& bitmap = tpage->GetBitmap();
 
-	if (!page->data)
+	if (!bitmap.data)
 		return;		// NO DATA
 
-	int numDetails = g_texPages[nPage].numDetails;
+	int numDetails = tpage->GetDetailCount();
 
 	// Write an INI file with texture page info
 	{
-		FILE* pIniFile = fopen(varargs("%s/PAGE_%d.ini", g_levname_texdir.c_str(), nPage), "wb");
+		FILE* pIniFile = fopen(varargs("%s/PAGE_%d.ini", g_levname_texdir.c_str(), tpage->GetId()), "wb");
 
 		if (pIniFile)
 		{
@@ -169,10 +141,12 @@ void ExportTexturePage(int nPage)
 
 			for (int i = 0; i < numDetails; i++)
 			{
-				int x = g_texPages[nPage].details[i].x;
-				int y = g_texPages[nPage].details[i].y;
-				int w = g_texPages[nPage].details[i].width;
-				int h = g_texPages[nPage].details[i].height;
+				TexDetailInfo_t* detail = tpage->GetTextureDetail(i);
+				
+				int x = detail->info.x;
+				int y = detail->info.y;
+				int w = detail->info.width;
+				int h = detail->info.height;
 
 				if (w == 0)
 					w = 256;
@@ -181,8 +155,8 @@ void ExportTexturePage(int nPage)
 					h = 256;
 
 				fprintf(pIniFile, "[detail_%d]\r\n", i);
-				fprintf(pIniFile, "id=%d\r\n", g_texPages[nPage].details[i].id);
-				fprintf(pIniFile, "name=%s\r\n", g_textureNamesData + g_texPages[nPage].details[i].nameoffset);
+				fprintf(pIniFile, "id=%d\r\n", detail->info.id);
+				fprintf(pIniFile, "name=%s\r\n", g_levTextures.GetTextureDetailName(&detail->info));
 				fprintf(pIniFile, "xywh=%d,%d,%d,%d\r\n",x, y, w, h);
 				fprintf(pIniFile, "\r\n");
 			}
@@ -193,14 +167,14 @@ void ExportTexturePage(int nPage)
 
 	if (g_explode_tpages)
 	{
-		MsgInfo("Exploding texture '%s/PAGE_%d'\n", g_levname_texdir.c_str(), nPage);
+		MsgInfo("Exploding texture '%s/PAGE_%d'\n", g_levname_texdir.c_str(), tpage->GetId());
 
 		// make folder and place all tims in there
-		mkdirRecursive(varargs("%s/PAGE_%d", g_levname_texdir.c_str(), nPage));
+		mkdirRecursive(varargs("%s/PAGE_%d", g_levname_texdir.c_str(), tpage->GetId()));
 
 		for (int i = 0; i < numDetails; i++)
 		{
-			ExportTIM(nPage, i);
+			ExportTIM(tpage, i);
 		}
 
 		return;
@@ -219,7 +193,7 @@ void ExportTexturePage(int nPage)
 	{
 		for (int x = 0; x < 256; x++)
 		{
-			ubyte clindex = page->data[y * 128 + (x >> 1)];
+			ubyte clindex = bitmap.data[y * 128 + (x >> 1)];
 
 			if (0 != (x & 1))
 				clindex >>= 4;
@@ -234,36 +208,32 @@ void ExportTexturePage(int nPage)
 
 	for (int i = 0; i < numDetails; i++)
 	{
-		ConvertIndexedTextureToRGBA(nPage, color_data, i, &page->clut[i]);
+		tpage->ConvertIndexedTextureToRGBA(color_data, i, nullptr, true, true);
 	}
 
-	MsgInfo("Writing texture '%s/PAGE_%d.tga'\n", g_levname_texdir.c_str(), nPage);
-	SaveTGA(varargs("%s/PAGE_%d.tga", g_levname_texdir.c_str(), nPage), (ubyte*)color_data, TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, TEX_CHANNELS);
+	MsgInfo("Writing texture '%s/PAGE_%d.tga'\n", g_levname_texdir.c_str(), tpage->GetId());
+	SaveTGA(varargs("%s/PAGE_%d.tga", g_levname_texdir.c_str(), tpage->GetId()), (ubyte*)color_data, TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, TEX_CHANNELS);
 
 	int numPalettes = 0;
 	for (int pal = 0; pal < 16; pal++)
 	{
 		bool anyMatched = false;
-		for (int i = 0; i < g_numExtraPalettes; i++)
+
+		for (int j = 0; j < numDetails; j++)
 		{
-			if (g_extraPalettes[i].tpage != nPage)
-				continue;
-
-			if (g_extraPalettes[i].palette != pal)
-				continue;
-
-			for (int j = 0; j < g_extraPalettes[i].texcnt; j++)
+			TexDetailInfo_t* detail = tpage->GetTextureDetail(j);
+			
+			if(detail->extraCLUTs[pal])
 			{
-				ConvertIndexedTextureToRGBA(nPage, color_data, g_extraPalettes[i].texnum[j], &g_extraPalettes[i].clut);
+				tpage->ConvertIndexedTextureToRGBA(color_data, j, detail->extraCLUTs[pal], true, true);
+				anyMatched = true;
 			}
-
-			anyMatched = true;
 		}
 
 		if (anyMatched)
 		{
-			MsgInfo("Writing texture %s/PAGE_%d_%d.tga\n", g_levname_texdir.c_str(), nPage, numPalettes);
-			SaveTGA(varargs("%s/PAGE_%d_%d.tga", g_levname_texdir.c_str(), nPage, numPalettes), (ubyte*)color_data, TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, TEX_CHANNELS);
+			MsgInfo("Writing texture %s/PAGE_%d_%d.tga\n", g_levname_texdir.c_str(), tpage->GetId(), numPalettes);
+			SaveTGA(varargs("%s/PAGE_%d_%d.tga", g_levname_texdir.c_str(), tpage->GetId(), numPalettes), (ubyte*)color_data, TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, TEX_CHANNELS);
 			numPalettes++;
 		}
 	}
@@ -279,18 +249,16 @@ void ExportAllTextures()
 	// preload region data if needed
 	if (!g_export_world)
 	{
-		MsgInfo("Preloading region datas (%d)\n", g_numAreas);
+		MsgInfo("Preloading area TPages (%d)\n", g_levMap->GetAreaDataCount());
 
-		for (int i = 0; i < g_numAreas; i++)
-		{
-			LoadRegionData(g_levStream, NULL, &g_areaData[i], &g_regionPages[i]);
-		}
+		for (int i = 0; i < g_levMap->GetAreaDataCount(); i++)
+			g_levMap->LoadInAreaTPages(g_levStream, i);
 	}
 
 	MsgInfo("Exporting texture data\n");
-	for (int i = 0; i < g_numTexPages; i++)
+	for (int i = 0; i < g_levTextures.GetTPageCount(); i++)
 	{
-		ExportTexturePage(i);
+		ExportTexturePage(g_levTextures.GetTPage(i));
 	}
 
 	// create material file
@@ -303,7 +271,7 @@ void ExportAllTextures()
 
 	if (pMtlFile)
 	{
-		for (int i = 0; i < g_numTexPages; i++)
+		for (int i = 0; i < g_levTextures.GetTPageCount(); i++)
 		{
 			fprintf(pMtlFile, "newmtl page_%d\r\n", i);
 			fprintf(pMtlFile, "map_Kd %s_textures/PAGE_%d.tga\r\n", justLevFilename.c_str(), i);
@@ -377,7 +345,7 @@ void ExportOverlayMap()
 
 					colorIndex &= 0xf;
 
-					TVec4D<ubyte> color = bgr5a1_ToRGBA8(clut[colorIndex]);
+					TVec4D<ubyte> color = rgb5a1_ToBGRA8(clut[colorIndex]);
 
 					px = x * 32 + xx;
 					py = (tall - 1 - y) * 32 + (31-yy);

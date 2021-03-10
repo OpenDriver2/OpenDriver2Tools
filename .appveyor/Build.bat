@@ -2,6 +2,8 @@
 
 cd %project_folder%
 
+set SDL2_DIR=%windows_sdl2_dir%
+
 premake5 vs2019
 
 set config=Debug:Release

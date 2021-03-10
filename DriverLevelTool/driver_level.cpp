@@ -4,6 +4,7 @@
 
 #include "model_compiler/compiler.h"
 #include "util/util.h"
+#include "viewer/viewer.h"
 
 bool g_export_carmodels = false;
 bool g_export_models = false;
@@ -133,6 +134,7 @@ void PrintCommandLineArguments()
 	const char* argumentsMessage =
 		"Example: DriverLevelTool <command> [arguments]\n\n\n"
 		"  -lev <filename.LEV> \t: Specify level file you want to input\n\n"
+		"  -viewer \t: Enables level file viewer\n\n"
 		"  -format <n> \t: Specify level format. 1 = Driver 1, 2 = Driver 2 Demo (alpha 1.6), 3 = Driver 2 Retail\n\n"
 		"  -textures <1/0> \t: Export textures (TGA)\n\n"
 		"  -models <1/0> \t: Export models (OBJ\n\n"
@@ -162,11 +164,15 @@ int main(int argc, char* argv[])
 	}
 
 	bool generate_denting = false;
-	bool do_main_routine = true;
+	int main_routine = 1;
 
 	for (int i = 1; i < argc; i++)
 	{
-		if (!stricmp(argv[i], "-format"))
+		if (!stricmp(argv[i], "-viewer"))
+		{
+			main_routine = 2;
+		}
+		else if (!stricmp(argv[i], "-format"))
 		{
 			g_format = (ELevelFormat)atoi(argv[i + 1]);
 			i++;
@@ -213,7 +219,7 @@ int main(int argc, char* argv[])
 		else if (!stricmp(argv[i], "-dmodel2obj"))
 		{
 			ConvertDModelFileToOBJ(argv[i + 1], argv[i + 2]);
-			do_main_routine = false;
+			main_routine = 0;
 			i += 2;
 		}
 		else if (!stricmp(argv[i], "-denting"))
@@ -223,7 +229,7 @@ int main(int argc, char* argv[])
 		else if (!stricmp(argv[i], "-compiledmodel"))
 		{
 			CompileOBJModelToDMODEL(argv[i + 1], argv[i + 2], generate_denting);
-			do_main_routine = false;
+			main_routine = 0;
 			generate_denting = false; // disable denting compiler after it's job done
 			i += 2;
 		}
@@ -241,8 +247,10 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
-	if(do_main_routine)
+	if (main_routine == 1)
 		ProcessLevFile(g_levname.c_str());
+	else if (main_routine == 2)
+		ViewerMain(g_levname.c_str());
 
 	return 0;
 }

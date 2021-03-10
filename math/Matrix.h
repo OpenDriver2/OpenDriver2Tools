@@ -1,9 +1,14 @@
+//////////////////////////////////////////////////////////////////////////////////
+// Copyright © Inspiration Byte
+// 2009-2020
+//////////////////////////////////////////////////////////////////////////////////
+// Description: Matrix classes (m2x2,m3x3,m4x4)
+//////////////////////////////////////////////////////////////////////////////////
+
 #ifndef MATRIX_H
 #define MATRIX_H
 
 #include "Vector.h"
-
-struct Quaternion;
 
 template <class T>
 struct TMat2 // Matrix2x2
@@ -13,20 +18,17 @@ struct TMat2 // Matrix2x2
 	TMat2<T>(){}
 
 	template <class T2>
-	TMat2<T>(const TMat2<T2>& other) {rows[0] = other.rows[0]; rows[1] = other.rows[1];}
+	TMat2<T>(const TMat2<T2>& other) : rows(other)
+	{}
 
-	TMat2<T>(const TVec2D<T> &row0, const TVec2D<T> &row1)
-	{
-		rows[0] = row0;
-		rows[1] = row1;
-	}
+	TMat2<T>(const TVec2D<T>& row0, const TVec2D<T>& row1) 
+		: rows{ row0, row1 }
+	{}
 
 	TMat2<T>(	const T m00, const T m01,
-				const T m10, const T m11)
-	{
-		rows[0] = TVec2D<T>(m00, m01);
-		rows[1] = TVec2D<T>(m10, m11);
-	}
+				const T m10, const T m11) 
+		: rows{ {m00, m01 }, { m10, m11 }}
+	{}
 
 	operator const T *() const { return (const T *) rows; }
 };
@@ -64,27 +66,18 @@ struct TMat3 // Matrix3x3
 	TMat3<T>() {}
 
 	template <class T2>
-	TMat3<T>(const TMat3<T2>& other) {rows[0] = other.rows[0]; rows[1] = other.rows[1]; rows[2] = other.rows[2];}
+	TMat3<T>(const TMat3<T2>& other) : rows(other)
+	{}
 
-	TMat3<T>(const TVec3D<T> &row0, const TVec3D<T> &row1, const TVec3D<T> &row2)
-	{
-		rows[0] = row0;
-		rows[1] = row1;
-		rows[2] = row2;
-	}
+	TMat3<T>(const TVec3D<T> &row0, const TVec3D<T> &row1, const TVec3D<T> &row2) :
+		rows{ row0, row1,row2 }
+	{}
 
 	TMat3<T>(	const T m00, const T m01, const T m02,
 				const T m10, const T m11, const T m12,
 				const T m20, const T m21, const T m22)
-	{
-		rows[0] = TVec3D<T>(m00, m01, m02);
-		rows[1] = TVec3D<T>(m10, m11, m12);
-		rows[2] = TVec3D<T>(m20, m21, m22);
-	}
-
-#if 0
-	TMat3<T>(const Quaternion &q);
-#endif
+		: rows{ {m00, m01, m02}, {m10, m11, m12}, {m20, m21, m22} }
+	{}
 
 	T* toRaw() {return (T *) rows;}
 
@@ -124,30 +117,24 @@ struct TMat4 // Matrix4x4
 	TMat4<T>(){}
 
 	template <class T2>
-	TMat4<T>(const TMat4<T2>& other) {rows[0] = other.rows[0]; rows[1] = other.rows[1]; rows[2] = other.rows[2]; rows[3] = other.rows[3];}
+	TMat4<T>(const TMat4<T2>& other) : rows(other)
+	{}
 
-	TMat4<T>(const TVec4D<T> &row0, const TVec4D<T> &row1, const TVec4D<T> &row2, const TVec4D<T> &row3)
+	TMat4<T>(const TVec4D<T> &row0, 
+			 const TVec4D<T> &row1, 
+			 const TVec4D<T> &row2, 
+			 const TVec4D<T> &row3)
+		: rows {row0, row1, row2, row3}
 	{
-		rows[0] = row0;
-		rows[1] = row1;
-		rows[2] = row2;
-		rows[3] = row3;
 	}
 
 	TMat4<T>(	const T m00, const T m01, const T m02, const T m03,
 				const T m10, const T m11, const T m12, const T m13,
 				const T m20, const T m21, const T m22, const T m23,
 				const T m30, const T m31, const T m32, const T m33)
+		: rows{ {m00, m01, m02, m03}, {m10, m11, m12, m13}, {m20, m21, m22, m23}, {m30, m31, m32, m33} }
 	{
-		rows[0] = TVec4D<T>(m00, m01, m02, m03);
-		rows[1] = TVec4D<T>(m10, m11, m12, m13);
-		rows[2] = TVec4D<T>(m20, m21, m22, m23);
-		rows[3] = TVec4D<T>(m30, m31, m32, m33);
 	}
-
-#if 0
-	TMat4<T>(const Quaternion &q);
-#endif
 
 	TMat4<T>(const TVec3D<T> &axis, const float angle)
 	{
@@ -186,12 +173,15 @@ struct TMat4 // Matrix4x4
 
 	T& operator () (int row, int col) const { return rows[row][col]; }
 
-	void		setRotation(const TVec3D<T> &v);
-	void		setTranslation(const TVec3D<T> &v);
-	void		translate(const TVec3D<T> &v);
+	void				setRotation(const TVec3D<T> &v);
+	void				setTranslation(const TVec3D<T> &v);
+	void				translate(const TVec3D<T> &v);
 
-	TVec3D<T>	getTranslationComponent() const;
-	TMat3<T>	getRotationComponent() const;
+	const TVec3D<T>&	getTranslationComponent() const;
+	TMat3<T>			getRotationComponent() const;
+
+	const TVec3D<T>		getTranslationComponentTransposed() const;
+	TMat3<T>			getRotationComponentTransposed() const;
 };
 
 template <typename T>
@@ -299,6 +289,10 @@ TMat3<T> rotateZXY3(const T angleX, const T angleY, const T angleZ);
 // matrix3 y-z-x rotation
 template <typename T>
 TMat3<T> rotateYZX3(const T angleX, const T angleY, const T angleZ);
+
+// maxtrix3 axis angle rotation
+template <typename T>
+TMat3<T> rotateAxis3(const TVec3D<T>& axis, T angle);
 
 //----------------------------------------------------------------------------------
 
@@ -441,6 +435,7 @@ typedef TMat4<float> float4x4;
 #define identity3() _identity3<float>()
 #define identity4() _identity4<float>()
 
-#include "Matrix_Inline.h"
+// include
+#include "Matrix.inl"
 
 #endif // MATRIX_H

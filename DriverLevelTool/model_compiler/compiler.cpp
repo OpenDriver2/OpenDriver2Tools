@@ -2,7 +2,9 @@
 
 #include "obj_loader.h"
 #include "driver_routines/d2_types.h"
+
 #include <malloc.h>
+#include "math/TriangleUtil.inl"
 
 #include "driver_level.h"
 #include "core/VirtualStream.h"
@@ -11,14 +13,21 @@
 
 extern std::string		g_levname;
 
-TexPage_t*				g_compilerTPages = NULL;
+struct CompilerTPage
+{
+	int		id{ -1 };
+	TEXINF* details{ nullptr };
+	int		numDetails{ 0 };
+};
+
+CompilerTPage*			g_compilerTPages = nullptr;
 int						g_numCompilerTPages = 0;
 
 //--------------------------------------------------------------------------
 
 inline int GetDamageZoneId(const char* zoneName)
 {
-	if (zoneName == NULL)
+	if (zoneName == nullptr)
 		return 0xFFFF;
 
 	for(int i = 0; i < NUM_ZONE_TYPES; i++)
@@ -50,7 +59,7 @@ void FreeTextureDetails()
 	}
 
 	delete[] g_compilerTPages;
-	g_compilerTPages = NULL;
+	g_compilerTPages = nullptr;
 	g_numCompilerTPages = 0;
 }
 
@@ -77,7 +86,7 @@ void InitTextureDetailsForModel(smdmodel_t* model)
 		}
 	}
 
-	g_compilerTPages = new TexPage_t[textured_groups.numElem()];
+	g_compilerTPages = new CompilerTPage[textured_groups.numElem()];
 	g_numCompilerTPages = textured_groups.numElem();
 
 	size_t lastindex = g_levname.find_last_of(".");
@@ -90,7 +99,7 @@ void InitTextureDetailsForModel(smdmodel_t* model)
 
 		if (!tpage_ini)
 		{
-			g_compilerTPages[i].details = NULL;
+			g_compilerTPages[i].details = nullptr;
 			g_compilerTPages[i].numDetails = 0;
 			
 			MsgError("Unable to open '%s_textures/%s.ini'! Texture coordinates might be messed up\n", g_levname.c_str(), textured_groups[i]->texture);
@@ -148,7 +157,7 @@ void InitTextureDetailsForModel(smdmodel_t* model)
 int FindTextureDetailByUV(int tpage, UV_INFO* uvs, int num_uv, TEXINF** detail)
 {
 	// first find tpage
-	TexPage_t* tpinfo = NULL;
+	CompilerTPage* tpinfo = nullptr;
 	for(int i = 0; i < g_numCompilerTPages; i++)
 	{
 		if(g_compilerTPages[i].id == tpage)
@@ -392,10 +401,14 @@ void WritePolygonNormals(IVirtualStream* stream, MODEL* model, smdgroup_t* group
 		SVECTOR* v2 = model->pVertex(poly.vindices[1]);
 		SVECTOR* v3 = model->pVertex(poly.vindices[2]);
 		
-		Vector3D normal = NormalOfTriangle(
-			{ (float)v1->x, (float)v1->y, (float)v1->z }, 
-			{ (float)v2->x, (float)v2->y, (float)v2->z }, 
-			{ (float)v3->x, (float)v3->y, (float)v3->z });
+		Vector3D normal;
+		Vector3D fv1, fv2, fv3;
+
+		fv1 = Vector3D((float)v1->x, (float)v1->y, (float)v1->z);
+		fv2 = Vector3D((float)v2->x, (float)v2->y, (float)v2->z);
+		fv3 = Vector3D((float)v3->x, (float)v3->y, (float)v3->z);
+		
+		ComputeTriangleNormal(fv1,fv2,fv3,normal);
 
 		// Invert normals (REQUIRED)
 		normal *= -1.0f;
@@ -552,7 +565,7 @@ void CompileOBJModelToDMODEL(const char* filename, const char* outputName, bool 
 	InitTextureDetailsForModel(&model);
 
 	CMemoryStream stream;
-	stream.Open(NULL, VS_OPEN_WRITE, 512 * 1024);
+	stream.Open(nullptr, VS_OPEN_WRITE, 512 * 1024);
 	
 	int resultSize = 0;
 	MODEL* resultModel = CompileDMODEL(&stream, &model, resultSize);

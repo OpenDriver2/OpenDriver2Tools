@@ -10,26 +10,24 @@
 
 // forward
 class IVirtualStream;
+class CDriverLevelTextures;
+class CTexturePage;
 
 //---------------------------------------------------------------------------------------------------------------------------------
 
-struct TexPage_t
+typedef void (*OnTexturePageLoaded_t)(CTexturePage* tp);
+typedef void (*OnTexturePageFreed_t)(CTexturePage* tp);
+
+struct TexBitmap_t
 {
-	TEXINF*			details;
-	int				id;
-	int				numDetails;
+	ubyte*			data { nullptr };	// 4 bit texture data
+	int				rsize{ 0 };
+
+	TEXCLUT*		clut {nullptr};
+	int				numPalettes{ 0 };
 };
 
-struct texdata_t
-{
-	ubyte*		data;
-	int			rsize;
-
-	TEXCLUT*	clut;
-	int			numPalettes;
-};
-
-struct extclutdata_t
+struct ExtClutData_t
 {
 	TEXCLUT clut;
 	int texnum[32];
@@ -38,45 +36,115 @@ struct extclutdata_t
 	int tpage;
 };
 
-//---------------------------------------------------------------------------------------------------------------------------------
-
-extern texdata_t*				g_texPageData;
-extern TexPage_t*				g_texPages;
-extern extclutdata_t*			g_extraPalettes;
-extern int						g_numExtraPalettes;
-
-extern char*					g_textureNamesData;
-
-extern TEXPAGE_POS*				g_texPagePos;
-
-extern int						g_numTexPages;
-extern int						g_numTexDetail;
-
-extern char*					g_overlayMapData;
+struct TexDetailInfo_t
+{
+	TEXINF			info;
+	TEXCLUT*		extraCLUTs[32];
+	int				numExtraCLUTs;
+};
 
 //---------------------------------------------------------------------------------------------------------------------------------
+class CTexturePage
+{
+	friend class CDriverLevelTextures;
+public:
+	CTexturePage();
+	virtual ~CTexturePage();
 
-TVec4D<ubyte>	bgr5a1_ToRGBA8(ushort color);
+	// free texture page data and bitmap
+	// used for spooled
+	void					FreeBitmap();
 
-void			ConvertIndexedTextureToRGBA(int nPage, uint* dest_color_data, int detail, TEXCLUT* clut, bool outputBGR = true);
+	// loading texture page properties from file
+	void					InitFromFile(int id, TEXPAGE_POS& tp, IVirtualStream* pFile);
+	
+	// loading texture page from lump
+	bool					LoadTPageAndCluts(IVirtualStream* pFile, bool isSpooled);
+
+	// converting 4bit texture page to 32 bit full color RGBA/BGRA
+	void					ConvertIndexedTextureToRGBA(uint* dest_color_data, 
+												int detail, TEXCLUT* clut = nullptr,
+												bool outputBGR = false, bool originalTransparencyKey = true);
+
+	// searches for detail in this TPAGE
+	TexDetailInfo_t*		FindTextureDetail(const char* name) const;
+	TexDetailInfo_t*		GetTextureDetail(int num) const;
+	int						GetDetailCount() const;
+
+	// returns the 4bit map data
+	const TexBitmap_t&		GetBitmap() const;
+
+	int						GetId() const;
+	int						GetFlags() const;
+protected:
+
+	void					LoadCompressedTexture(IVirtualStream* pFile);
+
+	TexBitmap_t				m_bitmap;
+	TEXPAGE_POS				m_tp;
+
+	TexDetailInfo_t*		m_details{ nullptr };
+	
+	CDriverLevelTextures*	m_owner;
+	
+	int						m_id{ -1 };
+	int						m_numDetails{ 0 };
+};
 
 //---------------------------------------------------------------------------------------------------------------------------------
 
-int				GetCarPalIndex(int tpage);
+class CDriverLevelTextures
+{
+	friend class CTexturePage;
+public:
+	CDriverLevelTextures();
+	virtual ~CDriverLevelTextures();
 
-// unpacks compressed texture
-char*			unpackTexture(char* src, char* dest);
+	//----------------------------------------
+	void					SetLoadingCallbacks(OnTexturePageLoaded_t onLoaded, OnTexturePageFreed_t onFreed);
 
-// loads texture (you must specify offset in virtual stream before)
-void			LoadTPageAndCluts(IVirtualStream* pFile, texdata_t* out, int pageIndex, bool isCompressed);
+	//----------------------------------------
+	// loaders
+	void					LoadTextureInfoLump(IVirtualStream* pFile);
+	void					LoadPermanentTPages(IVirtualStream* pFile);
+	void					LoadTextureNamesLump(IVirtualStream* pFile, int size);
+	void					ProcessPalletLump(IVirtualStream* pFile);
 
-// loads global textures (pre-loading stage)
-void			LoadPermanentTPages(IVirtualStream* pFile);
+	// release all data
+	void					FreeAll();
 
-// loads texture atlas information (details per page)
-void			LoadTextureInfoLump(IVirtualStream* pFile);
+	// getters
+	CTexturePage*			GetTPage(int page) const;
+	int						GetTPageCount() const;
 
-// searches for texture detail
-TEXINF*			FindTextureDetail(const char* name);
+	TexDetailInfo_t*		FindTextureDetail(const char* name) const;
+	const char*				GetTextureDetailName(TEXINF* info) const;
+
+protected:
+	void					OnTexturePageLoaded(CTexturePage* tp);
+	void					OnTexturePageFreed(CTexturePage* tp);
+	
+	char*					m_textureNamesData{ nullptr };
+
+	CTexturePage*			m_texPages{ nullptr };
+	int						m_numTexPages{ 0 };
+
+	XYPAIR					m_permsList[16];
+	int						m_numPermanentPages{ 0 };
+
+	int						m_numSpecPages{ 0 };
+	XYPAIR					m_specList[16];
+
+	ExtClutData_t*			m_extraPalettes{ nullptr };
+	int						m_numExtraPalettes{ 0 };
+
+	OnTexturePageLoaded_t	m_onTPageLoaded{ nullptr };
+	OnTexturePageFreed_t	m_onTPageFreed{ nullptr };
+};
+
+//---------------------------------------------------------------------------------------------------------------------------------
+
+TVec4D<ubyte> rgb5a1_ToBGRA8(ushort color, bool originalTransparencyKey = true);
+TVec4D<ubyte> rgb5a1_ToRGBA8(ushort color, bool originalTransparencyKey = true);
 
 #endif // TEXTURES_H

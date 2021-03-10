@@ -2,6 +2,8 @@
 
 #include <malloc.h>
 
+
+#include "driver_level.h"
 #include "textures.h"
 
 #include "core/IVirtualStream.h"
@@ -9,172 +11,288 @@
 
 // loaded headers
 LEVELINFO				g_levInfo;
-OUT_CELL_FILE_HEADER	g_mapInfo;
 
-AreaDataStr*		g_areaData = NULL;			// region model/texture data descriptors
-AreaTPage_t*		g_regionPages = NULL;		// region texpage usage table
-RegionModels_t*		g_regionModels = NULL;		// cached region models
-Spool*				g_regionSpool = NULL;		// region data info
-ushort*				g_spoolInfoOffsets = NULL;		// region offset table
+CBaseLevelRegion::CBaseLevelRegion()
+{
+}
 
-int					g_numAreas = 0;
-int					g_numSpoolInfoOffsets = 0;
-int					g_numRegionSpools = 0;
+CBaseLevelRegion::~CBaseLevelRegion()
+{
+	FreeAll();
+}
 
-void*				g_straddlers = NULL;		// cells that placed between regions (transition area)
-int					g_numStraddlers = 0;
+void CBaseLevelRegion::FreeAll()
+{
+	if (!m_loaded)
+		return;
 
-int					g_cell_slots_add[5] = { 0 };
-int					g_cell_objects_add[5] = { 0 };
-int					g_PVS_size[4] = { 0 };
+	m_owner->OnRegionFreed(this);
+	
+	// do I need that?
+	if(m_spoolInfo && m_spoolInfo->super_region != 0xFF)
+	{
+		int areaDataNum = m_spoolInfo->super_region;
+		int numAreaTpages = m_owner->m_areaData[areaDataNum].num_tpages;
+		AreaTPage_t& areaTPages = m_owner->m_areaTPages[areaDataNum];
+
+		for (int i = 0; numAreaTpages; i++)
+		{
+			if (areaTPages.pageIndexes[i] == 0xFF)
+				break;
+			
+			CTexturePage* tpage = g_levTextures.GetTPage(areaTPages.pageIndexes[i]);
+			tpage->FreeBitmap();
+		}
+	}
+	m_spoolInfo = nullptr;
+
+	delete[] m_cellPointers;
+	m_cellPointers = nullptr;
+	
+	m_pvsData = nullptr;	
+	m_roadmapData = nullptr;
+
+	m_loaded = false;
+}
+
+bool CBaseLevelRegion::IsEmpty() const
+{
+	return m_spoolInfo == nullptr;
+}
+
+int	CBaseLevelRegion::GetNumber() const
+{
+	return m_regionNumber;
+}
+
+//-------------------------------------------------------------
+// Region unpacking function
+//-------------------------------------------------------------
+int CBaseLevelRegion::UnpackCellPointers(ushort* dest_ptrs, char* src_data, int cell_slots_add, int targetRegion)
+{
+	ushort cell;
+	ushort* short_ptr;
+	ushort* source_packed_data;
+	int loop;
+	uint bitpos;
+	uint pcode;
+	int numCellPointers;
+
+	int packtype;
+
+	packtype = *(int*)(src_data + 4);
+	source_packed_data = (ushort*)(src_data + 8);
+
+	numCellPointers = 0;
+
+	if (packtype == 0)
+	{
+		short_ptr = dest_ptrs + targetRegion * 1024;
+
+		for (loop = 0; loop < 1024; loop++)
+			*short_ptr++ = 0xffff;
+	}
+	else if (packtype == 1)
+	{
+		short_ptr = dest_ptrs + targetRegion * 1024;
+
+		for (loop = 0; loop < 1024; loop++)
+		{
+			cell = *source_packed_data++;
+
+			if (cell != 0xffff)
+				cell += cell_slots_add;
+
+			*short_ptr++ = cell;
+			numCellPointers++;
+		}
+	}
+	else if (packtype == 2)
+	{
+		bitpos = 0x8000;
+		pcode = (uint)*source_packed_data;
+		source_packed_data++;
+		short_ptr = dest_ptrs + targetRegion * 1024;
+
+		for (loop = 0; loop < 1024; loop++)
+		{
+			if (pcode & bitpos)
+			{
+				cell = *source_packed_data++;
+				cell += cell_slots_add;
+			}
+			else
+				cell = 0xffff;
+
+			bitpos >>= 1;
+			*short_ptr++ = cell;
+			numCellPointers++;
+
+			if (bitpos == 0)
+			{
+				bitpos = 0x8000;
+				pcode = *source_packed_data++;
+			}
+		}
+	}
+	else
+	{
+		numCellPointers = -1;
+	}
+
+	return numCellPointers;
+}
+
+
+void CBaseLevelRegion::LoadAreaData(IVirtualStream* pFile)
+{
+	if (!m_spoolInfo || m_spoolInfo && m_spoolInfo->super_region == 0xFF)
+		return;
+
+	int areaDataNum = m_spoolInfo->super_region;
+
+	if (m_owner->m_areaDataStates[areaDataNum])
+		return;
+
+	m_owner->LoadInAreaTPages(pFile, areaDataNum);
+	m_owner->LoadInAreaModels(pFile, areaDataNum);
+
+	m_owner->m_areaDataStates[areaDataNum] = true;
+}
+
+
+//-------------------------------------------------------------------------------------------
+
+
+CBaseLevelMap::CBaseLevelMap()
+{
+}
+
+CBaseLevelMap::~CBaseLevelMap()
+{
+}
+
+void CBaseLevelMap::FreeAll()
+{
+	if (m_regionSpoolInfo)
+		free(m_regionSpoolInfo);
+	m_regionSpoolInfo = nullptr;
+
+	delete[] m_regionSpoolInfoOffsets;
+	m_regionSpoolInfoOffsets = nullptr;
+
+	delete[] m_areaTPages;
+	m_areaTPages = nullptr;
+
+	delete[] m_areaData;
+	m_areaData = nullptr;
+
+	delete[] m_areaDataStates;
+	m_areaDataStates = nullptr;
+}
+
+int	CBaseLevelMap::GetAreaDataCount() const
+{
+	return m_numAreas;
+}
+
+const OUT_CELL_FILE_HEADER& CBaseLevelMap::GetMapInfo() const
+{
+	return m_mapInfo;
+}
+
+int	CBaseLevelMap::GetCellsAcross() const
+{
+	return m_mapInfo.cells_across;
+}
+
+int	CBaseLevelMap::GetCellsDown() const
+{
+	return m_mapInfo.cells_down;
+}
+
+int CBaseLevelMap::GetRegionsAcross() const
+{
+	return m_regions_across;
+}
+
+int CBaseLevelMap::GetRegionsDown() const
+{
+	return m_regions_down;
+}
+
+void CBaseLevelMap::WorldPositionToCellXZ(XZPAIR& cell, const VECTOR_NOPAD& position) const
+{
+	// @TODO: constants
+	int units_across_halved = m_mapInfo.cells_across / 2 * m_mapInfo.cell_size;
+	int units_down_halved = m_mapInfo.cells_down / 2 * m_mapInfo.cell_size;
+
+	cell.x = (position.vx + units_across_halved) / m_mapInfo.cell_size;
+	cell.z = (position.vz + units_down_halved) / m_mapInfo.cell_size;
+}
 
 //-------------------------------------------------------------
 // parses LUMP_MAP and it's straddler objects
 //-------------------------------------------------------------
-void LoadMapLump(IVirtualStream* pFile)
+void CBaseLevelMap::LoadMapLump(IVirtualStream* pFile)
 {
-	int l_ofs = pFile->Tell();
+	pFile->Read(&m_mapInfo, 1, sizeof(OUT_CELL_FILE_HEADER));
 
-	pFile->Read(&g_mapInfo, 1, sizeof(OUT_CELL_FILE_HEADER));
+	Msg("Level dimensions[%d %d], cell size: %d\n", m_mapInfo.cells_across, m_mapInfo.cells_down, m_mapInfo.cell_size);
+	DevMsg(SPEW_NORM," - num_regions: %d\n", m_mapInfo.num_regions);
+	DevMsg(SPEW_NORM, " - region_size in cells: %d\n", m_mapInfo.region_size);
 
-	Msg("Level dimensions[%d %d], cell size: %d\n", g_mapInfo.cells_across, g_mapInfo.cells_down, g_mapInfo.cell_size);
-	Msg(" - num_regions: %d\n", g_mapInfo.num_regions);
-	Msg(" - region_size in cells: %d\n", g_mapInfo.region_size);
+	int dim_x = m_mapInfo.cells_across / m_mapInfo.region_size;
+	int dim_y = m_mapInfo.cells_down / m_mapInfo.region_size;
 
-	int dim_x = g_mapInfo.cells_across / g_mapInfo.region_size;
-	int dim_y = g_mapInfo.cells_down / g_mapInfo.region_size;
+	Msg("World size:\n [%dx%d] cells\n [%dx%d] regions\n", m_mapInfo.cells_across, m_mapInfo.cells_down, dim_x, dim_y);
 
-	Msg("World size:\n [%dx%d] cells\n [%dx%d] regions\n", g_mapInfo.cells_across, g_mapInfo.cells_down, dim_x, dim_y);
-	
-	Msg(" - num_cell_objects : %d\n", g_mapInfo.num_cell_objects);
-	Msg(" - num_cell_data: %d\n", g_mapInfo.num_cell_data);
+	DevMsg(SPEW_NORM, " - num_cell_objects : %d\n", m_mapInfo.num_cell_objects);
+	DevMsg(SPEW_NORM, " - num_cell_data: %d\n", m_mapInfo.num_cell_data);
 
 	// ProcessMapLump
-	pFile->Read(&g_numStraddlers, 1, sizeof(g_numStraddlers));
-	Msg(" - num straddler cells: %d\n", g_numStraddlers);
+	pFile->Read(&m_numStraddlers, 1, sizeof(m_numStraddlers));
+	DevMsg(SPEW_NORM, " - num straddler cells: %d\n", m_numStraddlers);
 
 	const int pvs_square = 21;
-	const int pvs_square_sq = pvs_square*pvs_square;
+	const int pvs_square_sq = pvs_square * pvs_square;
 
-	// InitCellData actually here, but...
-
-	// read straddlers
-	if(g_format >= LEV_FORMAT_DRIVER2_ALPHA16)
-	{
-		// Driver 2 PCO
-		g_straddlers = malloc(sizeof(PACKED_CELL_OBJECT)*g_numStraddlers);
-		pFile->Read(g_straddlers, 1, sizeof(PACKED_CELL_OBJECT)*g_numStraddlers);
-	}
-	else
-	{
-		// Driver 1 CO
-		g_straddlers = malloc(sizeof(CELL_OBJECT)*g_numStraddlers);
-		pFile->Read(g_straddlers, 1, sizeof(CELL_OBJECT)*g_numStraddlers);
-	}
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
-}
-
-//----------------------------------------------------------------------------------------
-
-void LoadRegionData(IVirtualStream* pFile, RegionModels_t* models, AreaDataStr* data, AreaTPage_t* pages )
-{
-	int modelsCountOffset = g_levInfo.spooldata_offset + 2048 * (data->model_offset + data->model_size -1);
-	int modelsOffset = g_levInfo.spooldata_offset + 2048 * data->model_offset;
-	int texturesOffset = g_levInfo.spooldata_offset + 2048 * data->gfx_offset;
-
-	pFile->Seek(texturesOffset, VS_SEEK_SET);
-
-	// fetch textures
-	for(int i = 0; pages->pageIndexes[i] != REGTEXPAGE_EMPTY; i++)
-	{
-		int pageIdx = pages->pageIndexes[i];
-
-		// region textures are non-compressed due to loading speeds
-		LoadTPageAndCluts(pFile, &g_texPageData[pageIdx], pageIdx, false);
-
-		if(pFile->Tell() % 2048)
-			pFile->Seek(2048 - (pFile->Tell() % 2048),VS_SEEK_CUR);
-	}
-
-	if(!models) // don't read models
-		return;
-
-	// fetch models
-	pFile->Seek(modelsCountOffset, VS_SEEK_SET);
-
-	ushort numModels;
-	pFile->Read(&numModels, 1, sizeof(ushort));
-	MsgInfo("	model count: %d\n", numModels);
-
-	// read model indexes
-	short* model_indexes = new short[numModels];
-	pFile->Read(model_indexes, numModels, sizeof(short));
-
-	pFile->Seek(modelsOffset,VS_SEEK_SET);
-
-	bool needModels = !models->modelRefs.numElem();
-
-	for(int i = 0; i < numModels; i++)
-	{
-		int modelSize;
-		pFile->Read(&modelSize, sizeof(int), 1);
-
-		if(modelSize > 0)
-		{
-			char* data = (char*)malloc(modelSize);
-			pFile->Read(data, modelSize, 1);
-
-			int idx = model_indexes[i];
-
-			if( needModels )
-			{
-				ModelRef_t ref;
-				ref.index = idx;
-				ref.model = (MODEL*)data;
-				ref.size = modelSize;
-				
-				models->modelRefs.append(ref);
-			}
-		}
-	}
-
-	delete [] model_indexes;
+	// initialize regions
+	m_regions_across = m_mapInfo.cells_across / m_mapInfo.region_size;
+	m_regions_down = m_mapInfo.cells_down / m_mapInfo.region_size;
 }
 
 //-------------------------------------------------------------
 // parses LUMP_SPOOLINFO, and also loads region data
 //-------------------------------------------------------------
-void LoadSpoolInfoLump(IVirtualStream* pFile)
+void CBaseLevelMap::LoadSpoolInfoLump(IVirtualStream* pFile)
 {
-	int l_ofs = pFile->Tell();
-
 	int model_spool_buffer_size;
 	pFile->Read(&model_spool_buffer_size, 1, sizeof(int));
-	Msg("model_spool_buffer_size = %d * 2048\n", model_spool_buffer_size);
+	DevMsg(SPEW_NORM, "model_spool_buffer_size = %d * SPOOL_CD_BLOCK_SIZE\n", model_spool_buffer_size);
 
 	int Music_And_AmbientOffsetsSize;
 	pFile->Read(&Music_And_AmbientOffsetsSize, 1, sizeof(int));
-	Msg("Music_And_AmbientOffsetsSize = %d\n", Music_And_AmbientOffsetsSize);
+	DevMsg(SPEW_NORM, "Music_And_AmbientOffsetsSize = %d\n", Music_And_AmbientOffsetsSize);
 
 	// move further
+	// this was probably used in early D1 level files for sound banks
 	pFile->Seek(Music_And_AmbientOffsetsSize, VS_SEEK_CUR);
 
-	pFile->Read(&g_numAreas, 1, sizeof(int));
-	Msg("NumAreas = %d\n", g_numAreas);
+	pFile->Read(&m_numAreas, 1, sizeof(int));
+	DevMsg(SPEW_NORM, "NumAreas = %d\n", m_numAreas);
 
-	g_areaData = new AreaDataStr[g_numAreas];
-	g_regionPages = new AreaTPage_t[g_numAreas];
-	g_regionModels = new RegionModels_t[g_numAreas];
+	m_areaData = new AreaDataStr[m_numAreas];
+	m_areaTPages = new AreaTPage_t[m_numAreas];
 
 	// read local geometry and texture pages
-	pFile->Read(g_areaData, g_numAreas, sizeof(AreaDataStr));
-	pFile->Read(g_regionPages, g_numAreas, sizeof(AreaTPage_t));
+	pFile->Read(m_areaData, m_numAreas, sizeof(AreaDataStr));
+	pFile->Read(m_areaTPages, m_numAreas, sizeof(AreaTPage_t));
 
 	for (int i = 0; i < 5; i++)
 	{
-		g_cell_slots_add[i] = 0;
-		g_cell_objects_add[i] = 0;
+		m_cell_slots_add[i] = 0;
+		m_cell_objects_add[i] = 0;
 	}
 
 	// read slots count
@@ -182,8 +300,8 @@ void LoadSpoolInfoLump(IVirtualStream* pFile)
 	{
 		int slots_count;
 		pFile->Read(&slots_count, 1, sizeof(int));
-		g_cell_slots_add[i] = g_cell_slots_add[4];
-		g_cell_slots_add[4] += slots_count;
+		m_cell_slots_add[i] = m_cell_slots_add[4];
+		m_cell_slots_add[4] += slots_count;
 	}
 
 	// read objects count
@@ -191,8 +309,8 @@ void LoadSpoolInfoLump(IVirtualStream* pFile)
 	{
 		int objects_count;
 		pFile->Read(&objects_count, 1, sizeof(int));
-		g_cell_objects_add[i] = g_cell_objects_add[4];
-		g_cell_objects_add[4] += objects_count;
+		m_cell_objects_add[i] = m_cell_objects_add[4];
+		m_cell_objects_add[4] += objects_count;
 	}
 
 	// read pvs sizes
@@ -201,72 +319,147 @@ void LoadSpoolInfoLump(IVirtualStream* pFile)
 		int pvs_size;
 		pFile->Read(&pvs_size, 1, sizeof(int));
 
-		g_PVS_size[i] = pvs_size + 0x7ff & 0xfffff800;		
+		m_PVS_size[i] = pvs_size + 0x7ff & 0xfffff800;
 	}
- 
-	Msg("cell_slots_add = {%d,%d,%d,%d}\n", g_cell_slots_add[0], g_cell_slots_add[1], g_cell_slots_add[2], g_cell_slots_add[3]);
-	Msg("cell_objects_add = {%d,%d,%d,%d}\n", g_cell_objects_add[0], g_cell_objects_add[1], g_cell_objects_add[2], g_cell_objects_add[3]);
-	Msg("PVS_size = {%d,%d,%d,%d}\n", g_PVS_size[0], g_PVS_size[1], g_PVS_size[2], g_PVS_size[3]);
+
+	DevMsg(SPEW_NORM, "cell_slots_add = {%d,%d,%d,%d}\n", m_cell_slots_add[0], m_cell_slots_add[1], m_cell_slots_add[2], m_cell_slots_add[3]);
+	DevMsg(SPEW_NORM, "cell_objects_add = {%d,%d,%d,%d}\n", m_cell_objects_add[0], m_cell_objects_add[1], m_cell_objects_add[2], m_cell_objects_add[3]);
+	DevMsg(SPEW_NORM, "PVS_size = {%d,%d,%d,%d}\n", m_PVS_size[0], m_PVS_size[1], m_PVS_size[2], m_PVS_size[3]);
 
 	// ... but InitCellData is here
 	{
-		int maxCellData = g_numStraddlers + g_cell_slots_add[4];
-		Msg("*** MAX cell slots = %d\n", maxCellData);
+		int maxCellData = m_numStraddlers + m_cell_slots_add[4];
+		DevMsg(SPEW_NORM, "*** MAX cell slots = %d\n", maxCellData);
 
 		// I don't have any idea
-		pFile->Read(&g_numSpoolInfoOffsets, 1, sizeof(int));
-		Msg("numRegionOffsets: %d\n", g_numSpoolInfoOffsets);
+		pFile->Read(&m_numSpoolInfoOffsets, 1, sizeof(int));
+		DevMsg(SPEW_NORM, "numRegionOffsets: %d\n", m_numSpoolInfoOffsets);
 	}
 
-	g_spoolInfoOffsets = new ushort[g_numSpoolInfoOffsets];
-	pFile->Read(g_spoolInfoOffsets, g_numSpoolInfoOffsets, sizeof(short));
+	m_regionSpoolInfoOffsets = new ushort[m_numSpoolInfoOffsets];
+	pFile->Read(m_regionSpoolInfoOffsets, m_numSpoolInfoOffsets, sizeof(short));
 
 	int regionsInfoSize;
 	pFile->Read(&regionsInfoSize, 1, sizeof(int));
-	g_numRegionSpools = regionsInfoSize / sizeof(AreaDataStr);
+	m_numRegionSpools = regionsInfoSize / sizeof(AreaDataStr);
 
 	//ASSERT(regionsInfoSize % sizeof(REGIONINFO) == 0);
 
-	Msg("Region spool count %d (size=%d bytes)\n", g_numRegionSpools, regionsInfoSize);
+	DevMsg(SPEW_NORM, "Region spool count %d (size=%d bytes)\n", m_numRegionSpools, regionsInfoSize);
 
-	g_regionSpool = (Spool*)malloc(regionsInfoSize);
-	pFile->Read(g_regionSpool, 1, regionsInfoSize);
+	m_regionSpoolInfo = (Spool*)malloc(regionsInfoSize);
+	pFile->Read(m_regionSpoolInfo, 1, regionsInfoSize);
 
-	// seek back
-	pFile->Seek(l_ofs, VS_SEEK_SET);
+	m_areaDataStates = new bool[m_numAreas];
+	memset(m_areaDataStates, 0, m_numAreas);
 }
 
-void FreeSpoolData()
+void CBaseLevelMap::LoadInAreaTPages(IVirtualStream* pFile, int areaDataNum) const
 {
-	if(g_straddlers)
-		free(g_straddlers);
-	g_straddlers = NULL;
+	if (areaDataNum == 255)
+		return;
 
-	if(g_regionSpool)
-		free(g_regionSpool);
-	g_regionSpool = NULL;
+	AreaDataStr& areaData = m_areaData[areaDataNum];
+	AreaTPage_t& areaTPages = m_areaTPages[areaDataNum];
 
-	if(g_spoolInfoOffsets)
-		delete [] g_spoolInfoOffsets;
-	g_spoolInfoOffsets = NULL;
+	const int texturesOffset = g_levInfo.spooldata_offset + SPOOL_CD_BLOCK_SIZE * areaData.gfx_offset;
 
-	if(g_regionPages)
-		delete [] g_regionPages;
-	g_regionPages = NULL;
+	pFile->Seek(texturesOffset, VS_SEEK_SET);
 
-	if(g_areaData)
-		delete [] g_areaData;
-	g_areaData = NULL;
-
-	if(g_regionModels)
+	for (int i = 0; areaData.num_tpages; i++)
 	{
-		for(int i = 0; i < g_numAreas; i++)
-		{
-			for(int j = 0; j < g_regionModels[i].modelRefs.numElem(); j++)
-				free(g_regionModels[i].modelRefs[j].model);
-		}
+		if (areaTPages.pageIndexes[i] == 0xFF)
+			break;
 
-		delete [] g_regionModels;
-		g_regionModels = NULL;
+		CTexturePage* tpage = g_levTextures.GetTPage(areaTPages.pageIndexes[i]);
+		tpage->LoadTPageAndCluts(pFile, true);
+
+		if (pFile->Tell() % SPOOL_CD_BLOCK_SIZE)
+			pFile->Seek(SPOOL_CD_BLOCK_SIZE - (pFile->Tell() % SPOOL_CD_BLOCK_SIZE), VS_SEEK_CUR);
 	}
+}
+
+void CBaseLevelMap::LoadInAreaModels(IVirtualStream* pFile, int areaDataNum) const
+{
+	if (areaDataNum == -1)
+		return;
+
+	AreaDataStr& areaData = m_areaData[areaDataNum];
+
+	int length = areaData.model_size;
+
+	const int modelsCountOffset = g_levInfo.spooldata_offset + (areaData.model_offset + length - 1) * SPOOL_CD_BLOCK_SIZE;
+	const int modelsOffset = g_levInfo.spooldata_offset + areaData.model_offset * SPOOL_CD_BLOCK_SIZE;
+
+	ushort numModels;
+
+	pFile->Seek(modelsCountOffset, VS_SEEK_SET);
+	pFile->Read(&numModels, 1, sizeof(ushort));
+
+	// read model indexes
+	ushort* new_model_numbers = new ushort[numModels];
+	pFile->Read(new_model_numbers, numModels, sizeof(short));
+
+	DevMsg(SPEW_INFO, "	model count: %d\n", numModels);
+	pFile->Seek(modelsOffset, VS_SEEK_SET);
+
+	for (int i = 0; i < numModels; i++)
+	{
+		int modelSize;
+		pFile->Read(&modelSize, sizeof(int), 1);
+
+		if (modelSize > 0)
+		{
+			ModelRef_t* ref = g_levModels.GetModelByIndex(new_model_numbers[i]);
+
+			// maybe there is a simple case of area data model duplication?
+			if (ref->model && ref->size != modelSize)
+				MsgError("Spool model in slot %d OVERLAP!\n", new_model_numbers[i]);
+
+			ref->index = new_model_numbers[i];
+			ref->model = (MODEL*)malloc(modelSize);
+			ref->size = modelSize;
+
+			pFile->Read(ref->model, modelSize, 1);
+
+			g_levModels.OnModelLoaded(ref);
+		}
+	}
+
+	delete[] new_model_numbers;
+}
+
+void CBaseLevelMap::InitRegion(CBaseLevelRegion* region, int index) const
+{
+	ushort spoolOffset = m_regionSpoolInfoOffsets[index];
+
+	if (spoolOffset != REGION_EMPTY)
+		region->m_spoolInfo = (Spool*)((ubyte*)m_regionSpoolInfo + spoolOffset);
+
+	const int region_x = index % m_regions_across;
+	const int region_z = (index - region_x) / m_regions_across;
+
+	region->m_owner = (CBaseLevelMap*)this;
+	region->m_regionX = region_x;
+	region->m_regionZ = region_z;
+	region->m_regionNumber = index;
+	region->m_regionBarrelNumber = (region_x & 1) + (region_z & 1) * 2;
+}
+
+void CBaseLevelMap::SetLoadingCallbacks(OnRegionLoaded_t onLoaded, OnRegionFreed_t onFreed)
+{
+	m_onRegionLoaded = onLoaded;
+	m_onRegionFreed = onFreed;
+}
+
+void CBaseLevelMap::OnRegionLoaded(CBaseLevelRegion* region)
+{
+	if (m_onRegionLoaded)
+		m_onRegionLoaded(region);
+}
+
+void CBaseLevelMap::OnRegionFreed(CBaseLevelRegion* region)
+{
+	if (m_onRegionFreed)
+		m_onRegionFreed(region);
 }
