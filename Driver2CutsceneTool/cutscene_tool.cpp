@@ -326,7 +326,7 @@ void PackCutsceneFile(const char* foldername)
 				
 				// shrink size
 				repsizes[i] -= sizeof(PLAYBACKCAMERA) * MAX_REPLAY_CAMERAS;
-				MsgAccept("\Shinking '%s', now %d bytes\n", folderPath, repsizes[i]);
+				MsgAccept("\tShrinking '%s', now %d bytes\n", folderPath, repsizes[i]);
 			}
 		}
 		else

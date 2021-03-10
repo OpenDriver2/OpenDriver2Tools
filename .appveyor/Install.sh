@@ -8,7 +8,9 @@ cd "$APPVEYOR_BUILD_FOLDER"
 curl "$linux_premake_url" -Lo premake5.tar.gz
 tar xvf premake5.tar.gz
 
+sudo apt-get update
+
 sudo apt-get install -qq \
+    libsdl2-dev \
     g++-multilib -y \
-	libsdl2-dev
 

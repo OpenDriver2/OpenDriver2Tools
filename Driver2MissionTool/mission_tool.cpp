@@ -51,7 +51,7 @@ int main(int argc, char** argv)
 		if (!stricmp(argv[i], "-compile"))
 		{
 			if (i + 1 <= argc)
-				CompileMission(argv[i + 1]);
+				CompileMissionBlk(argv[i + 1]);
 			else
 				MsgWarning("-compile must have an argument!");
 		}
