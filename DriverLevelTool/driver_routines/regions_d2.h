@@ -7,6 +7,9 @@
 // DRIVER 2 regions and map
 //----------------------------------------------------------------------------------
 
+class CDriver2LevelRegion;
+class CDriver2LevelMap;
+
 struct CELL_ITERATOR
 {
 	CDriver2LevelRegion*	region;
@@ -14,7 +17,6 @@ struct CELL_ITERATOR
 	PACKED_CELL_OBJECT*		ppco;
 	XZPAIR					nearCell;
 };
-
 
 // Driver 2 region
 class CDriver2LevelRegion : public CBaseLevelRegion

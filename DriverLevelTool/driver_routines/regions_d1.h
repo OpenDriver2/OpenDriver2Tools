@@ -6,6 +6,10 @@
 // DRIVER 1
 //----------------------------------------------------------------------------------
 
+class CDriver1LevelRegion;
+class CDriver1LevelMap;
+
+
 struct CELL_ITERATOR_D1
 {
 	CDriver1LevelRegion*	region;
