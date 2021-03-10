@@ -9,8 +9,9 @@
 
 // forward
 class IVirtualStream;
+
 class CBaseLevelRegion;
-class CDriver2LevelRegion;
+class CBaseLevelMap;
 
 // OBSOLETE
 struct RegionModels_t
