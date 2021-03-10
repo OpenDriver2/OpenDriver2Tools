@@ -280,7 +280,7 @@ void CRenderModel::GenerateBuffers()
 				verticesMap.append(vertMap);
 
 				// vertices and verticesMap should be equal
-				_ASSERT(verticesMap.numElem() == vertices.numElem());
+				assert(verticesMap.numElem() == vertices.numElem());
 			}
 			
 			// add index

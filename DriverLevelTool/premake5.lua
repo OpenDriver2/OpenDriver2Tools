@@ -26,9 +26,13 @@ project "DriverLevelTool"
             "-Wno-narrowing",
             "-fpermissive",
         }
+		includedirs {
+            "/usr/include/SDL2"
+        }
 		links {
             "GL",
             "SDL2",
+			"dl"
         }
         
         cppdialect "C++11"
