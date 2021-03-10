@@ -15,6 +15,7 @@ environment:
   project_folder: '%APPVEYOR_BUILD_FOLDER%'
   # Dependency URLs
   windows_premake_url: 'https://github.com/premake/premake-core/releases/download/v5.0.0-alpha15/premake-5.0.0-alpha15-windows.zip'
+  windows_sdl2_url: 'https://www.libsdl.org/release/SDL2-devel-2.0.12-VC.zip'
   linux_premake_url: 'https://github.com/premake/premake-core/releases/download/v5.0.0-alpha15/premake-5.0.0-alpha15-linux.tar.gz'
 
 

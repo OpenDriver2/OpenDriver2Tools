@@ -9,5 +9,6 @@ curl "$linux_premake_url" -Lo premake5.tar.gz
 tar xvf premake5.tar.gz
 
 sudo apt-get install -qq \
-    g++-multilib -y
+    g++-multilib -y \
+	libsdl2-dev
 
