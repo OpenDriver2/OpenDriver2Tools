@@ -402,11 +402,13 @@ void WritePolygonNormals(IVirtualStream* stream, MODEL* model, smdgroup_t* group
 		SVECTOR* v3 = model->pVertex(poly.vindices[2]);
 		
 		Vector3D normal;
+		Vector3D fv1, fv2, fv3;
 
-		ComputeTriangleNormal(normal,
-			Vector3D((float)v1->x, (float)v1->y, (float)v1->z), 
-			Vector3D((float)v2->x, (float)v2->y, (float)v2->z), 
-			Vector3D((float)v3->x, (float)v3->y, (float)v3->z));
+		fv1 = Vector3D((float)v1->x, (float)v1->y, (float)v1->z);
+		fv2 = Vector3D((float)v2->x, (float)v2->y, (float)v2->z);
+		fv3 = Vector3D((float)v3->x, (float)v3->y, (float)v3->z);
+		
+		ComputeTriangleNormal(fv1,fv2,fv3,normal);
 
 		// Invert normals (REQUIRED)
 		normal *= -1.0f;
