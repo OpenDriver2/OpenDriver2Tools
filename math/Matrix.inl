@@ -69,45 +69,6 @@ inline TMat2<T> operator ! (const TMat2<T> &m)
 /* --------------------------------------------------------------------------------- */
 
 template <typename T>
-TMat3<T>::TMat3(const Quaternion &q)
-{
-	float wx, wy, wz, xx, yy, yz, xy, xz, zz, x2, y2, z2;
-
-	x2 = q.x + q.x; y2 = q.y + q.y; z2 = q.z + q.z;
-
-	xx = q.x * x2;   xy = q.x * y2;   xz = q.x * z2;
-	yy = q.y * y2;   yz = q.y * z2;   zz = q.z * z2;
-	wx = q.w * x2;   wy = q.w * y2;   wz = q.w * z2;
-
-	rows[0] = TVec3D<T>(	1.0f - (yy + zz),
-						xy + wz,
-						xz - wy);
-
-	rows[1] = TVec3D<T>( xy - wz,
-						1.0f - (xx + zz),
-						yz + wx);
-
-	rows[2] = TVec3D<T>( xz + wy,
-						yz - wx,
-						1.0f - (xx + yy));
-
-	//------------------------------------------------------------
-	/*
-	rows[0] = TVec3D<T>(	1 - 2 * q.y * q.y - 2 * q.z * q.z,
-						2 * q.x * q.y - 2 * q.w * q.z,
-						2 * q.x * q.y - 2 * q.w * q.z);
-
-	rows[1] = TVec3D<T>( 2 * q.x * q.y + 2 * q.w * q.z,
-						1 - 2 * q.x * q.x - 2 * q.z * q.z,
-						2 * q.y * q.z - 2 * q.w * q.x);
-
-	rows[2] = TVec3D<T>( 2 * q.x * q.z - 2 * q.w * q.y,
-						2 * q.y * q.z + 2 * q.w * q.x,
-						1 - 2 * q.x * q.x - 2 * q.y * q.y);
-	*/
-}
-
-template <typename T>
 inline TMat3<T> operator + (const TMat3<T> &m, const TMat3<T> &n)
 {
 	return TMat3<T>(m.rows[0] + n.rows[0], m.rows[1] + n.rows[1], m.rows[2] + n.rows[2]);
@@ -166,51 +127,6 @@ inline TMat3<T> operator ! (const TMat3<T> &m)
 
 /* --------------------------------------------------------------------------------- */
 
-template <typename T>
-TMat4<T>::TMat4(const Quaternion &q)
-{
-	float wx, wy, wz, xx, yy, yz, xy, xz, zz, x2, y2, z2;
-
-	x2 = q.x + q.x; y2 = q.y + q.y; z2 = q.z + q.z;
-
-	xx = q.x * x2;   xy = q.x * y2;   xz = q.x * z2;
-	yy = q.y * y2;   yz = q.y * z2;   zz = q.z * z2;
-	wx = q.w * x2;   wy = q.w * y2;   wz = q.w * z2;
-
-	rows[0] = TVec4D<T>(	1.0f - (yy + zz),
-						xy + wz,
-						xz - wy,
-						0.0f);
-
-	rows[1] = TVec4D<T>( xy - wz,
-						1.0f - (xx + zz),
-						yz + wx,
-						0.0f);
-
-	rows[2] = TVec4D<T>( xz + wy,
-						yz - wx,
-						1.0f - (xx + yy),
-						0.0f);
-
-
-	/*
-	rows[0] = TVec4D<T>(	1 - 2 * q.y * q.y - 2 * q.z * q.z,
-						2 * q.x * q.y - 2 * q.w * q.z,
-						2 * q.x * q.y - 2 * q.w * q.z,
-						0);
-
-	rows[1] = TVec4D<T>( 2 * q.x * q.y + 2 * q.w * q.z,
-						1 - 2 * q.x * q.x - 2 * q.z * q.z,
-						2 * q.y * q.z - 2 * q.w * q.x,
-						0);
-
-	rows[2] = TVec4D<T>( 2 * q.x * q.z - 2 * q.w * q.y,
-						2 * q.y * q.z + 2 * q.w * q.x,
-						1 - 2 * q.x * q.x - 2 * q.y * q.y,
-						0);
-	*/
-	rows[3] = TVec4D<T>(0, 0, 0, 1);
-}
 
 template <typename T>
 inline const TVec3D<T>& TMat4<T>::getTranslationComponent() const

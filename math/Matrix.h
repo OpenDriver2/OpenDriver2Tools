@@ -10,8 +10,6 @@
 
 #include "Vector.h"
 
-struct Quaternion;
-
 template <class T>
 struct TMat2 // Matrix2x2
 {
@@ -81,8 +79,6 @@ struct TMat3 // Matrix3x3
 		: rows{ {m00, m01, m02}, {m10, m11, m12}, {m20, m21, m22} }
 	{}
 
-	TMat3<T>(const Quaternion &q);
-
 	T* toRaw() {return (T *) rows;}
 
 	T& operator () (int row, int col) const { return rows[row][col]; }
@@ -139,8 +135,6 @@ struct TMat4 // Matrix4x4
 		: rows{ {m00, m01, m02, m03}, {m10, m11, m12, m13}, {m20, m21, m22, m23}, {m30, m31, m32, m33} }
 	{
 	}
-
-	TMat4<T>(const Quaternion &q);
 
 	TMat4<T>(const TVec3D<T> &axis, const float angle)
 	{
