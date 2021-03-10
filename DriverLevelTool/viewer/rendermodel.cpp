@@ -7,6 +7,27 @@
 #include "util/DkList.h"
 #include <assert.h>
 
+void AddExtentVertex(Vector3D& minPoint, Vector3D& maxPoint, const Vector3D& v)
+{
+	if (v.x < minPoint.x)
+		minPoint.x = v.x;
+
+	if (v.x > maxPoint.x)
+		maxPoint.x = v.x;
+
+	if (v.y < minPoint.y)
+		minPoint.y = v.y;
+
+	if (v.y > maxPoint.y)
+		maxPoint.y = v.y;
+
+	if (v.z < minPoint.z)
+		minPoint.z = v.z;
+
+	if (v.z > maxPoint.z)
+		maxPoint.z = v.z;
+}
+
 CRenderModel::CRenderModel()
 {
 }
@@ -23,6 +44,9 @@ bool CRenderModel::Initialize(ModelRef_t* model)
 
 	if (!model->model)
 		return false;
+
+	m_extMin = Vector3D(V_MAX_COORD);
+	m_extMax = Vector3D(-V_MAX_COORD);
 	
 	m_sourceModel = model;
 	GenerateBuffers();
@@ -227,8 +251,11 @@ void CRenderModel::GenerateBuffers()
 				
 				// get the vertex
 				SVECTOR* vert = vertex_ref->pVertex(dec_face.vindices[VERT_IDX]);
+				Vector3D fVert = Vector3D(vert->x * EXPORT_SCALING, vert->y * -EXPORT_SCALING, vert->z * EXPORT_SCALING);
 				
-				(*(Vector3D*)&newVert.vx) = Vector3D(vert->x * EXPORT_SCALING, vert->y * -EXPORT_SCALING, vert->z * EXPORT_SCALING);
+				(*(Vector3D*)&newVert.vx) = fVert;
+
+				AddExtentVertex(m_extMin, m_extMax, fVert);
 
 				if (smooth)
 				{
@@ -342,4 +369,10 @@ void CRenderModel::Draw()
 		GR_SetTexture(GetHWTexture(batch.tpage, 0));
 		GR_DrawIndexed(PRIM_TRIANGLES, batch.startIndex, batch.numIndices);
 	}
+}
+
+void CRenderModel::GetExtents(Vector3D& outMin, Vector3D& outMax) const
+{
+	outMin = m_extMin;
+	outMax = m_extMax;
 }

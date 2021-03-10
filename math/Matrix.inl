@@ -1,3 +1,10 @@
+//////////////////////////////////////////////////////////////////////////////////
+// Copyright © Inspiration Byte
+// 2009-2020
+//////////////////////////////////////////////////////////////////////////////////
+// Description: Matrix classes (m2x2,m3x3,m4x4)
+//////////////////////////////////////////////////////////////////////////////////
+
 #ifndef MATRIX_INLINE_H
 #define MATRIX_INLINE_H
 
@@ -60,7 +67,7 @@ inline TMat2<T> operator ! (const TMat2<T> &m)
 }
 
 /* --------------------------------------------------------------------------------- */
-#if 0
+
 template <typename T>
 TMat3<T>::TMat3(const Quaternion &q)
 {
@@ -99,7 +106,6 @@ TMat3<T>::TMat3(const Quaternion &q)
 						1 - 2 * q.x * q.x - 2 * q.y * q.y);
 	*/
 }
-#endif
 
 template <typename T>
 inline TMat3<T> operator + (const TMat3<T> &m, const TMat3<T> &n)
@@ -159,7 +165,7 @@ inline TMat3<T> operator ! (const TMat3<T> &m)
 }
 
 /* --------------------------------------------------------------------------------- */
-#if 0
+
 template <typename T>
 TMat4<T>::TMat4(const Quaternion &q)
 {
@@ -205,10 +211,9 @@ TMat4<T>::TMat4(const Quaternion &q)
 	*/
 	rows[3] = TVec4D<T>(0, 0, 0, 1);
 }
-#endif
 
 template <typename T>
-inline TVec3D<T> TMat4<T>::getTranslationComponent() const
+inline const TVec3D<T>& TMat4<T>::getTranslationComponent() const
 {
 	return rows[3].xyz();
 }
@@ -217,6 +222,21 @@ template <typename T>
 inline TMat3<T> TMat4<T>::getRotationComponent() const
 {
 	return TMat3<T>(rows[0].xyz(), rows[1].xyz(), rows[2].xyz());
+}
+
+template <typename T>
+inline const TVec3D<T> TMat4<T>::getTranslationComponentTransposed() const
+{
+	return TVec3D<T>(rows[0].w, rows[1].w, rows[2].w);
+}
+
+template <typename T>
+inline TMat3<T> TMat4<T>::getRotationComponentTransposed() const
+{
+	return TMat3<T>(
+		TVec3D<T>(rows[0].x, rows[1].x, rows[2].x),
+		TVec3D<T>(rows[0].y, rows[1].y, rows[2].y),
+		TVec3D<T>(rows[0].z, rows[1].z, rows[2].z));
 }
 
 template <typename T>
@@ -560,6 +580,22 @@ inline TMat3<T> rotateYZX3(const T angleX, const T angleY, const T angleZ)
 		sinZ * sinY*sinX + cosY*cosX);
 }
 
+// maxtrix3 axis angle rotation
+template <typename T>
+inline TMat3<T> rotateAxis3(const TVec3D<T>& axis, T angle)
+{
+	// from page 32(45) of glspec.dvi
+	TMat3<T> uut(	axis[0]*axis[0], axis[0]*axis[1], axis[0]*axis[2],
+					axis[1]*axis[0], axis[1]*axis[1], axis[1]*axis[2],
+					axis[2]*axis[0], axis[2]*axis[1], axis[2]*axis[2]);
+  
+	TMat3<T> s(	0,			-axis[2],	axis[1],
+				axis[2],	0,			-axis[0],
+				-axis[1],	axis[0],	0);
+  
+	return (uut + cos(angle) * (_identity3<T>() - uut) + sin(angle) * s);
+}
+
 //-------------------------------------------------------------------------------------------------------------------
 
 template <typename T>
@@ -785,7 +821,7 @@ inline TMat4<T> _identity4()
 template <typename T>
 inline TVec3D<T> transform3(const TVec3D<T> &in, const TMat3<T>& mat)
 {
-	TVec3D<T>  temp (
+	return TVec3D<T>(
 		(in[0] * mat.rows[0][0] +
 	     in[1] * mat.rows[1][0] +
 	     in[2] * mat.rows[2][0]),
@@ -797,14 +833,12 @@ inline TVec3D<T> transform3(const TVec3D<T> &in, const TMat3<T>& mat)
 	    (in[0] * mat.rows[0][2] +
 	     in[1] * mat.rows[1][2] +
 	     in[2] * mat.rows[2][2]));
-
-	return temp;
 }
 
 template <typename T>
 inline TVec3D<T> transform3(const TVec3D<T> &in, const TMat4<T>& mat)
 {
-	TVec3D<T> temp(
+	return TVec3D<T>(
 		(in[0] * mat.rows[0][0] +
 	    in[1] * mat.rows[1][0] +
 	    in[2] * mat.rows[2][0]),
@@ -816,14 +850,12 @@ inline TVec3D<T> transform3(const TVec3D<T> &in, const TMat4<T>& mat)
 	    (in[0] * mat.rows[0][2] +
 	    in[1] * mat.rows[1][2] +
 	    in[2] * mat.rows[2][2]) );
-
-	return temp;
 }
 
 template <typename T>
 inline TVec3D<T> transform4(const TVec3D<T> &in, const TMat4<T>& mat)
 {
-	TVec3D<T> temp(
+	return TVec3D<T>(
 		(in[0] *	mat.rows[0][0] +
 	    in[1] *		mat.rows[1][0] +
 	    in[2] *		mat.rows[2][0] +
@@ -838,20 +870,14 @@ inline TVec3D<T> transform4(const TVec3D<T> &in, const TMat4<T>& mat)
 	    in[1] *		mat.rows[1][2] +
 	    in[2] *		mat.rows[2][2]+
 	    mat.rows[3][2]));
-
-	return temp;
 }
 
 template <typename T>
 inline TVec3D<T> inverseRotateVec(const TVec3D<T> &vector, const TMat4<T> &matrix)
 {
-	TVec3D<T> tmp;
-
-	tmp[0] = vector[0] * matrix.rows[0][0] + vector[1] * matrix.rows[0][1] + vector[2] * matrix.rows[0][2];
-	tmp[1] = vector[0] * matrix.rows[1][0] + vector[1] * matrix.rows[1][1] + vector[2] * matrix.rows[1][2];
-	tmp[2] = vector[0] * matrix.rows[2][0] + vector[1] * matrix.rows[2][1] + vector[2] * matrix.rows[2][2];
-
-	return tmp;
+	return TVec3D<T>(vector[0] * matrix.rows[0][0] + vector[1] * matrix.rows[0][1] + vector[2] * matrix.rows[0][2],
+					 vector[0] * matrix.rows[1][0] + vector[1] * matrix.rows[1][1] + vector[2] * matrix.rows[1][2],
+					 vector[0] * matrix.rows[2][0] + vector[1] * matrix.rows[2][1] + vector[2] * matrix.rows[2][2]);
 }
 
 template <typename T>
@@ -859,9 +885,9 @@ inline TVec3D<T> inverseTranslateVec(const TVec3D<T> &vector, const TMat4<T> &ma
 {
 	TVec3D<T> tmp;
 
-	tmp[0] = vector[0] - matrix.rows[3][0];
-	tmp[1] = vector[1] - matrix.rows[3][1];
-	tmp[2] = vector[2] - matrix.rows[3][2];
+	return TVec3D<T>(vector[0] - matrix.rows[3][0],
+					 vector[1] - matrix.rows[3][1],
+					 vector[2] - matrix.rows[3][2]);
 
 	return tmp;
 }

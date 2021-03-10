@@ -2,7 +2,9 @@
 
 #include "obj_loader.h"
 #include "driver_routines/d2_types.h"
+
 #include <malloc.h>
+#include "math/TriangleUtil.inl"
 
 #include "driver_level.h"
 #include "core/VirtualStream.h"
@@ -399,10 +401,12 @@ void WritePolygonNormals(IVirtualStream* stream, MODEL* model, smdgroup_t* group
 		SVECTOR* v2 = model->pVertex(poly.vindices[1]);
 		SVECTOR* v3 = model->pVertex(poly.vindices[2]);
 		
-		Vector3D normal = NormalOfTriangle(
-			{ (float)v1->x, (float)v1->y, (float)v1->z }, 
-			{ (float)v2->x, (float)v2->y, (float)v2->z }, 
-			{ (float)v3->x, (float)v3->y, (float)v3->z });
+		Vector3D normal;
+
+		ComputeTriangleNormal(normal,
+			Vector3D((float)v1->x, (float)v1->y, (float)v1->z), 
+			Vector3D((float)v2->x, (float)v2->y, (float)v2->z), 
+			Vector3D((float)v3->x, (float)v3->y, (float)v3->z));
 
 		// Invert normals (REQUIRED)
 		normal *= -1.0f;

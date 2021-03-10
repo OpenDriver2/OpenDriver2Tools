@@ -6,6 +6,8 @@
 #include "rendermodel.h"
 #include "core/cmdlib.h"
 
+#include "math/Volume.h"
+
 #include "driver_routines/d2_types.h"
 #include "driver_routines/level.h"
 #include "driver_routines/models.h"
@@ -51,6 +53,8 @@ const char* model_shader =
 	"#endif\n";
 
 int g_quit = 0;
+int g_night = 0;
+int g_cellsDrawDistance = 441 * 16;
 
 int g_currentModel = 191;
 bool g_holdLeft = false;
@@ -146,6 +150,21 @@ void SDLPollEvent()
 				{
 					g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? -1.0f : 0.0f;
 				}
+				else if (nKey == SDL_SCANCODE_N && event.type == SDL_KEYDOWN)
+				{
+					g_night = !g_night;
+				}
+				else if (nKey == SDL_SCANCODE_PAGEUP && event.type == SDL_KEYDOWN)
+				{
+					g_cellsDrawDistance += 441;
+				}
+				else if (nKey == SDL_SCANCODE_PAGEDOWN && event.type == SDL_KEYDOWN)
+				{
+					g_cellsDrawDistance -= 441;
+					if (g_cellsDrawDistance < 441)
+						g_cellsDrawDistance = 441;
+				}
+				
 
 				//Emulator_DoDebugKeys(nKey, (event.type == SDL_KEYUP) ? false : true);
 				break;
@@ -294,12 +313,12 @@ TextureID GetHWTexture(int tpage, int pal)
 extern int g_windowWidth;
 extern int g_windowHeight;
 
-void DrawLevelDriver2(const Vector3D& cameraPos)
+void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 {
 	CELL_ITERATOR ci;
 	PACKED_CELL_OBJECT* ppco;
 
-	int i = 441 * 16;
+	int i = g_cellsDrawDistance;
 	int vloop = 0;
 	int hloop = 0;
 	int dir = 0;
@@ -327,12 +346,6 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 			icell.x = cell.x + hloop;
 			icell.z = cell.z + vloop;
 
-#if 0
-			if (rightPlane < 0 &&
-				leftPlane > 0 &&
-				backPlane < farClipLimit &&  // check planes
-				PVS_ptr[vis_v * pvs_square + vis_h]) // check PVS table
-#endif
 			if(icell.x > -1 && icell.x < levMapDriver2->GetCellsAcross() &&
 			   icell.z > -1 && icell.z < levMapDriver2->GetCellsDown())
 			{
@@ -379,17 +392,20 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 					GR_SetMatrix(MATRIX_WORLD, objectMatrix);
 					GR_UpdateMatrixUniforms();
 					
-					if (isGround)
-					{
-						//SetupLightingProperties(0.5f, 0.5f);
-					}
-					//else
-						//SetupLightingProperties(1.0f, 1.0f);
+					if (isGround && g_night)
+						SetupLightingProperties(0.5f, 0.5f);
+					else
+						SetupLightingProperties(1.0f, 1.0f);
 
 					CRenderModel* renderModel = (CRenderModel*)ref->userData;
 					
 					if (renderModel)
-						renderModel->Draw();
+					{
+						const float boundSphere = ref->model->bounding_sphere * EXPORT_SCALING * 2.0f;
+						if (frustrumVolume.IsSphereInside(absCellPosition, boundSphere))
+							renderModel->Draw();
+					}
+
 					
 					ppco = levMapDriver2->GetNextPackedCop(&ci);
 				}
@@ -398,10 +414,6 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 
 		if (dir == 0)
 		{
-			//leftPlane += leftcos;
-			//backPlane += backcos;
-			//rightPlane += rightcos;
-
 			hloop++;
 
 			if (hloop + vloop == 1)
@@ -409,9 +421,6 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 		}
 		else if (dir == 1)
 		{
-			//leftPlane += leftsin;
-			//backPlane += backsin;
-			//rightPlane += rightsin;
 			vloop++;
 
 			//PVS_ptr += pvs_square;
@@ -422,18 +431,11 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 		else if (dir == 2)
 		{
 			hloop--;
-			//leftPlane -= leftcos;
-			//backPlane -= backcos;
-			//rightPlane -= rightcos;
-
 			if (hloop + vloop == 0)
 				dir = 3;
 		}
 		else
 		{
-			//leftPlane -= leftsin;
-			//backPlane -= backsin;
-			//rightPlane -= rightsin;
 			vloop--;
 
 			//PVS_ptr -= pvs_square;
@@ -446,12 +448,12 @@ void DrawLevelDriver2(const Vector3D& cameraPos)
 	}
 }
 
-void DrawLevelDriver1(const Vector3D& cameraPos)
+void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 {
 	CELL_ITERATOR_D1 ci;
 	CELL_OBJECT* pco;
 
-	int i = 441 * 16;
+	int i = g_cellsDrawDistance;
 	int vloop = 0;
 	int hloop = 0;
 	int dir = 0;
@@ -479,78 +481,71 @@ void DrawLevelDriver1(const Vector3D& cameraPos)
 			icell.x = cell.x + hloop;
 			icell.z = cell.z + vloop;
 
-#if 0
-			if (rightPlane < 0 &&
-				leftPlane > 0 &&
-				backPlane < farClipLimit &&  // check planes
-				PVS_ptr[vis_v * pvs_square + vis_h]) // check PVS table
-#endif
-				if (icell.x > -1 && icell.x < levMapDriver1->GetCellsAcross() &&
-					icell.z > -1 && icell.z < levMapDriver1->GetCellsDown())
+
+			if (icell.x > -1 && icell.x < levMapDriver1->GetCellsAcross() &&
+				icell.z > -1 && icell.z < levMapDriver1->GetCellsDown())
+			{
+				levMapDriver1->SpoolRegion(icell);
+
+				pco = levMapDriver1->GetFirstCop(&ci, icell.x, icell.z);
+
+				// walk each cell object in cell
+				while (pco)
 				{
-					levMapDriver1->SpoolRegion(icell);
-
-					pco = levMapDriver1->GetFirstCop(&ci, icell.x, icell.z);
-
-					// walk each cell object in cell
-					while (pco)
+					if (pco->type >= MAX_MODELS)
 					{
-						if (pco->type >= MAX_MODELS)
-						{
-							pco = levMapDriver1->GetNextCop(&ci);
-							// WHAT THE FUCK?
-							continue;
-						}
-
-						ModelRef_t* ref = g_levModels.GetModelByIndex(pco->type);
-						MODEL* model = ref->model;
-
-						float cellRotationRad = -pco->yang / 64.0f * PI_F * 2.0f;
-
-						bool isGround = false;
-
-						if (model)
-						{
-							if (model->shape_flags & SHAPE_FLAG_SMASH_SPRITE)
-							{
-								cellRotationRad = DEG2RAD(g_cameraAngles.y);
-							}
-
-							if ((model->shape_flags & (SHAPE_FLAG_SUBSURFACE | SHAPE_FLAG_ALLEYWAY)) ||
-								(model->flags2 & (MODEL_FLAG_SIDEWALK | MODEL_FLAG_GRASS)))
-							{
-								isGround = true;
-							}
-						}
-
-						Vector3D absCellPosition(pco->pos.vx * EXPORT_SCALING, pco->pos.vy * -EXPORT_SCALING, pco->pos.vz * EXPORT_SCALING);
-						Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
-						GR_SetMatrix(MATRIX_WORLD, objectMatrix);
-						GR_UpdateMatrixUniforms();
-
-						if (isGround)
-						{
-							//SetupLightingProperties(0.5f, 0.5f);
-						}
-						//else
-							//SetupLightingProperties(1.0f, 1.0f);
-
-						CRenderModel* renderModel = (CRenderModel*)ref->userData;
-
-						if (renderModel)
-							renderModel->Draw();
-
 						pco = levMapDriver1->GetNextCop(&ci);
+						// WHAT THE FUCK?
+						continue;
 					}
+
+					ModelRef_t* ref = g_levModels.GetModelByIndex(pco->type);
+					MODEL* model = ref->model;
+
+					float cellRotationRad = -pco->yang / 64.0f * PI_F * 2.0f;
+
+					bool isGround = false;
+
+					if (model)
+					{
+						if (model->shape_flags & SHAPE_FLAG_SMASH_SPRITE)
+						{
+							cellRotationRad = DEG2RAD(g_cameraAngles.y);
+						}
+
+						if ((model->shape_flags & (SHAPE_FLAG_SUBSURFACE | SHAPE_FLAG_ALLEYWAY)) ||
+							(model->flags2 & (MODEL_FLAG_SIDEWALK | MODEL_FLAG_GRASS)))
+						{
+							isGround = true;
+						}
+					}
+
+					Vector3D absCellPosition(pco->pos.vx * EXPORT_SCALING, pco->pos.vy * -EXPORT_SCALING, pco->pos.vz * EXPORT_SCALING);
+					Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
+					GR_SetMatrix(MATRIX_WORLD, objectMatrix);
+					GR_UpdateMatrixUniforms();
+
+					if (isGround && g_night)
+						SetupLightingProperties(0.5f, 0.5f);
+					else
+						SetupLightingProperties(1.0f, 1.0f);
+
+					CRenderModel* renderModel = (CRenderModel*)ref->userData;
+
+					if (renderModel)
+					{
+						const float boundSphere = ref->model->bounding_sphere * EXPORT_SCALING * 2.0f;
+						if(frustrumVolume.IsSphereInside(absCellPosition, boundSphere))
+							renderModel->Draw();
+					}
+
+					pco = levMapDriver1->GetNextCop(&ci);
 				}
+			}
 		}
 
 		if (dir == 0)
 		{
-			//leftPlane += leftcos;
-			//backPlane += backcos;
-			//rightPlane += rightcos;
-
 			hloop++;
 
 			if (hloop + vloop == 1)
@@ -558,9 +553,6 @@ void DrawLevelDriver1(const Vector3D& cameraPos)
 		}
 		else if (dir == 1)
 		{
-			//leftPlane += leftsin;
-			//backPlane += backsin;
-			//rightPlane += rightsin;
 			vloop++;
 
 			//PVS_ptr += pvs_square;
@@ -571,18 +563,12 @@ void DrawLevelDriver1(const Vector3D& cameraPos)
 		else if (dir == 2)
 		{
 			hloop--;
-			//leftPlane -= leftcos;
-			//backPlane -= backcos;
-			//rightPlane -= rightcos;
 
 			if (hloop + vloop == 0)
 				dir = 3;
 		}
 		else
 		{
-			//leftPlane -= leftsin;
-			//backPlane -= backsin;
-			//rightPlane -= rightsin;
 			vloop--;
 
 			//PVS_ptr -= pvs_square;
@@ -608,11 +594,13 @@ void RenderView()
 	Vector3D cameraAngles = VDEG2RAD(g_cameraAngles);
 
 	Matrix4x4 view, proj;
+	Volume frustumVolume;
 
 	proj = perspectiveMatrixY(DEG2RAD(g_cameraFOV), g_windowWidth, g_windowHeight, 0.01f, 1000.0f);
 	view = rotateZXY4(-cameraAngles.x, -cameraAngles.y, -cameraAngles.z);
-
 	view.translate(-cameraPos);
+
+	frustumVolume.LoadAsFrustum(proj * view);
 
 	SetupLightingProperties();
 
@@ -626,9 +614,9 @@ void RenderView()
 	GR_SetCullMode(CULL_FRONT);
 
 	if(g_format >= LEV_FORMAT_DRIVER2_ALPHA16)
-		DrawLevelDriver2(cameraPos);
+		DrawLevelDriver2(cameraPos, frustumVolume);
 	else
-		DrawLevelDriver1(cameraPos);
+		DrawLevelDriver1(cameraPos, frustumVolume);
 }
 
 void OnModelLoaded(ModelRef_t* ref)
@@ -669,9 +657,12 @@ int ViewerMain(const char* filename)
 		SDLPollEvent();
 
 		GR_BeginScene();
-		
-		GR_ClearColor(128, 158, 182);
-		//GR_ClearColor(19, 23, 25);
+
+		if(g_night)
+			GR_ClearColor(19, 23, 25);
+		else
+			GR_ClearColor(128, 158, 182);
+	
 		GR_ClearDepth(1.0f);
 	
 		// Control and map
