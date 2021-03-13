@@ -188,6 +188,7 @@ void CTexturePage::InitFromFile(int id, TEXPAGE_POS& tp, IVirtualStream* pFile)
 
 		for(int i = 0; i < m_numDetails; i++)
 		{
+			m_details[i].detailNum = i;
 			m_details[i].numExtraCLUTs = 0;
 			memset(m_details[i].extraCLUTs, 0, sizeof(m_details[i].extraCLUTs));
 			
