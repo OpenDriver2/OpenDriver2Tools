@@ -22,7 +22,7 @@ void GetTPageDetailPalettes(DkList<TEXCLUT*>& out, CTexturePage* tpage, TexDetai
 	const TexBitmap_t& bitmap = tpage->GetBitmap();
 
 	// ofc, add default
-	out.append(&bitmap.clut[detail->info.id]);
+	out.append(&bitmap.clut[detail->detailNum]);
 
 	for(int i = 0; i < detail->numExtraCLUTs; i++)
 		out.append(detail->extraCLUTs[i]);
