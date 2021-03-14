@@ -13,7 +13,7 @@ struct RECT16
 };
 
 const int SKY_CLUT_START_Y = 252;
-const int SKY_SIZE_W = 128 / 4;
+const int SKY_SIZE_W = 256 / 4;
 const int SKY_SIZE_H = 84;
 
 void CopyTpageImage(ushort* tp_src, ushort* dst, int x, int y, int dst_w, int dst_h)
@@ -33,8 +33,11 @@ void ExportSkyImage(const char* skyFileName, ubyte* data, int x_idx, int y_idx, 
 	ubyte imageCopy[SKY_SIZE_W * SKY_SIZE_H];
 	ushort imageClut[16];
 
-	CopyTpageImage((ushort*)data, (ushort*)imageCopy, x_idx * SKY_SIZE_W, y_idx * SKY_SIZE_H, SKY_SIZE_W / 2, SKY_SIZE_H);
-	CopyTpageImage((ushort*)data, (ushort*)imageClut, x_idx * 16, SKY_CLUT_START_Y + y_idx, 16, 1);
+	int clut_x = x_idx * 16; // FIXME: is that correct?
+	int clut_y = SKY_CLUT_START_Y + y_idx;
+
+	CopyTpageImage((ushort*)data, (ushort*)imageCopy, x_idx * SKY_SIZE_W / 2, y_idx * SKY_SIZE_H, SKY_SIZE_W / 2, SKY_SIZE_H);
+	CopyTpageImage((ushort*)data, (ushort*)imageClut, clut_x, clut_y, 16, 1);
 
 	SaveTIM_4bit(varargs("%s_%d_%d.TIM", skyFileName, sky_id, n),
 		imageCopy, SKY_SIZE_W * SKY_SIZE_H, 0, 0, SKY_SIZE_W*2, SKY_SIZE_H, (ubyte*)imageClut, 1);
