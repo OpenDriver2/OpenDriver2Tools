@@ -30,8 +30,7 @@ void	WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 			bool debugInfo = true,
 			const Matrix4x4& translation = identity4(),
 			int* first_v = nullptr,
-			int* first_t = nullptr,
-			RegionModels_t* regModels = nullptr);
+			int* first_t = nullptr);
 
 //----------------------------------------------------------
 // main functions

@@ -59,7 +59,6 @@ enum ELevelFormat
 
 // forward
 class IVirtualStream;
-struct RegionModels_t;
 
 //------------------------------------------------------------------------------------------------------------
 // globals

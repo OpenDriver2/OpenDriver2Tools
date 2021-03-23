@@ -4,7 +4,6 @@
 #include "math/Vector.h"
 #include "util/DkList.h"
 
-struct RegionModels_t;
 struct ModelRef_t;
 struct GrVAO;
 

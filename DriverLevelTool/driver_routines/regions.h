@@ -3,7 +3,6 @@
 
 #include "math/dktypes.h"
 #include "models.h"
-#include "util/DkList.h"
 
 //------------------------------------------------------------------------------------------------------------
 
@@ -12,12 +11,6 @@ class IVirtualStream;
 
 class CBaseLevelRegion;
 class CBaseLevelMap;
-
-// OBSOLETE
-struct RegionModels_t
-{
-	DkList<ModelRef_t> modelRefs;
-};
 
 typedef void (*OnRegionLoaded_t)(CBaseLevelRegion* region);
 typedef void (*OnRegionFreed_t)(CBaseLevelRegion* region);

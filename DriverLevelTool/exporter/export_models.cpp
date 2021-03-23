@@ -18,8 +18,7 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 	bool debugInfo,
 	const Matrix4x4& translation,
 	int* first_v,
-	int* first_t,
-	RegionModels_t* regModels)
+	int* first_t)
 {
 	if (!model)
 	{

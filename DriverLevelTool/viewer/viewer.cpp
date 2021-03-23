@@ -532,7 +532,10 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 						continue;
 					}
 
-					ModelRef_t* ref = g_levModels.GetModelByIndex(pco->type);
+					Vector3D absCellPosition(pco->pos.vx * EXPORT_SCALING, pco->pos.vy * -EXPORT_SCALING, pco->pos.vz * EXPORT_SCALING);
+					float distanceFromCamera = lengthSqr(absCellPosition - cameraPos);
+
+					ModelRef_t* ref = GetModelCheckLods(pco->type, distanceFromCamera);
 					MODEL* model = ref->model;
 
 					float cellRotationRad = -pco->yang / 64.0f * PI_F * 2.0f;
@@ -553,7 +556,7 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 						}
 					}
 
-					Vector3D absCellPosition(pco->pos.vx * EXPORT_SCALING, pco->pos.vy * -EXPORT_SCALING, pco->pos.vz * EXPORT_SCALING);
+					
 					Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
 					GR_SetMatrix(MATRIX_WORLD, objectMatrix);
 					GR_UpdateMatrixUniforms();

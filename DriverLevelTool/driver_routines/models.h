@@ -14,7 +14,6 @@
 
 // forward
 class IVirtualStream;
-struct RegionModels_t;
 struct ModelRef_t;
 struct CarModelData_t;
 
