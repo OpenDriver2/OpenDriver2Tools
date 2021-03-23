@@ -1,12 +1,12 @@
 #ifndef MODEL_H
 #define MODEL_H
 
-#include <string>
+#include <nstd/String.hpp>
+#include <nstd/Array.hpp>
 
 #include "math/dktypes.h"
 #include "math/psx_math_types.h"
 #include "d2_types.h"
-#include "util/DkList.h"
 
 #define MAX_MODELS				1536	// maximum models (this is limited by PACKED_CELL_OBJECT)
 
@@ -56,9 +56,12 @@ struct ModelRef_t
 	}
 
 	MODEL*	model;
+
 	int		index;
 	int		size;
-	bool	swap;
+
+	ushort	highDetailId;
+	ushort	lowDetailId;
 	
 	void*	userData; // might contain a hardware model pointer
 };
@@ -95,6 +98,7 @@ public:
 	void				LoadCarModelsLump(IVirtualStream* pFile, int size);
 	void				LoadModelNamesLump(IVirtualStream* pFile, int size);
 	void				LoadLevelModelsLump(IVirtualStream* pFile);
+	void				LoadLowDetailTableLump(IVirtualStream* pFile, int size);
 
 	ModelRef_t*			GetModelByIndex(int nIndex) const;
 	int					FindModelIndexByName(const char* name) const;
@@ -110,13 +114,17 @@ protected:
 	void				OnCarModelFreed(CarModelData_t* data);
 	
 	ModelRef_t			m_levelModels[MAX_MODELS];
+
 	CarModelData_t		m_carModels[MAX_CAR_MODELS];
-	DkList<std::string>	m_model_names;
+
+	Array<String>		m_model_names;
 
 	OnModelLoaded_t		m_onModelLoaded;
 	OnModelFreed_t		m_onModelFreed;
 	OnCarModelLoaded_t	m_onCarModelLoaded;
 	OnCarModelFreed_t	m_onCarModelFreed;
+
+	int					m_numModelsInPack{0};
 };
 
 //------------------------------------------------------------------------------------------------------------

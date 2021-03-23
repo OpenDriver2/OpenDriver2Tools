@@ -9,6 +9,8 @@
 
 #include "util/util.h"
 
+#include <nstd/Array.hpp>
+
 bool isNotWhiteSpace(const char ch)
 {
 	return (ch != ' ' && ch != '\t' && ch != '\r' && ch != '\n');
@@ -61,7 +63,7 @@ struct obj_material_t
 //--------------------------------------------------------------------------
 // Loads MTL file
 //--------------------------------------------------------------------------
-bool LoadMTL(const char* filename, DkList<obj_material_t> &material_list)
+bool LoadMTL(const char* filename, Array<obj_material_t> &material_list)
 {
 	Tokenizer tok;
 
@@ -87,7 +89,10 @@ bool LoadMTL(const char* filename, DkList<obj_material_t> &material_list)
 			strcpy(mat.name, tok.next(isNotNewLine));
 			strcpy(mat.texture, mat.name);
 
-			current = &material_list[material_list.append(mat)];
+			int new_idx = material_list.size();
+			material_list.append(mat);
+
+			current = &material_list[new_idx];
 		}
 		else if(!stricmp(str, "map_Kd"))
 		{
@@ -98,15 +103,15 @@ bool LoadMTL(const char* filename, DkList<obj_material_t> &material_list)
 			tok.goToNextLine();
 	}
 
-	Msg("Num materials: %d\n", material_list.numElem());
+	Msg("Num materials: %d\n", material_list.size());
 
 	return true;
 }
 
-char* GetMTLTexture(char* pszMaterial, DkList<obj_material_t> &material_list)
+char* GetMTLTexture(char* pszMaterial, Array<obj_material_t> &material_list)
 {
 	//Msg("search for: %s\n", pszMaterial);
-	for(int i = 0; i < material_list.numElem(); i++)
+	for(usize i = 0; i < material_list.size(); i++)
 	{
 		//Msg("search id: %d\n", i);
 		if(!strcmp(material_list[i].name, pszMaterial))
@@ -121,7 +126,7 @@ char* GetMTLTexture(char* pszMaterial, DkList<obj_material_t> &material_list)
 //--------------------------------------------------------------------------
 bool LoadOBJ(smdmodel_t* model, const char* filename)
 {
-	DkList<obj_material_t> material_list;
+	Array<obj_material_t> material_list;
 
 	Tokenizer tok;
 
@@ -130,7 +135,7 @@ bool LoadOBJ(smdmodel_t* model, const char* filename)
 
 	if(!fp)
 	{
-		MsgError("Couldn't open OBJ file '%s'", filename);
+		MsgError("Couldn't open OBJ file '%s'\n", filename);
 		return false;
 	}
 
@@ -200,13 +205,13 @@ bool LoadOBJ(smdmodel_t* model, const char* filename)
 	char material_name[1024];
 	strcpy(material_name, "error");
 
-	DkList<Vector3D>& vertices = model->verts;
-	DkList<Vector2D>& texcoords = model->texcoords;
-	DkList<Vector3D>& normals = model->normals;
+	Array<Vector3D>& vertices = model->verts;
+	Array<Vector2D>& texcoords = model->texcoords;
+	Array<Vector3D>& normals = model->normals;
 
-	vertices.resize(nVerts);
-	texcoords.resize(nTexCoords);
-	normals.resize(nNormals);
+	vertices.reserve(nVerts);
+	texcoords.reserve(nTexCoords);
+	normals.reserve(nNormals);
 
 	smdgroup_t* curgroup = nullptr;
 	//int*		group_remap = new int[nVerts];
@@ -289,9 +294,22 @@ bool LoadOBJ(smdmodel_t* model, const char* filename)
 		{
 			//Msg("face!\n");
 
+			// search for new group
+			for (usize i = 0; i < model->groups.size(); i++)
+			{
+				if (!stricmp(model->groups[i]->name, material_name))
+				{
+					curgroup = model->groups[i];
+					break;
+				}
+			}
+
+			// no luck, make a new group
 			if(!curgroup)
 			{
 				curgroup = new smdgroup_t;
+				strcpy(curgroup->name, material_name);
+
 				model->groups.append(curgroup);
 
 				if(bUseMTL)
@@ -410,17 +428,23 @@ bool LoadOBJ(smdmodel_t* model, const char* filename)
 		tok.goToNextLine();
 	}
 
-	//delete [] group_remap;
-
-	if(normals.numElem() == 0)
+	if(normals.size() == 0)
 	{
 		MsgWarning("WARNING: No normals found in %s. Did you forget to export it?\n", filename);
 	}
 
-	if(model->groups.numElem() > 0)
+	if(model->groups.size() > 0)
 	{
 		bLoaded = true;
 	}
 
 	return bLoaded;
+}
+
+void FreeOBJ(smdmodel_t* model)
+{
+	for (usize i = 0; i < model->groups.size(); i++)
+	{
+		delete model->groups[i];
+	}
 }

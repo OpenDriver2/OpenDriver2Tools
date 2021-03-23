@@ -2,16 +2,14 @@
 
 #include "driver_routines/models.h"
 #include "util/util.h"
-#include "util/DkList.h"
 #include "core/VirtualStream.h"
-#include <string>
 
 #include "driver_level.h"
 #include "math/Matrix.h"
 
-extern bool						g_extract_dmodels;
-extern std::string				g_levname_moddir;
-extern std::string				g_levname_texdir;
+extern bool		g_extract_dmodels;
+extern String	g_levname_moddir;
+extern String	g_levname_texdir;
 
 //-------------------------------------------------------------
 // writes Wavefront OBJ into stream
@@ -252,7 +250,7 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 //-------------------------------------------------------------
 void ExtractDMODEL(MODEL* model, const char* model_name, int modelSize)
 {
-	FILE* mdlFile = fopen(varargs("%s.dmodel", model_name), "wb");
+	FILE* mdlFile = fopen(String::fromPrintf("%s.dmodel", model_name), "wb");
 
 	if (mdlFile)
 	{
@@ -281,11 +279,11 @@ void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, in
 		return;
 	}
 
-	const char* selFilename = model_name;
+	String selFilename(model_name, strlen(model_name));
 
-	if (strchr(model_name, '.') == nullptr)
-		selFilename = varargs("%s.obj", model_name);
-	
+	if(!selFilename.findOneOf("."))
+		selFilename += ".obj";
+
 	FILE* mdlFile = fopen(selFilename, "wb");
 
 	if (mdlFile)
@@ -308,10 +306,10 @@ void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, in
 //-------------------------------------------------------------
 void ExportCarModel(MODEL* model, int size, int index, const char* name_suffix)
 {
-	std::string model_name(varargs("%s/CARMODEL_%d_%s", g_levname_moddir.c_str(), index, name_suffix));
+	String model_name(String::fromPrintf("%s/CARMODEL_%d_%s", (char*)g_levname_moddir, index, name_suffix));
 
 	// export model
-	ExportDMODELToOBJ(model, model_name.c_str(), index, size);
+	ExportDMODELToOBJ(model, model_name, index, size);
 }
 
 //-------------------------------------------------------------
@@ -320,14 +318,14 @@ void ExportCarModel(MODEL* model, int size, int index, const char* name_suffix)
 void SaveModelPagesMTL()
 {
 	// create material file
-	FILE* pMtlFile = fopen(varargs("%s/MODELPAGES.mtl", g_levname_moddir.c_str()), "wb");
+	FILE* pMtlFile = fopen(String::fromPrintf("%s/MODELPAGES.mtl", (char*)g_levname_moddir), "wb");
 
 	if (pMtlFile)
 	{
 		for (int i = 0; i < g_levTextures.GetTPageCount(); i++)
 		{
 			fprintf(pMtlFile, "newmtl page_%d\r\n", i);
-			fprintf(pMtlFile, "map_Kd ../../%s/PAGE_%d.tga\r\n", g_levname_texdir.c_str(), i);
+			fprintf(pMtlFile, "map_Kd ../../%s/PAGE_%d.tga\r\n", (char*)g_levname_texdir, i);
 		}
 
 		fclose(pMtlFile);
@@ -349,16 +347,16 @@ void ExportAllModels()
 		if (!modelRef->model)
 			continue;
 
-		std::string modelFileName(varargs("%s/ZMOD_%d", g_levname_moddir.c_str(), i));
+		String modelFileName(String::fromPrintf("%s/ZMOD_%d", (char*)g_levname_moddir, i));
 
 		if (modelName && modelName[0] != 0)
-			modelFileName = varargs("%s/%d_%s", g_levname_moddir.c_str(), i, modelName);
+			modelFileName = String::fromPrintf("%s/%d_%s", (char*)g_levname_moddir, i, modelName);
 
 		// export model
-		ExportDMODELToOBJ(modelRef->model, modelFileName.c_str(), i, modelRef->size);
+		ExportDMODELToOBJ(modelRef->model, modelFileName, i, modelRef->size);
 
 		// save original dmodel2
-		FILE* dFile = fopen(varargs("%s.dmodel", modelFileName.c_str()), "wb");
+		FILE* dFile = fopen(String::fromPrintf("%s.dmodel", modelFileName), "wb");
 		if (dFile)
 		{
 			fwrite(modelRef->model, modelRef->size, 1, dFile);

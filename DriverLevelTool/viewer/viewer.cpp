@@ -324,6 +324,29 @@ void InitHWTextures()
 extern int g_windowWidth;
 extern int g_windowHeight;
 
+const float MODEL_LOD_HIGH_MIN_DISTANCE = 5.0f;
+const float MODEL_LOD_LOW_MIN_DISTANCE  = 40.0f;
+
+ModelRef_t* GetModelCheckLods(int index, float distSqr)
+{
+	ModelRef_t* baseRef = g_levModels.GetModelByIndex(index);
+
+	ModelRef_t* retRef = baseRef;
+	if (baseRef->highDetailId != 0xFFFF)
+	{
+		if(distSqr < MODEL_LOD_HIGH_MIN_DISTANCE)
+			return g_levModels.GetModelByIndex(baseRef->highDetailId);
+	}
+
+	if (baseRef->lowDetailId != 0xFFFF)
+	{
+		if (distSqr > MODEL_LOD_HIGH_MIN_DISTANCE)
+			return g_levModels.GetModelByIndex(baseRef->lowDetailId);
+	}
+
+	return retRef;
+}
+
 void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 {
 	CELL_ITERATOR ci;
@@ -377,7 +400,12 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 						continue;
 					}
 
-					ModelRef_t* ref = g_levModels.GetModelByIndex(co.type);
+					Vector3D absCellPosition(co.pos.vx * EXPORT_SCALING, co.pos.vy * -EXPORT_SCALING, co.pos.vz * EXPORT_SCALING);
+
+					float distanceFromCamera = lengthSqr(absCellPosition - cameraPos);
+
+					ModelRef_t* ref = GetModelCheckLods(co.type, distanceFromCamera);
+
 					MODEL* model = ref->model;
 					
 					float cellRotationRad = -co.yang / 64.0f * PI_F * 2.0f;
@@ -398,7 +426,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 						}
 					}
 
-					Vector3D absCellPosition(co.pos.vx * EXPORT_SCALING, co.pos.vy * -EXPORT_SCALING, co.pos.vz * EXPORT_SCALING);
+					
 					Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
 					GR_SetMatrix(MATRIX_WORLD, objectMatrix);
 					GR_UpdateMatrixUniforms();
@@ -631,6 +659,16 @@ void OnModelLoaded(ModelRef_t* ref)
 		delete renderModel;
 }
 
+void OnModelFreed(ModelRef_t* ref)
+{
+	CRenderModel* model = (CRenderModel*)ref->userData;
+
+	if(model)
+		model->Destroy();
+
+	delete model;
+}
+
 //-------------------------------------------------------------
 // Main level viewer
 //-------------------------------------------------------------
@@ -647,7 +685,7 @@ int ViewerMain(const char* filename)
 
 	// set loading callbacks
 	g_levTextures.SetLoadingCallbacks(InitHWTexturePage, nullptr);
-	g_levModels.SetModelLoadingCallbacks(OnModelLoaded, nullptr);
+	g_levModels.SetModelLoadingCallbacks(OnModelLoaded, OnModelFreed);
 
 	// Load level file
 	if (!LoadLevelFile(filename))

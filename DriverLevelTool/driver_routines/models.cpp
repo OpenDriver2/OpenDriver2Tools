@@ -1,11 +1,12 @@
 #include "models.h"
 #include "regions.h"
 #include "util/DkList.h"
-#include <unordered_set>
-#include <string>
-
 #include "core/cmdlib.h"
 #include "core/IVirtualStream.h"
+
+#include <malloc.h>
+
+#include <nstd/HashSet.hpp>
 
 #include "d2_types.h"
 
@@ -60,7 +61,7 @@ int CDriverLevelModels::FindModelIndexByName(const char* name) const
 {
 	for (int i = 0; i < MAX_MODELS; i++)
 	{
-		if (!strcmp(m_model_names[i].c_str(), name))
+		if (!strcmp(m_model_names[i], name))
 			return i;
 	}
 
@@ -72,7 +73,7 @@ const char* CDriverLevelModels::GetModelName(ModelRef_t* model) const
 	if (!model)
 		return nullptr;
 
-	return m_model_names[model->index].c_str();
+	return m_model_names[model->index];
 }
 
 CarModelData_t* CDriverLevelModels::GetCarModel(int index) const
@@ -170,7 +171,7 @@ void CDriverLevelModels::LoadModelNamesLump(IVirtualStream* pFile, int size)
 
 		len = strlen(str);
 
-		m_model_names.append(str);
+		m_model_names.append(String::fromCString(str));
 
 		sz += len + 1;
 	} while (sz < size);
@@ -181,7 +182,37 @@ void CDriverLevelModels::LoadModelNamesLump(IVirtualStream* pFile, int size)
 }
 
 //-------------------------------------------------------------
-// parses model lumps and exports models to OBJ
+// loads low detail tables
+//-------------------------------------------------------------
+void CDriverLevelModels::LoadLowDetailTableLump(IVirtualStream* pFile, int size)
+{
+	int l_ofs = pFile->Tell();
+
+	// read high detail table
+	for (int i = 0; i < m_numModelsInPack; i++)
+	{
+		ushort mappedId;
+		pFile->Read(&mappedId, 1, sizeof(ushort));
+
+		ModelRef_t& ref = m_levelModels[i];
+		ref.highDetailId = mappedId;
+	}
+
+	// read low detail table
+	for (int i = 0; i < m_numModelsInPack; i++)
+	{
+		ushort mappedId;
+		pFile->Read(&mappedId, 1, sizeof(ushort));
+
+		ModelRef_t& ref = m_levelModels[i];
+		ref.lowDetailId = mappedId;
+	}
+
+	pFile->Seek(l_ofs, VS_SEEK_SET);
+}
+
+//-------------------------------------------------------------
+// loads level models lump
 //-------------------------------------------------------------
 void CDriverLevelModels::LoadLevelModelsLump(IVirtualStream* pFile)
 {
@@ -190,7 +221,9 @@ void CDriverLevelModels::LoadLevelModelsLump(IVirtualStream* pFile)
 	int modelCount;
 	pFile->Read(&modelCount, sizeof(int), 1);
 
-	DevMsg(SPEW_INFO, "	model count: %d\n", modelCount);
+	DevMsg(SPEW_INFO, "	models in pack: %d\n", modelCount);
+
+	m_numModelsInPack = modelCount;
 
 	for (int i = 0; i < modelCount; i++)
 	{
@@ -204,7 +237,6 @@ void CDriverLevelModels::LoadLevelModelsLump(IVirtualStream* pFile)
 			ref.index = i;
 			ref.model = (MODEL*)malloc(modelSize);
 			ref.size = modelSize;
-			ref.swap = false;
 
 			pFile->Read(ref.model, modelSize, 1);
 			
@@ -215,9 +247,7 @@ void CDriverLevelModels::LoadLevelModelsLump(IVirtualStream* pFile)
 			ModelRef_t& ref = m_levelModels[i];
 			ref.index = i;
 			ref.model = nullptr;
-			ref.size = modelSize;
-			ref.swap = true;
-		}
+			ref.size = modelSize;		}
 	}
 
 	for (int i = 0; i < modelCount; i++)
@@ -275,7 +305,7 @@ int PolySizes[56] = {
 	12,12,12,16,20,20,24,24
 };
 
-std::unordered_set<int> g_UnknownPolyTypes;
+HashSet<int> g_UnknownPolyTypes;
 
 void PrintUnknownPolys()
 {
@@ -283,8 +313,9 @@ void PrintUnknownPolys()
 		return;
 
 	MsgError("Unknown polygons: \n");
-	std::unordered_set<int>::iterator itr;
-	for (itr = g_UnknownPolyTypes.begin(); itr != g_UnknownPolyTypes.end(); itr++)
+	
+	HashSet<int>::Iterator itr;
+	for (itr = g_UnknownPolyTypes.begin(); itr != g_UnknownPolyTypes.end(); ++itr)
 	{
 		MsgWarning("%d (sz=%d), ", *itr, PolySizes[*itr]);
 	}
@@ -431,7 +462,7 @@ int decode_poly(const char* polyList, dpoly_t* out)
 		}
 		default:
 		{
-			g_UnknownPolyTypes.insert(ptype);
+			g_UnknownPolyTypes.append(ptype);
 		}
 	}
 	

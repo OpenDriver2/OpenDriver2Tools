@@ -1,11 +1,12 @@
 #include "obj_loader.h"
 #include "core/cmdlib.h"
+#include <nstd/Array.hpp>
 
 #define VERTEX_LINK_TOLERANCE 0.0001f
 
-int FindVertexInRefList(const Vector3D& vert, const DkList<Vector3D>& newVerts, float tolerance)
+int FindVertexInRefList(const Vector3D& vert, const Array<Vector3D>& newVerts, float tolerance)
 {
-	for (int i = 0; i < newVerts.numElem(); i++)
+	for (int i = 0; i < newVerts.size(); i++)
 	{
 		if (fsimilar(newVerts[i].x, vert.x, tolerance) &&
 			fsimilar(newVerts[i].y, vert.y, tolerance) &&
@@ -16,12 +17,12 @@ int FindVertexInRefList(const Vector3D& vert, const DkList<Vector3D>& newVerts, 
 	return -1;
 }
 
-void OptimizeVectorArray(DkList<Vector3D>& targetArray, DkList<int>& index_remap)
+void OptimizeVectorArray(Array<Vector3D>& targetArray, Array<int>& index_remap)
 {
-	DkList<Vector3D> newVectors;
+	Array<Vector3D> newVectors;
 
-	int num_verts = targetArray.numElem();
-	index_remap.setNum(num_verts);
+	int num_verts = targetArray.size();
+	index_remap.resize(num_verts);
 	
 	for (int i = 0; i < num_verts; i++)
 	{
@@ -29,7 +30,10 @@ void OptimizeVectorArray(DkList<Vector3D>& targetArray, DkList<int>& index_remap
 		int index = FindVertexInRefList(vert, newVectors, VERTEX_LINK_TOLERANCE);
 
 		if (index == -1)
-			index = newVectors.append(vert);
+		{
+			index = newVectors.size();
+			newVectors.append(vert);
+		}
 
 		index_remap[i] = index;
 	}
@@ -42,28 +46,28 @@ void OptimizeModel(smdmodel_t& model)
 {
 	MsgInfo("Optimizing model...\n");
 
-	MsgWarning("Vertex count before: %d\n", model.verts.numElem());
+	MsgWarning("Vertex count before: %d\n", model.verts.size());
 	
-	DkList<int> vertex_remap;
+	Array<int> vertex_remap;
 	OptimizeVectorArray(model.verts, vertex_remap);
 
-	MsgWarning("\t\tafter: %d\n", model.verts.numElem());
+	MsgWarning("\t\tafter: %d\n", model.verts.size());
 
-	MsgWarning("Normal count before: %d\n", model.normals.numElem());
+	MsgWarning("Normal count before: %d\n", model.normals.size());
 
-	DkList<int> normals_remap;
+	Array<int> normals_remap;
 	OptimizeVectorArray(model.normals, normals_remap);
 
-	MsgWarning("\t\tafter: %d\n", model.normals.numElem());
+	MsgWarning("\t\tafter: %d\n", model.normals.size());
 
 	MsgInfo("Remapping polys...");
 
 	// now process all polys
-	for (int i = 0; i < model.groups.numElem(); i++)
+	for (int i = 0; i < model.groups.size(); i++)
 	{
 		smdgroup_t* group = model.groups[i];
 		
-		for (int j = 0; j < group->polygons.numElem(); j++)
+		for (int j = 0; j < group->polygons.size(); j++)
 		{
 			smdpoly_t& poly = group->polygons[j];
 			

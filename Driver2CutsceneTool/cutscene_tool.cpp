@@ -7,6 +7,7 @@
 #include "util/image.h"
 #include "util/util.h"
 #include <string>
+
 #include <DriverLevelTool/driver_routines/d2_types.h>
 
 #define MAX_FILE_CUTSCENES			15

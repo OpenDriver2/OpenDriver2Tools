@@ -4,10 +4,14 @@
 #include "util/image.h"
 #include "util/util.h"
 #include "util/rnc2.h"
+#include <stdio.h>
+#include <nstd/File.hpp>
+#include <nstd/Directory.hpp>
+#include <nstd/Array.hpp>
 
-extern std::string			g_levname_moddir;
-extern std::string			g_levname_texdir;
-extern std::string			g_levname;
+extern String	g_levname_moddir;
+extern String	g_levname_texdir;
+extern String	g_levname;
 
 extern bool g_export_textures;
 extern bool g_export_overmap;
@@ -17,7 +21,7 @@ extern bool g_export_world;
 extern bool g_originalTransparencyKey;
 extern char* g_overlayMapData;
 
-void GetTPageDetailPalettes(DkList<TEXCLUT*>& out, CTexturePage* tpage, TexDetailInfo_t* detail)
+void GetTPageDetailPalettes(Array<TEXCLUT*>& out, CTexturePage* tpage, TexDetailInfo_t* detail)
 {
 	const TexBitmap_t& bitmap = tpage->GetBitmap();
 
@@ -53,7 +57,7 @@ void ExportTIM(CTexturePage* tpage, int detail)
 	if (h == 0)
 		h = 256;
 
-	DkList<TEXCLUT*> palettes;
+	Array<TEXCLUT*> palettes;
 	GetTPageDetailPalettes(palettes, tpage, texdetail);
 
 	const char* textureName = g_levTextures.GetTextureDetailName(&texdetail->info);
@@ -70,7 +74,7 @@ void ExportTIM(CTexturePage* tpage, int detail)
 
 	// copy image
 	ubyte* image_data = new ubyte[img_size];
-	TEXCLUT* clut_data = new TEXCLUT[palettes.numElem()];
+	TEXCLUT* clut_data = new TEXCLUT[palettes.size()];
 
 	for (int y = oy; y < tp_hy; y++)
 	{
@@ -100,13 +104,13 @@ void ExportTIM(CTexturePage* tpage, int detail)
 	}
 
 	// copy cluts
-	for (int i = 0; i < palettes.numElem(); i++)
+	for (usize i = 0; i < palettes.size(); i++)
 		memcpy(&clut_data[i], palettes[i], sizeof(TEXCLUT));
 
 	// compose TIMs
-	SaveTIM_4bit(varargs("%s/PAGE_%d/%s_%d.TIM", g_levname_texdir.c_str(), tpage->GetId(), textureName, detail),
+	SaveTIM_4bit(String::fromPrintf("%s/PAGE_%d/%s_%d.TIM", (char*)g_levname_texdir, tpage->GetId(), textureName, detail),
 		image_data, img_size, ox, oy, w, h, 
-		(ubyte*)clut_data, palettes.numElem() );
+		(ubyte*)clut_data, palettes.size() );
 
 	delete[] image_data;
 	delete[] clut_data;
@@ -131,7 +135,7 @@ void ExportTexturePage(CTexturePage* tpage)
 
 	// Write an INI file with texture page info
 	{
-		FILE* pIniFile = fopen(varargs("%s/PAGE_%d.ini", g_levname_texdir.c_str(), tpage->GetId()), "wb");
+		FILE* pIniFile = fopen(String::fromPrintf("%s/PAGE_%d.ini", (char*)g_levname_texdir, tpage->GetId()), "wb");
 
 		if (pIniFile)
 		{
@@ -167,10 +171,10 @@ void ExportTexturePage(CTexturePage* tpage)
 
 	if (g_explode_tpages)
 	{
-		MsgInfo("Exploding texture '%s/PAGE_%d'\n", g_levname_texdir.c_str(), tpage->GetId());
+		MsgInfo("Exploding texture '%s/PAGE_%d'\n", (char*)g_levname_texdir, tpage->GetId());
 
 		// make folder and place all tims in there
-		mkdirRecursive(varargs("%s/PAGE_%d", g_levname_texdir.c_str(), tpage->GetId()));
+		Directory::create(String::fromPrintf("%s/PAGE_%d", (char*)g_levname_texdir, tpage->GetId()));
 
 		for (int i = 0; i < numDetails; i++)
 		{
@@ -211,8 +215,8 @@ void ExportTexturePage(CTexturePage* tpage)
 		tpage->ConvertIndexedTextureToRGBA(color_data, i, nullptr, true, true);
 	}
 
-	MsgInfo("Writing texture '%s/PAGE_%d.tga'\n", g_levname_texdir.c_str(), tpage->GetId());
-	SaveTGA(varargs("%s/PAGE_%d.tga", g_levname_texdir.c_str(), tpage->GetId()), (ubyte*)color_data, TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, TEX_CHANNELS);
+	MsgInfo("Writing texture '%s/PAGE_%d.tga'\n", (char*)g_levname_texdir, tpage->GetId());
+	SaveTGA(String::fromPrintf("%s/PAGE_%d.tga", (char*)g_levname_texdir, tpage->GetId()), (ubyte*)color_data, TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, TEX_CHANNELS);
 
 	int numPalettes = 0;
 	for (int pal = 0; pal < 16; pal++)
@@ -232,8 +236,8 @@ void ExportTexturePage(CTexturePage* tpage)
 
 		if (anyMatched)
 		{
-			MsgInfo("Writing texture %s/PAGE_%d_%d.tga\n", g_levname_texdir.c_str(), tpage->GetId(), numPalettes);
-			SaveTGA(varargs("%s/PAGE_%d_%d.tga", g_levname_texdir.c_str(), tpage->GetId(), numPalettes), (ubyte*)color_data, TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, TEX_CHANNELS);
+			MsgInfo("Writing texture %s/PAGE_%d_%d.tga\n", (char*)g_levname_texdir, tpage->GetId(), numPalettes);
+			SaveTGA(String::fromPrintf("%s/PAGE_%d_%d.tga", (char*)g_levname_texdir, tpage->GetId(), numPalettes), (ubyte*)color_data, TEXPAGE_SIZE_Y, TEXPAGE_SIZE_Y, TEX_CHANNELS);
 			numPalettes++;
 		}
 	}
@@ -262,19 +266,16 @@ void ExportAllTextures()
 	}
 
 	// create material file
-	FILE* pMtlFile = fopen(varargs("%s_LEVELMODEL.mtl", g_levname.c_str()), "wb");
+	FILE* pMtlFile = fopen(String::fromPrintf("%s_LEVELMODEL.mtl", (char*)g_levname), "wb");
 
-	std::string justLevFilename = g_levname.substr(g_levname.find_last_of("/\\") + 1);
-
-	size_t lastindex = justLevFilename.find_last_of(".");
-	justLevFilename = justLevFilename.substr(0, lastindex);
+	String justLevFilename = File::basename(g_levname);
 
 	if (pMtlFile)
 	{
 		for (int i = 0; i < g_levTextures.GetTPageCount(); i++)
 		{
 			fprintf(pMtlFile, "newmtl page_%d\r\n", i);
-			fprintf(pMtlFile, "map_Kd %s_textures/PAGE_%d.tga\r\n", justLevFilename.c_str(), i);
+			fprintf(pMtlFile, "map_Kd %s_textures/PAGE_%d.tga\r\n", (char*)justLevFilename, i);
 		}
 
 		fclose(pMtlFile);
@@ -361,7 +362,7 @@ void ExportOverlayMap()
 		MsgWarning("Missed tiles: %d\n", numValid-numTilesProcessed);
 	}
 
-	SaveTGA(varargs("%s/MAP.tga", g_levname_texdir.c_str()), (ubyte*)rgba, overmapWidth, overmapHeight, TEX_CHANNELS);
+	SaveTGA(String::fromPrintf("%s/MAP.tga", (char*)g_levname_texdir), (ubyte*)rgba, overmapWidth, overmapHeight, TEX_CHANNELS);
 
 	delete[] rgba;
 	delete[] mapBuffer;

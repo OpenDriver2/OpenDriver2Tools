@@ -6,11 +6,11 @@
 #include "core/VirtualStream.h"
 #include "util/DkList.h"
 
+#include <nstd/File.hpp>
+
 ELevelFormat g_format = LEV_FORMAT_AUTODETECT;
 
 //--------------------------------------------------------------------------------------------------------------------------
-
-std::string					g_levname;
 
 IVirtualStream*				g_levStream = nullptr;
 char*						g_overlayMapData = nullptr;
@@ -169,6 +169,7 @@ void ProcessLumps(IVirtualStream* pFile)
 				DevMsg(SPEW_WARNING, "LUMP_SUBDIVISION ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_LOWDETAILTABLE:
+				g_levModels.LoadLowDetailTableLump(pFile, lump.size);
 				DevMsg(SPEW_WARNING, "LUMP_LOWDETAILTABLE ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_MOTIONCAPTURE:
@@ -253,10 +254,7 @@ bool LoadLevelFile(const char* filename)
 
 	MsgWarning("-----------\nLoading LEV file '%s'\n", filename);
 
-	std::string fileName = filename;
-
-	size_t lastindex = fileName.find_last_of(".");
-	fileName = fileName.substr(0, lastindex);
+	String fileName = File::basename(String::fromCString(filename, strlen(filename)));
 
 	//-------------------------------------------------------------------
 
@@ -340,6 +338,8 @@ void FreeLevelData()
 	g_levMap->FreeAll();
 	g_levTextures.FreeAll();
 	g_levModels.FreeAll();
+
+	delete g_levMap;
 
 	delete[] g_overlayMapData;
 }

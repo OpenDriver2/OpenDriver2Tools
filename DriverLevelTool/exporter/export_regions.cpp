@@ -10,9 +10,9 @@
 
 #include "math/Matrix.h"
 
-extern bool						g_export_models;
-extern std::string				g_levname_moddir;
-extern std::string				g_levname;
+extern bool		g_export_models;
+extern String	g_levname_moddir;
+extern String	g_levname;
 
 char g_packed_cell_pointers[8192];
 ushort g_cell_ptrs[8192];
@@ -64,9 +64,9 @@ int ExportRegionDriver1(CDriver1LevelRegion* region, IVirtualStream* cellsFileSt
 				Matrix4x4 transform = translate(absCellPosition);
 				transform = transform * rotateY4(cellRotationRad) * scale4(1.0f, 1.0f, 1.0f);
 
-				const char* modelNamePrefix = varargs("reg%d", region->GetNumber());
-
-				WriteMODELToObjStream(levelFileStream, ref->model, ref->size, co->type, modelNamePrefix, false, transform, &lobj_first_v, &lobj_first_t);
+				WriteMODELToObjStream(levelFileStream, ref->model, ref->size, co->type, 
+					String::fromPrintf("reg%d", region->GetNumber()),
+					false, transform, &lobj_first_v, &lobj_first_t);
 			}
 
 			numRegionObjects++;
@@ -122,9 +122,9 @@ int ExportRegionDriver2(CDriver2LevelRegion* region, IVirtualStream* cellsFileSt
 				Matrix4x4 transform = translate(absCellPosition);
 				transform = transform * rotateY4(cellRotationRad) * scale4(1.0f, 1.0f, 1.0f);
 
-				const char* modelNamePrefix = varargs("reg%d", region->GetNumber());
-
-				WriteMODELToObjStream(levelFileStream, ref->model, ref->size, co.type, modelNamePrefix, false, transform, &lobj_first_v, &lobj_first_t);
+				WriteMODELToObjStream(levelFileStream, ref->model, ref->size, co.type, 
+					String::fromPrintf("reg%d", region->GetNumber()),
+					false, transform, &lobj_first_v, &lobj_first_t);
 			}
 
 			numRegionObjects++;
@@ -174,13 +174,13 @@ void ExportRegions()
 
 	int numCellObjectsRead = 0;
 
-	FILE* cellsFile = fopen(varargs("%s_CELLPOS_MAP.obj", g_levname.c_str()), "wb");
-	FILE* levelFile = fopen(varargs("%s_LEVELMODEL.obj", g_levname.c_str()), "wb");
+	FILE* cellsFile = fopen(String::fromPrintf("%s_CELLPOS_MAP.obj", (char*)g_levname), "wb");
+	FILE* levelFile = fopen(String::fromPrintf("%s_LEVELMODEL.obj", (char*)g_levname), "wb");
 
 	CFileStream cellsFileStream(cellsFile);
 	CFileStream levelFileStream(levelFile);
 
-	levelFileStream.Print("mtllib %s_LEVELMODEL.mtl\r\n", g_levname.c_str());
+	levelFileStream.Print("mtllib %s_LEVELMODEL.mtl\r\n", (char*)g_levname);
 
 	int lobj_first_v = 0;
 	int lobj_first_t = 0;

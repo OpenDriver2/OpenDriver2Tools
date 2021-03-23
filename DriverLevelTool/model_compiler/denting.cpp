@@ -1,9 +1,9 @@
-#include <string>
-
 #include "compiler.h"
 #include "obj_loader.h"
 #include "core/VirtualStream.h"
 #include "math/psx_math_types.h"
+#include <nstd/String.hpp>
+#include <nstd/File.hpp>
 
 // TODO: sync with DR2LIMITS.H
 #define NUM_DAMAGE_ZONES		6
@@ -84,19 +84,19 @@ int GetSideDamageZoneByVerts(smdmodel_t& model, const smdpoly_t& poly, int inter
 //--------------------------------------------------------------------------
 int CheckDentingLimits(const Denting_t& denting)
 {
-	if (denting.polygonCount >= MAX_FILE_DAMAGE_LEVELS)
+	if (denting.polygonCount > MAX_FILE_DAMAGE_LEVELS)
 	{
 		return 1;
 	}
 	
 	for(int i = 0; i < NUM_DAMAGE_ZONES; i++)
 	{
-		if(denting.numDentPolys[i] >= MAX_FILE_DAMAGE_ZONE_POLYS)
+		if(denting.numDentPolys[i] > MAX_FILE_DAMAGE_ZONE_POLYS)
 		{
 			return 1;
 		}
 
-		if (denting.numDentVerts[i] >= MAX_FILE_DAMAGE_ZONE_VERTS)
+		if (denting.numDentVerts[i] > MAX_FILE_DAMAGE_ZONE_VERTS)
 		{
 			return 2;
 		}
@@ -135,7 +135,7 @@ void AddDentingVerts(Denting_t& outDenting, int zone, const smdpoly_t& poly)
 bool ProcessDentingForGroup(Denting_t& outDenting, smdmodel_t& model, smdgroup_t* group)
 {
 	// select polygons and add vertices to denting
-	int numPolys = group->polygons.numElem();
+	int numPolys = group->polygons.size();
 	for (int i = 0; i < numPolys; i++, outDenting.polygonCount++)
 	{
 		smdpoly_t& poly = group->polygons[i];
@@ -202,11 +202,23 @@ bool ProcessDentingForGroup(Denting_t& outDenting, smdmodel_t& model, smdgroup_t
 		if(checkResult >= 0)
 		{
 			if(checkResult == 0)
-				MsgWarning("polygon damage levels exceeded (max: %d)\n", MAX_FILE_DAMAGE_LEVELS);
+				MsgWarning("polygon damage levels exceeded (got %d, max: %d)\n", outDenting.polygonCount, MAX_FILE_DAMAGE_LEVELS);
 			else if (checkResult == 1)
-				MsgWarning("zone polygon count exceeded (max: %d)\n", MAX_FILE_DAMAGE_ZONE_POLYS);
+			{
+				for (int i = 0; i < 6; i++)
+				{
+					if(outDenting.numDentPolys[i] > MAX_FILE_DAMAGE_ZONE_POLYS)
+						MsgWarning("zone polygon count exceeded (got %d in zone %d, max: %d)\n", outDenting.numDentPolys[i], i, MAX_FILE_DAMAGE_ZONE_POLYS);
+				}
+			}
 			else if (checkResult == 2)
-				MsgWarning("zone vertices count exceeded (max: %d)\n", MAX_FILE_DAMAGE_ZONE_VERTS);
+			{
+				for (int i = 0; i < 6; i++)
+				{
+					if (outDenting.numDentPolys[i] > MAX_FILE_DAMAGE_ZONE_VERTS)
+						MsgWarning("zone vertices count exceeded (got %d in zone %d, max: %d)\n", outDenting.numDentVerts[i], i, MAX_FILE_DAMAGE_ZONE_VERTS);
+				}
+			}
 		
 			return false;
 		}
@@ -218,22 +230,18 @@ bool ProcessDentingForGroup(Denting_t& outDenting, smdmodel_t& model, smdgroup_t
 void GenerateDenting(smdmodel_t& model, const char* outputName)
 {
 	// replace extension with .den
-	std::string den_filename = outputName;
+	String den_filename(outputName, strlen(outputName));
+	den_filename = den_filename.replace("_clean", String());
+	den_filename = File::dirname(den_filename) + "/" + File::basename(den_filename, File::extension(den_filename)) + ".den";
 
-	size_t str_idx = den_filename.find("_clean");
-	if(str_idx == -1)
-		str_idx = den_filename.find_last_of(".");
-	
-	den_filename = den_filename.substr(0, str_idx) + ".den";
-
-	MsgInfo("Generating denting '%s'\n", den_filename.c_str());
+	MsgInfo("Generating denting '%s'\n", (char*)den_filename);
 
 	Denting_t newDenting;
 	memset(&newDenting, 0, sizeof(newDenting));
 	memset(newDenting.dentZoneVertices, 0xFF, sizeof(newDenting.dentZoneVertices));
 	memset(newDenting.dentZonePolys, 0xFF, sizeof(newDenting.dentZonePolys));
 
-	for (int i = 0; i < model.groups.numElem(); i++)
+	for (usize i = 0; i < model.groups.size(); i++)
 	{
 		if (!ProcessDentingForGroup(newDenting, model, model.groups[i]))
 		{
@@ -255,7 +263,7 @@ void GenerateDenting(smdmodel_t& model, const char* outputName)
 	Msg("\tSL %d\t\tSR %d\n", newDenting.numDentVerts[ZONE_SIDE_LEFT], newDenting.numDentVerts[ZONE_SIDE_RIGHT]);
 	Msg("\tRL %d\t\tRR %d\n", newDenting.numDentVerts[ZONE_REAR_LEFT], newDenting.numDentVerts[ZONE_REAR_RIGHT]);
 
-	FILE* fp = fopen(den_filename.c_str(), "wb");
+	FILE* fp = fopen(den_filename, "wb");
 
 	if (fp)
 	{

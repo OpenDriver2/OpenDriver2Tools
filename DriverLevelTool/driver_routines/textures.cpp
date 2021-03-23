@@ -94,6 +94,7 @@ CTexturePage::CTexturePage()
 CTexturePage::~CTexturePage()
 {
 	delete[] m_details;
+	FreeBitmap();
 }
 
 // free texture page data and bitmap
@@ -220,6 +221,8 @@ void CTexturePage::LoadCompressedTexture(IVirtualStream* pFile)
 	pFile->Read(compressedData, 1, TEXPAGE_4BIT_SIZE);
 
 	char* unpackEnd = unpackTexture((char*)compressedData, (char*)m_bitmap.data);
+
+	delete[] compressedData;
 	
 	// unpack
 	m_bitmap.rsize = (char*)unpackEnd - (char*)compressedData;
@@ -370,8 +373,6 @@ void CDriverLevelTextures::LoadPermanentTPages(IVirtualStream* pFile)
 	// those are non-spooled ones
 	for (int i = 0; i < m_numSpecPages; i++)
 	{
-		TexBitmap_t* newTexData = new TexBitmap_t;
-
 		long curOfs = pFile->Tell();
 		int tpage = m_specList[i].x;
 

@@ -11,7 +11,11 @@
 #include "util/ini.h"
 #include "util/util.h"
 
-extern std::string		g_levname;
+#include <nstd/File.hpp>
+#include <nstd/Directory.hpp>
+#include <nstd/Array.hpp>
+
+extern String	g_levname;
 
 struct CompilerTPage
 {
@@ -69,40 +73,39 @@ void FreeTextureDetails()
 void InitTextureDetailsForModel(smdmodel_t* model)
 {
 	// get texture pages from source model
-	DkList<int> tpage_ids;
-	DkList<smdgroup_t*> textured_groups;
+	Array<int> tpage_ids;
+	Array<smdgroup_t*> textured_groups;
 
-	for(int i = 0; i < model->groups.numElem(); i++)
+	for(usize i = 0; i < model->groups.size(); i++)
 	{
 		smdgroup_t* group = model->groups[i];
 	
 		int tpage_number = -1;
 		sscanf(group->texture, "page_%d", &tpage_number);
 
-		if (tpage_number != -1 && tpage_ids.findIndex(tpage_number) == -1)
+		if (tpage_number != -1 && tpage_ids.find(tpage_number) == tpage_ids.end())
 		{
 			tpage_ids.append(tpage_number);
 			textured_groups.append(group);
 		}
 	}
 
-	g_compilerTPages = new CompilerTPage[textured_groups.numElem()];
-	g_numCompilerTPages = textured_groups.numElem();
+	g_compilerTPages = new CompilerTPage[textured_groups.size()];
+	g_numCompilerTPages = textured_groups.size();
 
-	size_t lastindex = g_levname.find_last_of(".");
-	g_levname = g_levname.substr(0, lastindex);
-	
+	String lev_no_ext = File::dirname(g_levname) + "/" + File::basename(g_levname, File::extension(g_levname));
+
 	// load INI files
-	for(int i = 0; i < textured_groups.numElem(); i++)
+	for(usize i = 0; i < textured_groups.size(); i++)
 	{
-		ini_t* tpage_ini = ini_load(varargs("%s_textures/%s.ini", g_levname.c_str(), textured_groups[i]->texture));
+		ini_t* tpage_ini = ini_load(String::fromPrintf("%s_textures/%s.ini", (char*)lev_no_ext, textured_groups[i]->texture));
 
 		if (!tpage_ini)
 		{
 			g_compilerTPages[i].details = nullptr;
 			g_compilerTPages[i].numDetails = 0;
 			
-			MsgError("Unable to open '%s_textures/%s.ini'! Texture coordinates might be messed up\n", g_levname.c_str(), textured_groups[i]->texture);
+			MsgError("Unable to open '%s_textures/%s.ini'! Texture coordinates might be messed up\n", (char*)lev_no_ext, textured_groups[i]->texture);
 			continue;
 		}
 		
@@ -117,8 +120,10 @@ void InitTextureDetailsForModel(smdmodel_t* model)
 		{
 			TEXINF& detail = g_compilerTPages[i].details[j];
 
+			String detailName = String::fromPrintf("detail_%d", j);
+
 			int x, y, w, h;
-			const char* xywh_values = ini_get(tpage_ini, varargs("detail_%d", j), "xywh");
+			const char* xywh_values = ini_get(tpage_ini, detailName, "xywh");
 			sscanf(xywh_values, "%d,%d,%d,%d", &x, &y, &w, &h);
 
 			// this is how game handles it
@@ -136,14 +141,16 @@ void InitTextureDetailsForModel(smdmodel_t* model)
 			int damage_level = 0;
 			int damage_split = 0;
 			
-			const char* damageZoneName = ini_get(tpage_ini, varargs("detail_%d", j), "damagezone");
+			const char* damageZoneName = ini_get(tpage_ini, detailName, "damagezone");
 
-			ini_sget(tpage_ini, varargs("detail_%d", j), "damagelevel", "%d", &damage_level);
-			ini_sget(tpage_ini, varargs("detail_%d", j), "damagesplit", "%d", &damage_split);
+			ini_sget(tpage_ini, detailName, "damagelevel", "%d", &damage_level);
+			ini_sget(tpage_ini, detailName, "damagesplit", "%d", &damage_split);
 
 			// store damage zone in ID and damage level in nameoffset
 			detail.id = GetDamageZoneId(damageZoneName);
 			detail.nameoffset = damage_level | (damage_split ? 0x8000 : 0);
+
+			//Msg("Damage zone detail_%d %s id: %d\n", j, damageZoneName, detail.id);
 		}
 
 		ini_free(tpage_ini);
@@ -247,13 +254,13 @@ int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* grou
 	
 	sscanf(texture_name, "page_%d", &tpage_number);
 
-	int numPolys = group->polygons.numElem();
+	int numPolys = group->polygons.size();
 	for(int i = 0; i < numPolys; i++)
 	{
 		smdpoly_t& poly = group->polygons[i];
 		
 		UV_INFO uvs[4];
-		ConvertPolyUVs(uvs, model->texcoords.ptr(), poly);
+		ConvertPolyUVs(uvs, (Vector2D*)model->texcoords, poly);
 
 		int detail_id = 255;
 
@@ -392,7 +399,7 @@ int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* grou
 //--------------------------------------------------------------------------
 void WritePolygonNormals(IVirtualStream* stream, MODEL* model, smdgroup_t* group)
 {
-	int numPolys = group->polygons.numElem();
+	int numPolys = group->polygons.size();
 	for (int i = 0; i < numPolys; i++)
 	{
 		const smdpoly_t& poly = group->polygons[i];
@@ -464,14 +471,14 @@ MODEL* CompileDMODEL(CMemoryStream* stream, smdmodel_t* model, int& resultSize)
 	modelData->instance_number = -1;
 	modelData->tri_verts = 3;
 
-	modelData->num_vertices = model->verts.numElem();
-	modelData->num_point_normals = model->normals.numElem();
+	modelData->num_vertices = model->verts.size();
+	modelData->num_point_normals = model->normals.size();
 	modelData->num_polys = 0;
 	modelData->collision_block = 0;	// TODO: boxes
 	// 
 	// write vertices
 	modelData->vertices = stream->Tell();
-	for(int i = 0; i < model->verts.numElem(); i++)
+	for(usize i = 0; i < model->verts.size(); i++)
 	{
 		Vector3D& srcvert = model->verts[i];
 		SVECTOR dstvert;
@@ -488,7 +495,7 @@ MODEL* CompileDMODEL(CMemoryStream* stream, smdmodel_t* model, int& resultSize)
 	Msg("Writing polygon normals...\n");
 	// polygon normals
 	modelData->normals = stream->Tell();
-	for (int i = 0; i < model->groups.numElem(); i++)
+	for (usize i = 0; i < model->groups.size(); i++)
 	{
 		WritePolygonNormals(stream, modelData, model->groups[i]);
 	}
@@ -496,7 +503,7 @@ MODEL* CompileDMODEL(CMemoryStream* stream, smdmodel_t* model, int& resultSize)
 	Msg("Writing point normals...\n");
 	// write point normals
 	modelData->point_normals = stream->Tell();
-	for(int i = 0; i < model->normals.numElem(); i++)
+	for(usize i = 0; i < model->normals.size(); i++)
 	{
 		Vector3D normal = model->normals[i];
 
@@ -514,7 +521,7 @@ MODEL* CompileDMODEL(CMemoryStream* stream, smdmodel_t* model, int& resultSize)
 	Msg("Generating polygons\n");
 
 	// save polygons
-	for(int i = 0; i < model->groups.numElem(); i++)
+	for(usize i = 0; i < model->groups.size(); i++)
 	{
 		int numPolygons = WriteGroupPolygons(stream, model, model->groups[i]);
 		Msg("Group %d num polygons: %d\n", i, numPolygons);
@@ -550,13 +557,13 @@ void CompileOBJModelToDMODEL(const char* filename, const char* outputName, bool 
 
 	OptimizeModel(model);
 
-	if(model.verts.numElem() > 256)
+	if(model.verts.size() > 256)
 	{
 		MsgError("Cannot continue - model exceeds 256 vertices\n");
 		return;
 	}
 
-	if (model.normals.numElem() > 256)
+	if (model.normals.size() > 256)
 	{
 		MsgError("Cannot continue - model exceeds 256 vertex normals\n");
 		return;
@@ -572,19 +579,21 @@ void CompileOBJModelToDMODEL(const char* filename, const char* outputName, bool 
 
 	if(resultModel)
 	{
-		mkdirRecursive(outputName, false);
+		String outputNameStr(outputName, strlen(outputName));
+		Directory::create(File::dirname(outputNameStr));
 		FILE* fp = fopen(outputName, "wb");
 
 		if(fp)
 		{
 			stream.WriteToFileStream(fp);
-			fclose(fp);
 		}
+			fclose(fp);
 
 		// additionally generate denting
 		if (generate_denting)
 			GenerateDenting(model, outputName);
 	}
 
+	FreeOBJ(&model);
 	FreeTextureDetails();
 }

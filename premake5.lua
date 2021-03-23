@@ -2,10 +2,10 @@
 
 -- you can redefine dependencies
 SDL2_DIR = os.getenv("SDL2_DIR") or "dependencies/SDL2"
-	
+
 workspace "OpenDriver2Tools"
     configurations { "Debug", "Release" }
-
+	characterset "ASCII"
     defines { VERSION } 
 	
 	includedirs {
@@ -41,8 +41,24 @@ workspace "OpenDriver2Tools"
             "NDEBUG",
         }
 
-dofile("DriverLevelTool/premake5.lua")
-dofile("DriverSoundTool/premake5.lua")
-dofile("DriverImageTool/premake5.lua")
-dofile("Driver2CutsceneTool/premake5.lua")
-dofile("Driver2MissionTool/premake5.lua")
+-- NoSTD
+project "libnstd"
+    kind "StaticLib"
+    language "C++"
+	filter "system:Windows"
+		defines { "_CRT_SECURE_NO_WARNINGS" }
+    
+	includedirs {
+		"dependencies/libnstd/include"
+	}
+	
+    files {
+        "dependencies/libnstd/src/**.cpp",
+        "dependencies/libnstd/src/**.h",
+    }
+
+include "DriverLevelTool"
+include "DriverSoundTool"
+include "DriverImageTool"
+include "Driver2CutsceneTool"
+include "Driver2MissionTool"

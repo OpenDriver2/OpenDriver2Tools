@@ -6,6 +6,10 @@
 #include "util/util.h"
 #include "viewer/viewer.h"
 
+#include <nstd/String.hpp>
+#include <nstd/Directory.hpp>
+#include <nstd/File.hpp>
+
 bool g_export_carmodels = false;
 bool g_export_models = false;
 bool g_extract_dmodels = false;
@@ -21,10 +25,9 @@ int g_overlaymap_width = 1;
 
 //---------------------------------------------------------------------------------------------------------------------------------
 
-std::string				g_levname_moddir;
-std::string				g_levname_texdir;
-
-extern std::string		g_levname;
+String					g_levname;
+String					g_levname_moddir;
+String					g_levname_texdir;
 
 int						g_levSize = 0;
 
@@ -62,13 +65,13 @@ void ExportLevelData()
 
 //-------------------------------------------------------------------------------------------------------------------------
 
-void ProcessLevFile(const char* filename)
+void ExportLevelFile()
 {
-	FILE* levTest = fopen(filename, "rb");
+	FILE* levTest = fopen(g_levname, "rb");
 
 	if (!levTest)
 	{
-		MsgError("LEV file '%s' does not exists!\n", filename);
+		MsgError("LEV file '%s' does not exists!\n", (char*)g_levname);
 		return;
 	}
 
@@ -76,21 +79,16 @@ void ProcessLevFile(const char* filename)
 	g_levSize = ftell(levTest);
 	fclose(levTest);
 
-	std::string lev_no_ext = filename;
-	
-	size_t lastindex = lev_no_ext.find_last_of(".");
-	lev_no_ext = lev_no_ext.substr(0, lastindex);
-
+	String lev_no_ext = File::dirname(g_levname) + "/" + File::basename(g_levname, File::extension(g_levname));
 	g_levname_moddir = lev_no_ext + "_models";
 	g_levname_texdir = lev_no_ext + "_textures";
 
-	mkdirRecursive(g_levname_moddir.c_str());
-	mkdirRecursive(g_levname_texdir.c_str());
+	Directory::create(g_levname_moddir);
+	Directory::create(g_levname_texdir);
 
-	LoadLevelFile(filename);
+	LoadLevelFile(g_levname);
 
 	ExportLevelData();
-
 	FreeLevelData();
 }
 
@@ -213,7 +211,7 @@ int main(int argc, char* argv[])
 		}
 		else if (!stricmp(argv[i], "-lev"))
 		{
-			g_levname = argv[i + 1];
+			g_levname = String::fromCString(argv[i + 1], strlen(argv[i + 1]));
 			i++;
 		}
 		else if (!stricmp(argv[i], "-dmodel2obj"))
@@ -248,9 +246,13 @@ int main(int argc, char* argv[])
 	}
 
 	if (main_routine == 1)
-		ProcessLevFile(g_levname.c_str());
+	{
+		ExportLevelFile();
+	}
 	else if (main_routine == 2)
-		ViewerMain(g_levname.c_str());
+	{
+		ViewerMain(g_levname);
+	}
 
 	return 0;
 }

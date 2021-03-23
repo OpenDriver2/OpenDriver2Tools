@@ -4,7 +4,7 @@
 #include "driver_level.h"
 #include "gl_renderer.h"
 #include "core/cmdlib.h"
-#include "util/DkList.h"
+
 #include <assert.h>
 
 void AddExtentVertex(Vector3D& minPoint, Vector3D& maxPoint, const Vector3D& v)
@@ -73,9 +73,9 @@ struct vertexTuple_t
 	ushort	uvs;
 };
 
-int FindGrVertexIndex(const DkList<vertexTuple_t>& whereFind, int flags, int vertexIndex, int normalIndex, ushort uvs)
+int FindGrVertexIndex(const Array<vertexTuple_t>& whereFind, int flags, int vertexIndex, int normalIndex, ushort uvs)
 {
-	for(int i = 0; i < whereFind.numElem(); i++)
+	for(usize i = 0; i < whereFind.size(); i++)
 	{
 		if (whereFind[i].flags != flags)
 			continue;
@@ -105,14 +105,14 @@ int FindGrVertexIndex(const DkList<vertexTuple_t>& whereFind, int flags, int ver
 
 struct genBatch_t
 {
-	DkList<int>				indices;
+	Array<int>				indices;
 	
 	int tpage;
 };
 
-genBatch_t* FindBatch(DkList<genBatch_t*>& batches, int tpageId)
+genBatch_t* FindBatch(Array<genBatch_t*>& batches, int tpageId)
 {
-	for (int i = 0; i < batches.numElem(); i++)
+	for (usize i = 0; i < batches.size(); i++)
 	{
 		if (batches[i]->tpage == tpageId)
 			return batches[i];
@@ -122,9 +122,9 @@ genBatch_t* FindBatch(DkList<genBatch_t*>& batches, int tpageId)
 
 void CRenderModel::GenerateBuffers()
 {
-	DkList<genBatch_t*>		batches;
-	DkList<GrVertex>		vertices;
-	DkList<vertexTuple_t>	verticesMap;
+	Array<genBatch_t*>		batches;
+	Array<GrVertex>		vertices;
+	Array<vertexTuple_t>	verticesMap;
 	
 	MODEL* model = m_sourceModel->model;
 	MODEL* vertex_ref = model;
@@ -147,6 +147,8 @@ void CRenderModel::GenerateBuffers()
 	int modelSize = m_sourceModel->size;
 	int face_ofs = 0;
 	dpoly_t dec_face;
+
+	vertices.reserve(model->num_vertices);
 
 	// go through all polygons
 	for (int i = 0; i < model->num_polys; i++)
@@ -274,13 +276,14 @@ void CRenderModel::GenerateBuffers()
 					newVert.tc_v = ((float)uv.v + 0.5f) / 256.0f;
 				}
 
-				index = vertMap.grVertexIndex = vertices.append(newVert);
+				index = vertMap.grVertexIndex = vertices.size();
+				vertices.append(newVert);
 
 				// add vertex and a map
 				verticesMap.append(vertMap);
 
 				// vertices and verticesMap should be equal
-				assert(verticesMap.numElem() == vertices.numElem());
+				assert(verticesMap.size() == vertices.size());
 			}
 			
 			// add index
@@ -322,23 +325,22 @@ void CRenderModel::GenerateBuffers()
 		}
 	}
 
-	//DkList<GrVertex> vertices;
-	DkList<int> indices;
+	Array<int> indices;
 
 	// merge batches
-	for(int i = 0; i < batches.numElem(); i++)
+	for(usize i = 0; i < batches.size(); i++)
 	{	
 		//int startVertex = vertices.numElem();
-		int startIndex = indices.numElem();
+		int startIndex = indices.size();
 		
 		//vertices.append(batches[i]->vertices);
 
-		for(int j = 0; j < batches[i]->indices.numElem(); j++)
+		for(usize j = 0; j < batches[i]->indices.size(); j++)
 			indices.append(batches[i]->indices[j]);
 
 		modelBatch_t batch;
 		batch.startIndex = startIndex;
-		batch.numIndices = batches[i]->indices.numElem();
+		batch.numIndices = batches[i]->indices.size();
 		batch.tpage = batches[i]->tpage;
 
 		m_batches.append(batch);
@@ -346,7 +348,7 @@ void CRenderModel::GenerateBuffers()
 		delete batches[i];
 	}
 	
-	m_vao = GR_CreateVAO(vertices.numElem(), indices.numElem(), vertices.ptr(), indices.ptr(), 0);
+	m_vao = GR_CreateVAO(vertices.size(), indices.size(), (GrVertex*)vertices, (int*)indices, 0);
 
 	if(!m_vao)
 	{
@@ -362,7 +364,7 @@ void CRenderModel::Draw()
 	SetupModelShader();
 	GR_SetVAO(m_vao);
 	
-	for(int i = 0; i < m_batches.numElem(); i++)
+	for(usize i = 0; i < m_batches.size(); i++)
 	{
 		modelBatch_t& batch = m_batches[i];
 		

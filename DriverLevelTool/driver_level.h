@@ -1,9 +1,6 @@
 #ifndef DRIVER_LEVEL_H
 #define DRIVER_LEVEL_H
 
-#include <vector>
-#include <string>
-
 #include "driver_routines/level.h"
 #include "driver_routines/models.h"
 #include "driver_routines/textures.h"
