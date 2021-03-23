@@ -335,7 +335,7 @@ CDriverLevelTextures::~CDriverLevelTextures()
 //
 void CDriverLevelTextures::LoadPermanentTPages(IVirtualStream* pFile)
 {
-	pFile->Seek( g_levInfo.texdata_offset, VS_SEEK_SET );
+	pFile->Seek( g_levInfo.tpage_offset, VS_SEEK_SET );
 	
 	//-----------------------------------
 

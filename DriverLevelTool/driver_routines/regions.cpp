@@ -10,7 +10,7 @@
 #include "core/cmdlib.h"
 
 // loaded headers
-LEVELINFO				g_levInfo;
+OUT_CITYLUMP_INFO				g_levInfo;
 
 CBaseLevelRegion::CBaseLevelRegion()
 {
@@ -362,7 +362,7 @@ void CBaseLevelMap::LoadInAreaTPages(IVirtualStream* pFile, int areaDataNum) con
 	AreaDataStr& areaData = m_areaData[areaDataNum];
 	AreaTPage_t& areaTPages = m_areaTPages[areaDataNum];
 
-	const int texturesOffset = g_levInfo.spooldata_offset + SPOOL_CD_BLOCK_SIZE * areaData.gfx_offset;
+	const int texturesOffset = g_levInfo.spooled_offset + SPOOL_CD_BLOCK_SIZE * areaData.gfx_offset;
 
 	pFile->Seek(texturesOffset, VS_SEEK_SET);
 
@@ -388,8 +388,8 @@ void CBaseLevelMap::LoadInAreaModels(IVirtualStream* pFile, int areaDataNum) con
 
 	int length = areaData.model_size;
 
-	const int modelsCountOffset = g_levInfo.spooldata_offset + (areaData.model_offset + length - 1) * SPOOL_CD_BLOCK_SIZE;
-	const int modelsOffset = g_levInfo.spooldata_offset + areaData.model_offset * SPOOL_CD_BLOCK_SIZE;
+	const int modelsCountOffset = g_levInfo.spooled_offset + (areaData.model_offset + length - 1) * SPOOL_CD_BLOCK_SIZE;
+	const int modelsOffset = g_levInfo.spooled_offset + areaData.model_offset * SPOOL_CD_BLOCK_SIZE;
 
 	ushort numModels;
 

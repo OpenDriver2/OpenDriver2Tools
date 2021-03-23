@@ -37,8 +37,8 @@ enum LevLumpType
 	LUMP_CHAIR = 33,
 	LUMP_TEXTUREINFO = 34,		// texture page info and details (atlases)
 
-	LUMP_LEVELDESC = 35,
-	LUMP_LEVELDATA = 36,
+	LUMP_LOADTIME_DATA = 35,
+	LUMP_INMEMORY_DATA = 36,
 	LUMP_LUMPDESC = 37,
 
 	LUMP_STRAIGHTS2 = 40,		// road straights (AI)

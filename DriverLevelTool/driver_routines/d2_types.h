@@ -26,39 +26,39 @@ enum EPageStorage
 	TPAGE_SPECPAGES = (1 << 2),		// special car texture page
 };
 
-typedef struct texpage_pos_t
+struct TEXPAGE_POS	// og name: TP
 {
 	uint flags; // size=0, offset=0
 	uint offset; // size=0, offset=4
-}TEXPAGE_POS;	// originally TP
+};
 
-typedef struct dclut_t
+struct TEXCLUT
 {
 	ushort colors[16];
-}TEXCLUT;
+};
 
 //---------------------------------------------------------------
 
-typedef struct slump_t
+struct LUMP
 {
 	uint	type;
 	int		size;
-}LUMP;
+};
 
-typedef struct dlevinfo_t
+struct OUT_CITYLUMP_INFO
 {
-	uint	levdesc_offset;
-	uint	levdesc_size;
+	uint	loadtime_offset;
+	uint	loadtime_size;
 
-	uint	texdata_offset;
-	uint	texdata_size;
+	uint	tpage_offset;
+	uint	tpage_size;
 
-	uint	levdata_offset;
-	uint	levdata_size;
+	uint	inmem_offset;
+	uint	inmem_size;
 
-	uint	spooldata_offset;
-	uint	spooldata_size;
-}LEVELINFO;
+	uint	spooled_offset;
+	uint	spooled_size;
+};
 
 //------------------------------------------------------------------------------------------------------------
 

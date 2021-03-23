@@ -268,30 +268,30 @@ bool LoadLevelFile(const char* filename)
 	}
 
 	// read chunk offsets
-	g_levStream->Read(&g_levInfo, sizeof(dlevinfo_t), 1);
+	g_levStream->Read(&g_levInfo, sizeof(OUT_CITYLUMP_INFO), 1);
 
-	DevMsg(SPEW_NORM, "levdesc_offset = %d\n", g_levInfo.levdesc_offset);
-	DevMsg(SPEW_NORM, "levdesc_size = %d\n", g_levInfo.levdesc_size);
+	DevMsg(SPEW_NORM, "data1_offset = %d\n", g_levInfo.loadtime_offset);
+	DevMsg(SPEW_NORM, "data1_size = %d\n", g_levInfo.loadtime_size);
 
-	DevMsg(SPEW_NORM, "texdata_offset = %d\n", g_levInfo.texdata_offset);
-	DevMsg(SPEW_NORM, "texdata_size = %d\n", g_levInfo.texdata_size);
+	DevMsg(SPEW_NORM, "tpage_offset = %d\n", g_levInfo.tpage_offset);
+	DevMsg(SPEW_NORM, "tpage_size = %d\n", g_levInfo.tpage_size);
 
-	DevMsg(SPEW_NORM, "levdata_offset = %d\n", g_levInfo.levdata_offset);
-	DevMsg(SPEW_NORM, "levdata_size = %d\n", g_levInfo.levdata_size);
+	DevMsg(SPEW_NORM, "data2_offset = %d\n", g_levInfo.inmem_offset);
+	DevMsg(SPEW_NORM, "data2_size = %d\n", g_levInfo.inmem_size);
 
-	DevMsg(SPEW_NORM, "spooldata_offset = %d\n", g_levInfo.spooldata_offset);
-	DevMsg(SPEW_NORM, "spooldata_size = %d\n", g_levInfo.spooldata_size);
+	DevMsg(SPEW_NORM, "spooled_offset = %d\n", g_levInfo.spooled_offset);
+	DevMsg(SPEW_NORM, "spooled_size = %d\n", g_levInfo.spooled_size);
 
 	// read cells
 
 	//-----------------------------------------------------
 	// seek to section 1 - lump data 1
-	g_levStream->Seek(g_levInfo.levdesc_offset, VS_SEEK_SET);
+	g_levStream->Seek(g_levInfo.loadtime_offset, VS_SEEK_SET);
 
 	// read lump
 	g_levStream->Read(&curLump, sizeof(curLump), 1);
 
-	if (curLump.type != LUMP_LEVELDESC)
+	if (curLump.type != LUMP_LOADTIME_DATA)
 	{
 		MsgError("Not a LUMP_LEVELDESC!\n");
 	}
@@ -308,12 +308,12 @@ bool LoadLevelFile(const char* filename)
 
 	//-----------------------------------------------------
 	// seek to section 3 - lump data 2
-	g_levStream->Seek(g_levInfo.levdata_offset, VS_SEEK_SET);
+	g_levStream->Seek(g_levInfo.inmem_offset, VS_SEEK_SET);
 
 	// read lump
 	g_levStream->Read(&curLump, sizeof(curLump), 1);
 
-	if (curLump.type != LUMP_LEVELDATA)
+	if (curLump.type != LUMP_INMEMORY_DATA)
 	{
 		MsgError("Not a lump 0x24!\n");
 	}
