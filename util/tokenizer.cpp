@@ -37,15 +37,15 @@ Tokenizer::Tokenizer(unsigned int nBuffers)
 	capacity = 0;
 	currentBuffer = 0;
 	
-	buffers.setNum(nBuffers);
-	memset(buffers.ptr(), 0, nBuffers * sizeof(TokBuffer));
+	buffers.resize(nBuffers);
+	memset((TokBuffer*)buffers, 0, nBuffers * sizeof(TokBuffer));
 
 	reset();
 }
 
 Tokenizer::~Tokenizer()
 {
-	for (int i = 0; i < buffers.numElem(); i++)
+	for (usize i = 0; i < buffers.size(); i++)
 	{
 		if (buffers[i].buffer) 
 			delete [] buffers[i].buffer;
@@ -192,7 +192,7 @@ char *Tokenizer::nextLine()
 char *Tokenizer::getBuffer(unsigned int size)
 {
 	currentBuffer++;
-	if (currentBuffer >= buffers.numElem())
+	if (currentBuffer >= buffers.size())
 		currentBuffer = 0;
 
 	if (size > buffers[currentBuffer].bufferSize)

@@ -2,7 +2,7 @@
 #define TOKENIZER_H
 
 #include "math/dktypes.h"
-#include "DkList.h"
+#include <nstd/Array.hpp>
 
 typedef bool (*BOOLFUNC)(const char ch);
 
@@ -21,27 +21,27 @@ public:
 	Tokenizer(unsigned int nBuffers = 1);
 	~Tokenizer();
 
-	void	setString(const char *string);
-	bool	setFile(const char *fileName);
-	void	reset();
+	void				setString(const char *string);
+	bool				setFile(const char *fileName);
+	void				reset();
 
-	bool	goToNext(BOOLFUNC isAlpha = isAlphabetical);
-	bool	goToNextLine();
-	char*	next(BOOLFUNC isAlpha = isAlphabetical);
-	char*	nextAfterToken(const char *token, BOOLFUNC isAlpha = isAlphabetical);
-	char*	nextLine();
+	bool				goToNext(BOOLFUNC isAlpha = isAlphabetical);
+	bool				goToNextLine();
+	char*				next(BOOLFUNC isAlpha = isAlphabetical);
+	char*				nextAfterToken(const char *token, BOOLFUNC isAlpha = isAlphabetical);
+	char*				nextLine();
 
-	//uint	getCurLine();
+	//uint				getCurLine();
 private:
-	char*	str;
-	uint	length;
-	uint	start, end;
-	uint	capacity;
+	char*				str;
+	uint				length;
+	uint				start, end;
+	uint				capacity;
 
-	//uint	curline;
+	//uint				curline;
 
-	int currentBuffer;
-	DkList <TokBuffer> buffers;
+	uint				currentBuffer;
+	Array<TokBuffer>	buffers;
 
 	char *getBuffer(unsigned int size);
 };
