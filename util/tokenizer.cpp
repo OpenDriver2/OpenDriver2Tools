@@ -1,9 +1,6 @@
 #include "tokenizer.h"
 #include <stdio.h>
 
-#if defined(_DEBUG) && defined(_WIN32)
-#	include <crtdbg.h>
-#endif
 
 bool isWhiteSpace(const char ch)
 {

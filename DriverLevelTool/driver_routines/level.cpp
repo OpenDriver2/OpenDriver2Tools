@@ -148,6 +148,8 @@ void ProcessLumps(IVirtualStream* pFile)
 
 		switch (lump.type)
 		{
+			// Lumps shared between formats
+			// almost identical
 			case LUMP_MODELS:
 				DevMsg(SPEW_WARNING, "LUMP_MODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				g_levModels.LoadLevelModelsLump(pFile);
@@ -163,9 +165,6 @@ void ProcessLumps(IVirtualStream* pFile)
 			case LUMP_MODELNAMES:
 				DevMsg(SPEW_WARNING, "LUMP_MODELNAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				g_levModels.LoadModelNamesLump(pFile, lump.size);
-				break;
-			case LUMP_SUBDIVISION:
-				DevMsg(SPEW_WARNING, "LUMP_SUBDIVISION ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_LOWDETAILTABLE:
 				g_levModels.LoadLowDetailTableLump(pFile, lump.size);
@@ -186,6 +185,19 @@ void ProcessLumps(IVirtualStream* pFile)
 				DevMsg(SPEW_WARNING, "LUMP_SPOOLINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				g_levMap->LoadSpoolInfoLump(pFile);
 				break;
+			case LUMP_CHAIR:
+				DevMsg(SPEW_WARNING, "LUMP_CHAIR ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				// TODO: get chairs
+				break;
+			case LUMP_CAR_MODELS:
+				DevMsg(SPEW_WARNING, "LUMP_CAR_MODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				g_levModels.LoadCarModelsLump(pFile, lump.size);
+				break;
+			case LUMP_TEXTUREINFO:
+				DevMsg(SPEW_WARNING, "LUMP_TEXTUREINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				g_levTextures.LoadTextureInfoLump(pFile);
+				break;
+			// Driver 2 - only lumps
 			case LUMP_STRAIGHTS2:
 				DevMsg(SPEW_WARNING, "LUMP_STRAIGHTS2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
@@ -198,16 +210,27 @@ void ProcessLumps(IVirtualStream* pFile)
 			case LUMP_JUNCTIONS2_NEW:
 				DevMsg(SPEW_WARNING, "LUMP_JUNCTIONS2_NEW ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
-			case LUMP_CHAIR:
-				DevMsg(SPEW_WARNING, "LUMP_CHAIR ofs=%d size=%d\n", pFile->Tell(), lump.size);
+			// Driver 1 - only lumps
+			case LUMP_ROADMAP:
+				DevMsg(SPEW_WARNING, "LUMP_ROADMAP ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
-			case LUMP_CAR_MODELS:
-				DevMsg(SPEW_WARNING, "LUMP_CAR_MODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				g_levModels.LoadCarModelsLump(pFile, lump.size);
+			case LUMP_ROADS:
+				DevMsg(SPEW_WARNING, "LUMP_ROADS ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
-			case LUMP_TEXTUREINFO:
-				DevMsg(SPEW_WARNING, "LUMP_TEXTUREINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				g_levTextures.LoadTextureInfoLump(pFile);
+			case LUMP_JUNCTIONS:
+				DevMsg(SPEW_WARNING, "LUMP_JUNCTIONS ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				break;
+			case LUMP_ROADSURF:
+				DevMsg(SPEW_WARNING, "LUMP_ROADSURF ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				break;
+			case LUMP_ROADBOUNDS:
+				DevMsg(SPEW_WARNING, "LUMP_ROADBOUNDS ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				break;
+			case LUMP_JUNCBOUNDS:
+				DevMsg(SPEW_WARNING, "LUMP_JUNCBOUNDS ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				break;
+			case LUMP_SUBDIVISION:
+				DevMsg(SPEW_WARNING, "LUMP_SUBDIVISION ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			default:
 				DevMsg(SPEW_WARNING, "LUMP type: %d (0x%X) ofs=%d size=%d\n", lump.type, lump.type, pFile->Tell(), lump.size);
