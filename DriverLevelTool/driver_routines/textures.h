@@ -104,6 +104,9 @@ public:
 	//----------------------------------------
 	void					SetLoadingCallbacks(OnTexturePageLoaded_t onLoaded, OnTexturePageFreed_t onFreed);
 
+	void					SetFormat(ELevelFormat format);
+	ELevelFormat			GetFormat() const;
+
 	//----------------------------------------
 	// loaders
 	void					LoadTextureInfoLump(IVirtualStream* pFile);
@@ -125,6 +128,8 @@ protected:
 	void					OnTexturePageLoaded(CTexturePage* tp);
 	void					OnTexturePageFreed(CTexturePage* tp);
 	
+	ELevelFormat			m_format;
+
 	char*					m_textureNamesData{ nullptr };
 
 	CTexturePage*			m_texPages{ nullptr };

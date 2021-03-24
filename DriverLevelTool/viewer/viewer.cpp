@@ -1,10 +1,14 @@
 #include <malloc.h>
 #include <SDL_events.h>
 
-#include "driver_level.h"
+#include <nstd/Array.hpp>
+#include <nstd/String.hpp>
+
 #include "gl_renderer.h"
 #include "rendermodel.h"
+
 #include "core/cmdlib.h"
+#include "core/VirtualStream.h"
 
 #include "math/Volume.h"
 
@@ -14,6 +18,10 @@
 #include "driver_routines/regions_d1.h"
 #include "driver_routines/regions_d2.h"
 #include "driver_routines/textures.h"
+
+
+
+#include <stdio.h>
 
 #define MODEL_VERTEX_SHADER \
 	"	attribute vec4 a_position_tu;\n"\
@@ -316,7 +324,82 @@ void InitHWTextures()
 		for (int j = 0; j < 32; j++)
 			g_hwTexturePages[i][j] = g_whiteTexture;
 	}
+}
 
+//-----------------------------------------------------------------
+
+void OnModelLoaded(ModelRef_t* ref)
+{
+	if (!ref->model)
+		return;
+
+	CRenderModel* renderModel = new CRenderModel();
+
+	if (renderModel->Initialize(ref))
+		ref->userData = renderModel;
+	else
+		delete renderModel;
+}
+
+void OnModelFreed(ModelRef_t* ref)
+{
+	CRenderModel* model = (CRenderModel*)ref->userData;
+
+	if (model)
+		model->Destroy();
+
+	delete model;
+}
+
+// extern some vars
+extern String					g_levname;
+extern OUT_CITYLUMP_INFO		g_levInfo;
+extern CDriverLevelTextures		g_levTextures;
+extern CDriverLevelModels		g_levModels;
+extern CBaseLevelMap*			g_levMap;
+
+FILE* g_levFile = nullptr;
+
+bool LoadLevelFile()
+{
+	g_levFile = fopen(g_levname, "rb");
+	if (!g_levFile)
+	{
+		MsgError("Cannot open %s\n", (char*)g_levname);
+		return false;
+	}
+
+	CFileStream stream(g_levFile);
+
+	// set loading callbacks
+	g_levTextures.SetLoadingCallbacks(InitHWTexturePage, nullptr);
+	g_levModels.SetModelLoadingCallbacks(OnModelLoaded, OnModelFreed);
+
+	ELevelFormat levFormat = CDriverLevelLoader::DetectLevelFormat(&stream);
+
+	// create map accordingly
+	if (levFormat >= LEV_FORMAT_DRIVER2_ALPHA16 || levFormat == LEV_FORMAT_AUTODETECT)
+		g_levMap = new CDriver2LevelMap();
+	else
+		g_levMap = new CDriver1LevelMap();
+
+	CDriverLevelLoader loader;
+	loader.Initialize(g_levInfo, &g_levTextures, &g_levModels, g_levMap);
+
+	return loader.LoadFromFile(g_levname);
+}
+
+void FreeLevelData()
+{
+	MsgWarning("Freeing level data ...\n");
+
+	g_levMap->FreeAll();
+	g_levTextures.FreeAll();
+	g_levModels.FreeAll();
+
+	delete g_levMap;
+
+	fclose(g_levFile);
 }
 
 //-----------------------------------------------------------------
@@ -365,7 +448,14 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 	cameraPosition.vz = cameraPos.z * 4096;
 
 	CDriver2LevelMap* levMapDriver2 = (CDriver2LevelMap*)g_levMap;
-	
+	CFileStream spoolStream(g_levFile);
+
+	SPOOL_CONTEXT spoolContext;
+	spoolContext.dataStream = &spoolStream;
+	spoolContext.lumpInfo = &g_levInfo;
+	spoolContext.models = &g_levModels;
+	spoolContext.textures = &g_levTextures;
+
 	levMapDriver2->WorldPositionToCellXZ(cell, cameraPosition);
 
 	// walk through all cells
@@ -383,7 +473,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 			if(icell.x > -1 && icell.x < levMapDriver2->GetCellsAcross() &&
 			   icell.z > -1 && icell.z < levMapDriver2->GetCellsDown())
 			{
-				levMapDriver2->SpoolRegion(icell);
+				levMapDriver2->SpoolRegion(spoolContext, icell);
 				
 				ppco = levMapDriver2->GetFirstPackedCop(&ci, icell.x, icell.z);
 
@@ -400,7 +490,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 						continue;
 					}
 
-					Vector3D absCellPosition(co.pos.vx * EXPORT_SCALING, co.pos.vy * -EXPORT_SCALING, co.pos.vz * EXPORT_SCALING);
+					Vector3D absCellPosition(co.pos.vx * RENDER_SCALING, co.pos.vy * -RENDER_SCALING, co.pos.vz * RENDER_SCALING);
 
 					float distanceFromCamera = lengthSqr(absCellPosition - cameraPos);
 
@@ -440,7 +530,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 					
 					if (renderModel)
 					{
-						const float boundSphere = ref->model->bounding_sphere * EXPORT_SCALING * 2.0f;
+						const float boundSphere = ref->model->bounding_sphere * RENDER_SCALING * 2.0f;
 						if (frustrumVolume.IsSphereInside(absCellPosition, boundSphere))
 							renderModel->Draw();
 					}
@@ -499,6 +589,13 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 	cameraPosition.vz = cameraPos.z * 4096;
 
 	CDriver1LevelMap* levMapDriver1 = (CDriver1LevelMap*)g_levMap;
+	CFileStream spoolStream(g_levFile);
+
+	SPOOL_CONTEXT spoolContext;
+	spoolContext.dataStream = &spoolStream;
+	spoolContext.lumpInfo = &g_levInfo;
+	spoolContext.models = &g_levModels;
+	spoolContext.textures = &g_levTextures;
 
 	levMapDriver1->WorldPositionToCellXZ(cell, cameraPosition);
 
@@ -518,7 +615,7 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 			if (icell.x > -1 && icell.x < levMapDriver1->GetCellsAcross() &&
 				icell.z > -1 && icell.z < levMapDriver1->GetCellsDown())
 			{
-				levMapDriver1->SpoolRegion(icell);
+				levMapDriver1->SpoolRegion(spoolContext, icell);
 
 				pco = levMapDriver1->GetFirstCop(&ci, icell.x, icell.z);
 
@@ -532,7 +629,7 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 						continue;
 					}
 
-					Vector3D absCellPosition(pco->pos.vx * EXPORT_SCALING, pco->pos.vy * -EXPORT_SCALING, pco->pos.vz * EXPORT_SCALING);
+					Vector3D absCellPosition(pco->pos.vx * RENDER_SCALING, pco->pos.vy * -RENDER_SCALING, pco->pos.vz * RENDER_SCALING);
 					float distanceFromCamera = lengthSqr(absCellPosition - cameraPos);
 
 					ModelRef_t* ref = GetModelCheckLods(pco->type, distanceFromCamera);
@@ -570,7 +667,7 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 
 					if (renderModel)
 					{
-						const float boundSphere = ref->model->bounding_sphere * EXPORT_SCALING * 2.0f;
+						const float boundSphere = ref->model->bounding_sphere * RENDER_SCALING * 2.0f;
 						if(frustrumVolume.IsSphereInside(absCellPosition, boundSphere))
 							renderModel->Draw();
 					}
@@ -643,39 +740,16 @@ void RenderView()
 	GR_SetDepth(1);
 	GR_SetCullMode(CULL_FRONT);
 
-	if(g_format >= LEV_FORMAT_DRIVER2_ALPHA16)
+	if(g_levMap->GetFormat() >= LEV_FORMAT_DRIVER2_ALPHA16)
 		DrawLevelDriver2(cameraPos, frustumVolume);
 	else
 		DrawLevelDriver1(cameraPos, frustumVolume);
 }
 
-void OnModelLoaded(ModelRef_t* ref)
-{
-	if (!ref->model)
-		return;
-
-	CRenderModel* renderModel = new CRenderModel();
-
-	if (renderModel->Initialize(ref))
-		ref->userData = renderModel;
-	else
-		delete renderModel;
-}
-
-void OnModelFreed(ModelRef_t* ref)
-{
-	CRenderModel* model = (CRenderModel*)ref->userData;
-
-	if(model)
-		model->Destroy();
-
-	delete model;
-}
-
 //-------------------------------------------------------------
 // Main level viewer
 //-------------------------------------------------------------
-int ViewerMain(const char* filename)
+int ViewerMain()
 {
 	if(!GR_Init("OpenDriver2 Level Tool - Viewer", 1280, 720, 0))
 	{
@@ -686,12 +760,8 @@ int ViewerMain(const char* filename)
 	InitModelShader();
 	InitHWTextures();
 
-	// set loading callbacks
-	g_levTextures.SetLoadingCallbacks(InitHWTexturePage, nullptr);
-	g_levModels.SetModelLoadingCallbacks(OnModelLoaded, OnModelFreed);
-
 	// Load level file
-	if (!LoadLevelFile(filename))
+	if (!LoadLevelFile())
 	{
 		GR_Shutdown();
 		return -1;

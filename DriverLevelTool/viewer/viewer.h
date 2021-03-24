@@ -1,6 +1,6 @@
 #ifndef VIEWER_H
 #define VIEWER_H
 
-int ViewerMain(const char* filename);
+int ViewerMain();
 
 #endif

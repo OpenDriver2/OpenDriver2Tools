@@ -1,9 +1,11 @@
-﻿
-#include "driver_level.h"
-
-#include "core/cmdlib.h"
+﻿#include "core/cmdlib.h"
 #include "core/IVirtualStream.h"
 #include "math/Vector.h"
+
+#include <nstd/String.hpp>
+
+#include "textures.h"
+#include "level.h"
 
 //-------------------------------------------------------------------------------
 
@@ -335,10 +337,6 @@ CDriverLevelTextures::~CDriverLevelTextures()
 //
 void CDriverLevelTextures::LoadPermanentTPages(IVirtualStream* pFile)
 {
-	pFile->Seek( g_levInfo.tpage_offset, VS_SEEK_SET );
-	
-	//-----------------------------------
-
 	DevMsg(SPEW_NORM,"Loading permanent texture pages (%d)\n", m_numPermanentPages);
 
 	// simulate sectors
@@ -483,7 +481,7 @@ void CDriverLevelTextures::ProcessPalletLump(IVirtualStream* pFile)
 	{
 		PALLET_INFO info;
 
-		if (g_format == LEV_FORMAT_DRIVER1)
+		if (m_format == LEV_FORMAT_DRIVER1)
 		{
 			PALLET_INFO_D1 infod1;
 			pFile->Read(&infod1, 1, sizeof(info) - sizeof(int));
@@ -522,7 +520,7 @@ void CDriverLevelTextures::ProcessPalletLump(IVirtualStream* pFile)
 			added_cluts++;
 
 			// only in D1 we need to check count
-			if (g_format == LEV_FORMAT_DRIVER1)
+			if (m_format == LEV_FORMAT_DRIVER1)
 			{
 				if (added_cluts >= total_cluts)
 					break;
@@ -603,6 +601,16 @@ void CDriverLevelTextures::SetLoadingCallbacks(OnTexturePageLoaded_t onLoaded, O
 {
 	m_onTPageLoaded = onLoaded;
 	m_onTPageFreed = onFreed;
+}
+
+void CDriverLevelTextures::SetFormat(ELevelFormat format)
+{
+	m_format = format;
+}
+
+ELevelFormat CDriverLevelTextures::GetFormat() const
+{
+	return m_format;
 }
 
 void CDriverLevelTextures::OnTexturePageLoaded(CTexturePage* tp)

@@ -342,10 +342,12 @@ struct AreaDataStr {
 
 #define SUPERREGION_NONE	(0xFF)
 
-// bundle texture page list. paired with regiondata_t
-struct AreaTPage_t
+class CTexturePage;
+
+struct AreaTpageList
 {
-	uint8	pageIndexes[16];
+	uint8			pageIndexes[16];
+	CTexturePage*	tpage[16];
 };
 
 #define REGTEXPAGE_EMPTY	(0xFF)

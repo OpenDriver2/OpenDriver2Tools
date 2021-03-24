@@ -1,24 +1,21 @@
 #ifndef DRIVER_LEVEL_H
 #define DRIVER_LEVEL_H
 
-#include "driver_routines/level.h"
 #include "driver_routines/models.h"
 #include "driver_routines/textures.h"
 #include "driver_routines/regions.h"
+#include "driver_routines/level.h"
 
 #include "math/Matrix.h"
 
 //----------------------------------------------------------
 
-#define ONE						(4096.0f)
 #define EXPORT_SCALING			(1.0f / ONE)
-
 
 //----------------------------------------------------------
 
 // extern some vars
-extern IVirtualStream*			g_levStream;
-
+extern OUT_CITYLUMP_INFO		g_levInfo;
 extern CDriverLevelTextures		g_levTextures;
 extern CDriverLevelModels		g_levModels;
 extern CBaseLevelMap*			g_levMap;

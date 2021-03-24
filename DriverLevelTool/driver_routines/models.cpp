@@ -1,13 +1,10 @@
-#include "models.h"
-#include "regions.h"
 #include "core/cmdlib.h"
 #include "core/IVirtualStream.h"
 
 #include <malloc.h>
-
 #include <nstd/HashSet.hpp>
 
-#include "d2_types.h"
+#include "models.h"
 
 //--------------------------------------------------------------------------------
 
@@ -271,8 +268,24 @@ void CDriverLevelModels::SetCarModelLoadingCallbacks(OnCarModelLoaded_t onLoaded
 
 void CDriverLevelModels::OnModelLoaded(ModelRef_t* ref)
 {
-	if (m_onModelLoaded)
-		m_onModelLoaded(ref);
+	// also process here instances
+	if (ref->model)
+	{
+		// resolve base instance ref
+		if (ref->model->instance_number != -1)
+		{
+			ref->baseInstance = GetModelByIndex(ref->model->instance_number);
+
+			if (!ref->baseInstance)
+			{
+				MsgWarning("Vertex ref %d not found for %d!\n", ref->model->instance_number, ref->index);
+				return;
+			}
+		}
+
+		if (m_onModelLoaded)
+			m_onModelLoaded(ref);
+	}
 }
 
 void CDriverLevelModels::OnModelFreed(ModelRef_t* ref)

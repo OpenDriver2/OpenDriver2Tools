@@ -6,6 +6,9 @@
 #include "util/util.h"
 #include "viewer/viewer.h"
 
+#include "driver_routines/regions_d1.h"
+#include "driver_routines/regions_d2.h"
+
 #include <nstd/String.hpp>
 #include <nstd/Directory.hpp>
 #include <nstd/File.hpp>
@@ -25,11 +28,14 @@ int g_overlaymap_width = 1;
 
 //---------------------------------------------------------------------------------------------------------------------------------
 
+OUT_CITYLUMP_INFO		g_levInfo;
+CDriverLevelTextures	g_levTextures;
+CDriverLevelModels		g_levModels;
+CBaseLevelMap*			g_levMap = nullptr;
+
 String					g_levname;
 String					g_levname_moddir;
 String					g_levname_texdir;
-
-int						g_levSize = 0;
 
 const float				texelSize = 1.0f / 256.0f;
 const float				halfTexelSize = texelSize * 0.5f;
@@ -75,9 +81,20 @@ void ExportLevelFile()
 		return;
 	}
 
-	fseek(levTest, 0, SEEK_END);
-	g_levSize = ftell(levTest);
+	CFileStream stream(levTest);
+	ELevelFormat levFormat = CDriverLevelLoader::DetectLevelFormat(&stream);
+
 	fclose(levTest);
+
+	CDriverLevelLoader levLoader;
+
+	// create map accordingly
+	if (levFormat >= LEV_FORMAT_DRIVER2_ALPHA16 || levFormat == LEV_FORMAT_AUTODETECT)
+		g_levMap = new CDriver2LevelMap();
+	else
+		g_levMap = new CDriver1LevelMap();
+
+	levLoader.Initialize(g_levInfo, &g_levTextures, &g_levModels, g_levMap);
 
 	String lev_no_ext = File::dirname(g_levname) + "/" + File::basename(g_levname, File::extension(g_levname));
 	g_levname_moddir = lev_no_ext + "_models";
@@ -86,10 +103,18 @@ void ExportLevelFile()
 	Directory::create(g_levname_moddir);
 	Directory::create(g_levname_texdir);
 
-	LoadLevelFile(g_levname);
+	if (levLoader.LoadFromFile(g_levname))
+	{
+		ExportLevelData();
+	}
 
-	ExportLevelData();
-	FreeLevelData();
+	MsgWarning("Freeing level data ...\n");
+
+	g_levMap->FreeAll();
+	g_levTextures.FreeAll();
+	g_levModels.FreeAll();
+
+	delete g_levMap;
 }
 
 // 
@@ -170,11 +195,6 @@ int main(int argc, char* argv[])
 		{
 			main_routine = 2;
 		}
-		else if (!stricmp(argv[i], "-format"))
-		{
-			g_format = (ELevelFormat)atoi(argv[i + 1]);
-			i++;
-		}
 		else if (!stricmp(argv[i], "-textures"))
 		{
 			g_export_textures = atoi(argv[i + 1]) > 0;
@@ -251,7 +271,7 @@ int main(int argc, char* argv[])
 	}
 	else if (main_routine == 2)
 	{
-		ViewerMain(g_levname);
+		ViewerMain();
 	}
 
 	return 0;

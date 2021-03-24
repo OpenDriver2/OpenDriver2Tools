@@ -5,6 +5,8 @@
 #ifndef LEVEL_H
 #define LEVEL_H
 
+#include "d2_types.h"
+
 #define SPOOL_CD_BLOCK_SIZE		2048
 
 // known lumps indexes
@@ -51,23 +53,49 @@ enum ELevelFormat
 {
 	LEV_FORMAT_AUTODETECT = -1,
 
-	LEV_FORMAT_DRIVER1 = 0,			// driver 1
+	LEV_FORMAT_INVALID = 0,
+
+	LEV_FORMAT_DRIVER1,				// driver 1
 	LEV_FORMAT_DRIVER2_ALPHA16,		// driver 2 alpha 1.6 format
 	LEV_FORMAT_DRIVER2_RETAIL,		// driver 2 retail format
 };
 
 // forward
 class IVirtualStream;
+class CDriverLevelTextures;
+class CDriverLevelModels;
+class CBaseLevelMap;
 
 //------------------------------------------------------------------------------------------------------------
-// globals
 
-extern ELevelFormat g_format;
+class CDriverLevelLoader
+{
+public:
+	static ELevelFormat		DetectLevelFormat(IVirtualStream* pFile);
 
-//------------------------------------------------------------------------------------------------------------
-// functions
+	//------------------------------------------------------
 
-bool	LoadLevelFile(const char* filename);
-void	FreeLevelData();
+	CDriverLevelLoader();
+	virtual ~CDriverLevelLoader();
+
+	void					Initialize(OUT_CITYLUMP_INFO& lumpInfo, CDriverLevelTextures* textures, CDriverLevelModels* models, CBaseLevelMap* map);
+	void					Release();
+
+	ELevelFormat			GetFormat() const;
+
+	bool					LoadFromFile(const char* fileName);
+
+protected:
+	void					ProcessLumps(IVirtualStream* pFile);
+
+	ELevelFormat			m_format{ LEV_FORMAT_AUTODETECT };
+	String					m_fileName;
+
+	OUT_CITYLUMP_INFO*		m_lumpInfo;
+
+	CDriverLevelTextures*	m_textures{ nullptr };
+	CDriverLevelModels*		m_models{ nullptr };
+	CBaseLevelMap*			m_map{ nullptr };
+};
 
 #endif // LEVEL_H

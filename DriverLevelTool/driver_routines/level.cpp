@@ -1,24 +1,18 @@
-#include "driver_level.h"
+#include "math/dktypes.h"
+#include "core/VirtualStream.h"
+
+#include <nstd/String.hpp>
+#include <nstd/File.hpp>
 
 #include "regions_d1.h"
 #include "regions_d2.h"
+#include "textures.h"
 
-#include "core/VirtualStream.h"
-
-#include <nstd/File.hpp>
-
-ELevelFormat g_format = LEV_FORMAT_AUTODETECT;
+#include "level.h"
 
 //--------------------------------------------------------------------------------------------------------------------------
 
-IVirtualStream*				g_levStream = nullptr;
 char*						g_overlayMapData = nullptr;
-
-CDriverLevelTextures		g_levTextures;
-CDriverLevelModels			g_levModels;
-CBaseLevelMap*				g_levMap = nullptr;
-
-//---------------------------------------------------------------------------------------------------------------------------------
 
 //-------------------------------------------------------------
 // Loads overhead map lump
@@ -37,12 +31,13 @@ void LoadOverlayMapLump(IVirtualStream* pFile, int lumpSize)
 //-------------------------------------------------------------
 // Auto-detects level format
 //-------------------------------------------------------------
-void DetectLevelFormat(IVirtualStream* pFile)
+ELevelFormat CDriverLevelLoader::DetectLevelFormat(IVirtualStream* pFile)
 {
 	long curPos = pFile->Tell();
 	int lump_count = 255;
 
 	LUMP lump;
+	OUT_CITYLUMP_INFO cityLumps;
 
 	for (int i = 0; i < lump_count; i++)
 	{
@@ -64,22 +59,34 @@ void DetectLevelFormat(IVirtualStream* pFile)
 			case LUMP_OVERLAYMAP:
 			case LUMP_PALLET:
 			case LUMP_SPOOLINFO:
-			case LUMP_CURVES2:
 			case LUMP_CHAIR:
 			case LUMP_CAR_MODELS:
 			case LUMP_TEXTUREINFO:
 			case LUMP_STRAIGHTS2:
+			case LUMP_CURVES2:
 				break;
 			case LUMP_JUNCTIONS2:
 			{
 				MsgInfo("Detected 'Driver 2 DEMO' 1.6 alpha LEV file\n");
-				g_format = LEV_FORMAT_DRIVER2_ALPHA16; // as it is an old junction format - it's clearly a alpha 1.6 level
+				pFile->Seek(curPos, VS_SEEK_SET);
+				return LEV_FORMAT_DRIVER2_ALPHA16; // as it is an old junction format - it's clearly a alpha 1.6 level
 				break;
 			}
 			case LUMP_JUNCTIONS2_NEW:
 			{
 				MsgInfo("Detected 'Driver 2' final LEV file\n");
-				g_format = LEV_FORMAT_DRIVER2_RETAIL; // most recent LEV file
+				pFile->Seek(curPos, VS_SEEK_SET);
+				return LEV_FORMAT_DRIVER2_RETAIL; // most recent LEV file
+				break;
+			}
+			case LUMP_LOADTIME_DATA:
+			case LUMP_INMEMORY_DATA:
+				break;
+			case LUMP_LUMPDESC:
+			{
+				int loadtime_data_ofs;
+				pFile->Read(&cityLumps, 1, sizeof(cityLumps));
+				pFile->Seek(cityLumps.inmem_offset, VS_SEEK_SET);
 				break;
 			}
 			case LUMP_ROADMAP:
@@ -92,14 +99,23 @@ void DetectLevelFormat(IVirtualStream* pFile)
 			default: // maybe Lump 11?
 			{
 				MsgInfo("Detected 'Driver 1' LEV file\n");
-				g_format = LEV_FORMAT_DRIVER1;
+				pFile->Seek(curPos, VS_SEEK_SET);
+				return LEV_FORMAT_DRIVER1;
 				break;
 			}
 		}
-		
-		// dun
-		if (g_format != LEV_FORMAT_AUTODETECT)
-			break;
+
+		MsgInfo("LUMP %d\n", lump.type);
+
+		if (lump.type == LUMP_LOADTIME_DATA || 
+			lump.type == LUMP_INMEMORY_DATA ||
+			lump.type == LUMP_LUMPDESC)
+		{
+			// restart
+			i = -1;
+			lump_count = 255;
+			continue;
+		}
 
 		// skip lump
 		pFile->Seek(lump.size, VS_SEEK_CUR);
@@ -110,30 +126,19 @@ void DetectLevelFormat(IVirtualStream* pFile)
 	}
 
 	pFile->Seek(curPos, VS_SEEK_SET);
+
+	return LEV_FORMAT_INVALID;
 }
 
 //-------------------------------------------------------------
 // Iterates LEV file lumps and loading data from them
 //-------------------------------------------------------------
-void ProcessLumps(IVirtualStream* pFile)
+void CDriverLevelLoader::ProcessLumps(IVirtualStream* pFile)
 {
-	// perform auto-detection if format is not specified
-	if(g_format == LEV_FORMAT_AUTODETECT)
-		DetectLevelFormat(pFile);
-
-	if(!g_levMap)
-	{
-		// failed to detect Driver 1 level file - try Driver 2 loader
-		if (g_format >= LEV_FORMAT_DRIVER2_ALPHA16 || g_format == LEV_FORMAT_AUTODETECT)
-			g_levMap = new CDriver2LevelMap();
-		else
-			g_levMap = new CDriver1LevelMap();
-	}
-
 	int lump_count = 255; // Driver 2 difference: you not need to read lump count
 
 	// Driver 1 has lump count
-	if (g_format == LEV_FORMAT_DRIVER1)
+	if (m_format == LEV_FORMAT_DRIVER1)
 		pFile->Read(&lump_count, sizeof(int), 1);
 
 	LUMP lump;
@@ -152,22 +157,27 @@ void ProcessLumps(IVirtualStream* pFile)
 			// almost identical
 			case LUMP_MODELS:
 				DevMsg(SPEW_WARNING, "LUMP_MODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				g_levModels.LoadLevelModelsLump(pFile);
+				if(m_models)
+					m_models->LoadLevelModelsLump(pFile);
 				break;
 			case LUMP_MAP:
 				DevMsg(SPEW_WARNING, "LUMP_MAP ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				g_levMap->LoadMapLump(pFile);
+				if(m_map)
+					m_map->LoadMapLump(pFile);
 				break;
 			case LUMP_TEXTURENAMES:
 				DevMsg(SPEW_WARNING, "LUMP_TEXTURENAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				g_levTextures.LoadTextureNamesLump(pFile, lump.size);
+				if(m_textures)
+					m_textures->LoadTextureNamesLump(pFile, lump.size);
 				break;
 			case LUMP_MODELNAMES:
 				DevMsg(SPEW_WARNING, "LUMP_MODELNAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				g_levModels.LoadModelNamesLump(pFile, lump.size);
+				if(m_models)
+					m_models->LoadModelNamesLump(pFile, lump.size);
 				break;
 			case LUMP_LOWDETAILTABLE:
-				g_levModels.LoadLowDetailTableLump(pFile, lump.size);
+				if(m_models)
+					m_models->LoadLowDetailTableLump(pFile, lump.size);
 				DevMsg(SPEW_WARNING, "LUMP_LOWDETAILTABLE ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_MOTIONCAPTURE:
@@ -179,11 +189,13 @@ void ProcessLumps(IVirtualStream* pFile)
 				break;
 			case LUMP_PALLET:
 				DevMsg(SPEW_WARNING, "LUMP_PALLET ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				g_levTextures.ProcessPalletLump(pFile);
+				if(m_textures)
+					m_textures->ProcessPalletLump(pFile);
 				break;
 			case LUMP_SPOOLINFO:
 				DevMsg(SPEW_WARNING, "LUMP_SPOOLINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				g_levMap->LoadSpoolInfoLump(pFile);
+				if(m_map)
+					m_map->LoadSpoolInfoLump(pFile);
 				break;
 			case LUMP_CHAIR:
 				DevMsg(SPEW_WARNING, "LUMP_CHAIR ofs=%d size=%d\n", pFile->Tell(), lump.size);
@@ -191,11 +203,13 @@ void ProcessLumps(IVirtualStream* pFile)
 				break;
 			case LUMP_CAR_MODELS:
 				DevMsg(SPEW_WARNING, "LUMP_CAR_MODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				g_levModels.LoadCarModelsLump(pFile, lump.size);
+				if(m_models)
+					m_models->LoadCarModelsLump(pFile, lump.size);
 				break;
 			case LUMP_TEXTUREINFO:
 				DevMsg(SPEW_WARNING, "LUMP_TEXTUREINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				g_levTextures.LoadTextureInfoLump(pFile);
+				if(m_textures)
+					m_textures->LoadTextureInfoLump(pFile);
 				break;
 			// Driver 2 - only lumps
 			case LUMP_STRAIGHTS2:
@@ -245,10 +259,43 @@ void ProcessLumps(IVirtualStream* pFile)
 	}
 }
 
-bool LoadLevelFile(const char* filename)
+//---------------------------------------------------------------------------------------------------------------------------------
+
+CDriverLevelLoader::CDriverLevelLoader()
+{
+}
+
+CDriverLevelLoader::~CDriverLevelLoader()
+{
+	Release();
+}
+
+ELevelFormat CDriverLevelLoader::GetFormat() const
+{
+	return m_format;
+}
+
+void CDriverLevelLoader::Initialize(OUT_CITYLUMP_INFO& lumpInfo, CDriverLevelTextures* textures, CDriverLevelModels* models, CBaseLevelMap* map)
+{
+	m_lumpInfo = &lumpInfo;
+	m_textures = textures;
+	m_models = models;
+	m_map = map;
+}
+
+void CDriverLevelLoader::Release()
+{
+	MsgWarning("Freeing Level data ...\n");
+	delete[] g_overlayMapData;
+}
+
+//-------------------------------------------------------------
+// Loads the LEV file data
+//-------------------------------------------------------------
+bool CDriverLevelLoader::LoadFromFile(const char* fileName)
 {
 	// try load driver2 lev file
-	FILE* pReadFile = fopen(filename, "rb");
+	FILE* pReadFile = fopen(fileName, "rb");
 
 	if (!pReadFile)
 	{
@@ -256,112 +303,99 @@ bool LoadLevelFile(const char* filename)
 		return false;
 	}
 
-	CMemoryStream* stream = new CMemoryStream();
-	stream->Open(nullptr, VS_OPEN_WRITE | VS_OPEN_READ, 0);
-
-	// read file into stream
-	if (stream->ReadFromFileStream(pReadFile))
-	{
-		fclose(pReadFile);
-		g_levStream = stream;
-	}
-	else
-	{
-		delete stream;
-		return false;
-	}
+	CFileStream stream(pReadFile);
 
 	// seek to begin
-	g_levStream->Seek(0, VS_SEEK_SET);
-
-	MsgWarning("-----------\nLoading LEV file '%s'\n", filename);
-
-	String fileName = File::basename(String::fromCString(filename, strlen(filename)));
+	MsgWarning("-----------\nLoading LEV file '%s'\n", fileName);
 
 	//-------------------------------------------------------------------
 
-	LUMP curLump;
+	// perform auto-detection if format is not specified
+	if (m_format == LEV_FORMAT_AUTODETECT)
+		m_format = DetectLevelFormat(&stream);
 
-	g_levStream->Read(&curLump, sizeof(curLump), 1);
+	if (m_map)
+		m_map->SetFormat(m_format);
+
+	if (m_textures)
+		m_textures->SetFormat(m_format);
+
+	LUMP curLump;
+	stream.Read(&curLump, sizeof(curLump), 1);
 
 	if (curLump.type != LUMP_LUMPDESC)
 	{
 		MsgError("Not a LEV file!\n");
+		fclose(pReadFile);
 		return false;
 	}
 
 	// read chunk offsets
-	g_levStream->Read(&g_levInfo, sizeof(OUT_CITYLUMP_INFO), 1);
+	stream.Read(m_lumpInfo, sizeof(OUT_CITYLUMP_INFO), 1);
 
-	DevMsg(SPEW_NORM, "data1_offset = %d\n", g_levInfo.loadtime_offset);
-	DevMsg(SPEW_NORM, "data1_size = %d\n", g_levInfo.loadtime_size);
+	DevMsg(SPEW_NORM, "data1_offset = %d\n", m_lumpInfo->loadtime_offset);
+	DevMsg(SPEW_NORM, "data1_size = %d\n", m_lumpInfo->loadtime_size);
 
-	DevMsg(SPEW_NORM, "tpage_offset = %d\n", g_levInfo.tpage_offset);
-	DevMsg(SPEW_NORM, "tpage_size = %d\n", g_levInfo.tpage_size);
+	DevMsg(SPEW_NORM, "tpage_offset = %d\n", m_lumpInfo->tpage_offset);
+	DevMsg(SPEW_NORM, "tpage_size = %d\n", m_lumpInfo->tpage_size);
 
-	DevMsg(SPEW_NORM, "data2_offset = %d\n", g_levInfo.inmem_offset);
-	DevMsg(SPEW_NORM, "data2_size = %d\n", g_levInfo.inmem_size);
+	DevMsg(SPEW_NORM, "data2_offset = %d\n", m_lumpInfo->inmem_offset);
+	DevMsg(SPEW_NORM, "data2_size = %d\n", m_lumpInfo->inmem_size);
 
-	DevMsg(SPEW_NORM, "spooled_offset = %d\n", g_levInfo.spooled_offset);
-	DevMsg(SPEW_NORM, "spooled_size = %d\n", g_levInfo.spooled_size);
+	DevMsg(SPEW_NORM, "spooled_offset = %d\n", m_lumpInfo->spooled_offset);
+	DevMsg(SPEW_NORM, "spooled_size = %d\n", m_lumpInfo->spooled_size);
 
 	// read cells
 
 	//-----------------------------------------------------
 	// seek to section 1 - lump data 1
-	g_levStream->Seek(g_levInfo.loadtime_offset, VS_SEEK_SET);
+	stream.Seek(m_lumpInfo->loadtime_offset, VS_SEEK_SET);
 
 	// read lump
-	g_levStream->Read(&curLump, sizeof(curLump), 1);
+	stream.Read(&curLump, sizeof(curLump), 1);
 
 	if (curLump.type != LUMP_LOADTIME_DATA)
 	{
-		MsgError("Not a LUMP_LEVELDESC!\n");
+		MsgError("Not a LUMP_LOADTIME_DATA!\n");
+		fclose(pReadFile);
+		return false;
 	}
 
-	DevMsg(SPEW_INFO, "entering LUMP_LEVELDESC size = %d\n--------------\n", curLump.size);
+	DevMsg(SPEW_INFO, "entering LUMP_LOADTIME_DATA size = %d\n--------------\n", curLump.size);
 
 	// read sublumps
-	ProcessLumps(g_levStream);
+	ProcessLumps(&stream);
 
 	//-----------------------------------------------------
 	// read global textures
 
-	g_levTextures.LoadPermanentTPages(g_levStream);
+	if (m_textures)
+	{
+		stream.Seek(m_lumpInfo->tpage_offset, VS_SEEK_SET);
+		m_textures->LoadPermanentTPages(&stream);
+	}
 
 	//-----------------------------------------------------
 	// seek to section 3 - lump data 2
-	g_levStream->Seek(g_levInfo.inmem_offset, VS_SEEK_SET);
+	stream.Seek(m_lumpInfo->inmem_offset, VS_SEEK_SET);
 
 	// read lump
-	g_levStream->Read(&curLump, sizeof(curLump), 1);
+	stream.Read(&curLump, sizeof(curLump), 1);
 
 	if (curLump.type != LUMP_INMEMORY_DATA)
 	{
-		MsgError("Not a lump 0x24!\n");
+		MsgError("Not a lump LUMP_INMEMORY_DATA!\n");
+		fclose(pReadFile);
+		return false;
 	}
 
-	DevMsg(SPEW_INFO, "entering LUMP_LEVELDATA size = %d\n--------------\n", curLump.size);
+	DevMsg(SPEW_INFO, "entering LUMP_INMEMORY_DATA size = %d\n--------------\n", curLump.size);
 
 	// read sublumps
-	ProcessLumps(g_levStream);
+	ProcessLumps(&stream);
+
+	// completed!
+	fclose(pReadFile);
 
 	return true;
-}
-
-void FreeLevelData()
-{
-	MsgWarning("FreeLevelData() ...\n");
-
-	if (g_levStream)
-		delete g_levStream;
-	g_levStream = nullptr;
-
-	g_levMap->FreeAll();
-	g_levTextures.FreeAll();
-	g_levModels.FreeAll();
-
-	delete g_levMap;
-
-	delete[] g_overlayMapData;
 }

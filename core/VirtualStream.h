@@ -69,8 +69,6 @@ private:
 
 class CFileStream : public IVirtualStream
 {
-	friend class CFileSystem;
-
 public:
 						CFileStream(FILE* pFile) : m_pFilePtr(pFile)
 						{

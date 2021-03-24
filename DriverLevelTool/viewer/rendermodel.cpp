@@ -1,7 +1,6 @@
 #include "driver_routines/models.h"
 #include "rendermodel.h"
 
-#include "driver_level.h"
 #include "gl_renderer.h"
 #include "core/cmdlib.h"
 
@@ -129,17 +128,9 @@ void CRenderModel::GenerateBuffers()
 	MODEL* model = m_sourceModel->model;
 	MODEL* vertex_ref = model;
 
-	if (model->instance_number > 0) // car models have vertex_ref=0
+	if (m_sourceModel->baseInstance) // car models have vertex_ref=0
 	{
-		ModelRef_t* ref = g_levModels.GetModelByIndex(model->instance_number);
-
-		if (!ref)
-		{
-			Msg("vertex ref not found %d\n", model->instance_number);
-			return;
-		}
-
-		vertex_ref = ref->model;
+		vertex_ref = m_sourceModel->baseInstance->model;
 	}
 
 	genBatch_t* batch = nullptr;
@@ -253,7 +244,7 @@ void CRenderModel::GenerateBuffers()
 				
 				// get the vertex
 				SVECTOR* vert = vertex_ref->pVertex(dec_face.vindices[VERT_IDX]);
-				Vector3D fVert = Vector3D(vert->x * EXPORT_SCALING, vert->y * -EXPORT_SCALING, vert->z * EXPORT_SCALING);
+				Vector3D fVert = Vector3D(vert->x * RENDER_SCALING, vert->y * -RENDER_SCALING, vert->z * RENDER_SCALING);
 				
 				(*(Vector3D*)&newVert.vx) = fVert;
 
@@ -264,7 +255,7 @@ void CRenderModel::GenerateBuffers()
 					vertMap.normalIndex = dec_face.nindices[VERT_IDX];
 					
 					SVECTOR* norm = vertex_ref->pPointNormal(vertMap.normalIndex);
-					*(Vector3D*)&newVert.nx = Vector3D(norm->x * EXPORT_SCALING, norm->y * -EXPORT_SCALING, norm->z * EXPORT_SCALING);
+					*(Vector3D*)&newVert.nx = Vector3D(norm->x * RENDER_SCALING, norm->y * -RENDER_SCALING, norm->z * RENDER_SCALING);
 				}
 				
 				if (dec_face.flags & FACE_TEXTURED)

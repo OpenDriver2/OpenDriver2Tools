@@ -2,7 +2,8 @@
 #define DRAWMODEL_H
 
 #include "math/Vector.h"
-#include "util/DkList.h"
+
+#define RENDER_SCALING			(1.0f / ONE)
 
 struct ModelRef_t;
 struct GrVAO;

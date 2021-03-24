@@ -1,10 +1,13 @@
 #include "driver_level.h"
 #include "core/cmdlib.h"
+#include "core/VirtualStream.h"
 
 #include "util/image.h"
 #include "util/util.h"
 #include "util/rnc2.h"
+
 #include <stdio.h>
+
 #include <nstd/File.hpp>
 #include <nstd/Directory.hpp>
 #include <nstd/Array.hpp>
@@ -255,8 +258,29 @@ void ExportAllTextures()
 	{
 		MsgInfo("Preloading area TPages (%d)\n", g_levMap->GetAreaDataCount());
 
-		for (int i = 0; i < g_levMap->GetAreaDataCount(); i++)
-			g_levMap->LoadInAreaTPages(g_levStream, i);
+		// Open file stream
+		FILE* fp = fopen(g_levname, "rb");
+		if (fp)
+		{
+			CFileStream stream(fp);
+
+			SPOOL_CONTEXT spoolContext;
+			spoolContext.dataStream = &stream;
+			spoolContext.lumpInfo = &g_levInfo;
+			spoolContext.models = nullptr;
+			spoolContext.textures = &g_levTextures;
+
+			int numAreas = g_levMap->GetAreaDataCount();
+
+			for (int i = 0; i < numAreas; i++)
+			{
+				g_levMap->LoadInAreaTPages(spoolContext, i);
+			}
+
+			fclose(fp);
+		}
+		else
+			MsgError("Unable to preload spooled area TPages!\n");
 	}
 
 	MsgInfo("Exporting texture data\n");

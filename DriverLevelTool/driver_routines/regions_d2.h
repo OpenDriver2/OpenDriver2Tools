@@ -24,7 +24,7 @@ class CDriver2LevelRegion : public CBaseLevelRegion
 	friend class CDriver2LevelMap;
 public:
 	void					FreeAll() override;
-	void					LoadRegionData(IVirtualStream* pFile) override;
+	void					LoadRegionData(const SPOOL_CONTEXT& ctx) override;
 
 	PACKED_CELL_OBJECT*		GetCellObject(int num) const;
 	CELL_DATA*				GetCellData(int num) const;
@@ -49,8 +49,8 @@ public:
 	void 					LoadMapLump(IVirtualStream* pFile) override;
 	void					LoadSpoolInfoLump(IVirtualStream* pFile) override;
 
-	void					SpoolRegion(const XZPAIR& cell) override;
-	void					SpoolRegion(int regionIdx) override;
+	void					SpoolRegion(const SPOOL_CONTEXT& ctx, const XZPAIR& cell) override;
+	void					SpoolRegion(const SPOOL_CONTEXT& ctx, int regionIdx) override;
 
 	CBaseLevelRegion*		GetRegion(const XZPAIR& cell) const override;
 	CBaseLevelRegion*		GetRegion(int regionIdx) const override;

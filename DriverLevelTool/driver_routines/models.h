@@ -52,17 +52,20 @@ struct ModelRef_t
 	{
 		model = nullptr;
 		userData = nullptr;
+		baseInstance = nullptr;
 	}
 
-	MODEL*	model;
+	ModelRef_t* baseInstance;
 
-	int		index;
-	int		size;
+	MODEL*		model;
 
-	ushort	highDetailId;
-	ushort	lowDetailId;
+	int			index;
+	int			size;
+
+	ushort		highDetailId;
+	ushort		lowDetailId;
 	
-	void*	userData; // might contain a hardware model pointer
+	void*		userData; // might contain a hardware model pointer
 };
 
 //------------------------------------------------------------------------------------------------------------

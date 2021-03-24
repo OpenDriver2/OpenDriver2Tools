@@ -10,9 +10,9 @@
 
 #include "math/Matrix.h"
 
-extern bool		g_export_models;
-extern String	g_levname_moddir;
-extern String	g_levname;
+extern bool				g_export_models;
+extern String			g_levname_moddir;
+extern String			g_levname;
 
 char g_packed_cell_pointers[8192];
 ushort g_cell_ptrs[8192];
@@ -184,36 +184,53 @@ void ExportRegions()
 
 	int lobj_first_v = 0;
 	int lobj_first_t = 0;
-	
-	for (int y = 0; y < dim_y; y++)
+
+	// Open file stream
+	FILE* fp = fopen(g_levname, "rb");
+	if (fp)
 	{
-		for (int x = 0; x < dim_x; x++)
+		CFileStream stream(fp);
+
+		SPOOL_CONTEXT spoolContext;
+		spoolContext.dataStream = &stream;
+		spoolContext.lumpInfo = &g_levInfo;
+		spoolContext.models = &g_levModels;
+		spoolContext.textures = &g_levTextures;
+
+		for (int y = 0; y < dim_y; y++)
 		{
-			int regIdx = y * dim_x + x;
-
-			CBaseLevelRegion* region = g_levMap->GetRegion(regIdx);
-
-			if (region->IsEmpty())
-				continue;
-
-			// load region
-			// it will also load area data models for it
-			g_levMap->SpoolRegion(regIdx);
-
-			if(g_format >= LEV_FORMAT_DRIVER2_ALPHA16)
+			for (int x = 0; x < dim_x; x++)
 			{
-				numCellObjectsRead += ExportRegionDriver2((CDriver2LevelRegion*)region, &cellsFileStream, &levelFileStream, lobj_first_v, lobj_first_t);
-			}
-			else
-			{
-				numCellObjectsRead += ExportRegionDriver1((CDriver1LevelRegion*)region, &cellsFileStream, &levelFileStream, lobj_first_v, lobj_first_t);
+				int regIdx = y * dim_x + x;
+
+				CBaseLevelRegion* region = g_levMap->GetRegion(regIdx);
+
+				if (region->IsEmpty())
+					continue;
+
+				// load region
+				// it will also load area data models for it
+				g_levMap->SpoolRegion(spoolContext, regIdx);
+
+				if (g_levMap->GetFormat() >= LEV_FORMAT_DRIVER2_ALPHA16)
+				{
+					numCellObjectsRead += ExportRegionDriver2((CDriver2LevelRegion*)region, &cellsFileStream, &levelFileStream, lobj_first_v, lobj_first_t);
+				}
+				else
+				{
+					numCellObjectsRead += ExportRegionDriver1((CDriver1LevelRegion*)region, &cellsFileStream, &levelFileStream, lobj_first_v, lobj_first_t);
+				}
 			}
 		}
+
+		// @FIXME: it doesn't really match up but still correct
+		//int numCellsObjectsFile = mapInfo.num_cell_objects;
+
+		//if (numCellObjectsRead != numCellsObjectsFile)
+		//	MsgError("numAllObjects mismatch: in file: %d, read %d\n", numCellsObjectsFile, numCellObjectsRead);
+
+		fclose(fp);
 	}
-
-	// @FIXME: it doesn't really match up but still correct
-	//int numCellsObjectsFile = mapInfo.num_cell_objects;
-
-	//if (numCellObjectsRead != numCellsObjectsFile)
-	//	MsgError("numAllObjects mismatch: in file: %d, read %d\n", numCellsObjectsFile, numCellObjectsRead);
+	else
+		MsgError("Unable to export regions - cannot open level file!\n");
 }
