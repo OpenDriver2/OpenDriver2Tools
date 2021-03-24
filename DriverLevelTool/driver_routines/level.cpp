@@ -105,8 +105,6 @@ ELevelFormat CDriverLevelLoader::DetectLevelFormat(IVirtualStream* pFile)
 			}
 		}
 
-		MsgInfo("LUMP %d\n", lump.type);
-
 		if (lump.type == LUMP_LOADTIME_DATA || 
 			lump.type == LUMP_INMEMORY_DATA ||
 			lump.type == LUMP_LUMPDESC)
@@ -285,7 +283,6 @@ void CDriverLevelLoader::Initialize(OUT_CITYLUMP_INFO& lumpInfo, CDriverLevelTex
 
 void CDriverLevelLoader::Release()
 {
-	MsgWarning("Freeing Level data ...\n");
 	delete[] g_overlayMapData;
 }
 
