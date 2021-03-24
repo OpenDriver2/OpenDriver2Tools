@@ -3,6 +3,7 @@
 
 #include <nstd/Array.hpp>
 #include <nstd/String.hpp>
+#include <nstd/Time.hpp>
 
 #include "gl_renderer.h"
 #include "rendermodel.h"
@@ -708,14 +709,23 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 	}
 }
 
+int64 g_oldTicks = 0;
+const float CAMERA_MOVEMENT_SPEED_FACTOR = 140 * RENDER_SCALING;
+
 void RenderView()
 {
 	Vector3D forward, right;
 	AngleVectors(g_cameraAngles, &forward, &right);
 
-	// TODO: tie to framerate
-	g_cameraPosition += g_cameraMoveDir.x * right * 0.15f;
-	g_cameraPosition += g_cameraMoveDir.z * forward * 0.15f;
+	// tie to framerate
+	const float ticks_to_ms = 1.0f / 10000.0f;
+	int64 curTicks = Time::microTicks();
+	float delta = double(curTicks - g_oldTicks) * ticks_to_ms;
+
+	g_oldTicks = curTicks;
+
+	g_cameraPosition += g_cameraMoveDir.x * right * delta * CAMERA_MOVEMENT_SPEED_FACTOR;
+	g_cameraPosition += g_cameraMoveDir.z * forward * delta * CAMERA_MOVEMENT_SPEED_FACTOR;
 
 	Vector3D cameraPos = g_cameraPosition;// -forward * g_cameraDistance;
 	Vector3D cameraAngles = VDEG2RAD(g_cameraAngles);
