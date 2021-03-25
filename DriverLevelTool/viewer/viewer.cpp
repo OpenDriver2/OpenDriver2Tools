@@ -66,7 +66,7 @@ const char* model_shader =
 	"#endif\n";
 
 int g_quit = 0;
-int g_night = 0;
+int g_nightMode = 0;
 int g_cellsDrawDistance = 441;
 
 int g_currentModel = 0;
@@ -154,11 +154,23 @@ void SDLPollEvent()
 
 				if(nKey == SDL_SCANCODE_LEFT)
 				{
-					g_cameraMoveDir.x = (event.type == SDL_KEYDOWN) ? -1.0f : 0.0f;
+					if(g_renderMode == 0)
+						g_cameraMoveDir.x = (event.type == SDL_KEYDOWN) ? -1.0f : 0.0f;
+					else if(g_renderMode == 1)
+					{
+						g_currentModel--;
+						g_currentModel = MAX(0, g_currentModel);
+					}
 				}
 				else if (nKey == SDL_SCANCODE_RIGHT)
 				{
-					g_cameraMoveDir.x = (event.type == SDL_KEYDOWN) ? 1.0f : 0.0f;
+					if (g_renderMode == 0)
+						g_cameraMoveDir.x = (event.type == SDL_KEYDOWN) ? 1.0f : 0.0f;
+					else if(g_renderMode == 1)
+					{
+						g_currentModel++;
+						g_currentModel = MIN(MAX_MODELS, g_currentModel);
+					}
 				}
 				else if (nKey == SDL_SCANCODE_UP)
 				{
@@ -167,10 +179,6 @@ void SDLPollEvent()
 				else if (nKey == SDL_SCANCODE_DOWN)
 				{
 					g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? -1.0f : 0.0f;
-				}
-				else if (nKey == SDL_SCANCODE_N && event.type == SDL_KEYDOWN)
-				{
-					g_night = !g_night;
 				}
 				else if (nKey == SDL_SCANCODE_PAGEUP && event.type == SDL_KEYDOWN)
 				{
@@ -182,27 +190,7 @@ void SDLPollEvent()
 					if (g_cellsDrawDistance < 441)
 						g_cellsDrawDistance = 441;
 				}
-				/*
-				else if (nKey == SDL_SCANCODE_M && event.type == SDL_KEYDOWN)
-				{
-					g_renderMode ^= 1;
-				}
-				else if (nKey == SDL_SCANCODE_HOME && event.type == SDL_KEYDOWN)
-				{
-					g_currentModel--;
-					g_currentModel = MAX(0, g_currentModel);
 
-					Msg("Current: %d\n", g_currentModel);
-				}
-				else if (nKey == SDL_SCANCODE_END && event.type == SDL_KEYDOWN)
-				{
-					g_currentModel++;
-					g_currentModel = MIN(MAX_MODELS, g_currentModel);
-
-					Msg("Current: %d\n", g_currentModel);
-				}*/
-
-				//Emulator_DoDebugKeys(nKey, (event.type == SDL_KEYUP) ? false : true);
 				break;
 			}
 		}
@@ -560,8 +548,8 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 					GR_SetMatrix(MATRIX_WORLD, objectMatrix);
 					GR_UpdateMatrixUniforms();
 					
-					if (isGround && g_night)
-						SetupLightingProperties(0.5f, 0.5f);
+					if (isGround && g_nightMode)
+						SetupLightingProperties(0.35f, 0.0f);
 					else
 						SetupLightingProperties(1.0f, 1.0f);
 
@@ -707,8 +695,8 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 					GR_SetMatrix(MATRIX_WORLD, objectMatrix);
 					GR_UpdateMatrixUniforms();
 
-					if (g_night)
-						SetupLightingProperties(0.5f, 0.5f);
+					if (g_nightMode)
+						SetupLightingProperties(0.45f, 0.0f);
 					else
 						SetupLightingProperties(1.0f, 1.0f);
 
@@ -842,6 +830,33 @@ void RenderModelOnly()
 	}
 }
 
+void SpoolAllAreaDatas()
+{
+	// Open file stream
+	FILE* fp = fopen(g_levname, "rb");
+	if (fp)
+	{
+		CFileStream stream(fp);
+
+		SPOOL_CONTEXT spoolContext;
+		spoolContext.dataStream = &stream;
+		spoolContext.lumpInfo = &g_levInfo;
+		spoolContext.models = &g_levModels;
+		spoolContext.textures = &g_levTextures;
+
+		int totalRegions = g_levMap->GetRegionsAcross() * g_levMap->GetRegionsDown();
+		
+		for (int i = 0; i < totalRegions; i++)
+		{
+			g_levMap->SpoolRegion(spoolContext, i);
+		}
+
+		fclose(fp);
+	}
+	else
+		MsgError("Unable to spool area datas!\n");
+}
+
 char g_modelSearchNameBuffer[64];
 
 void PopulateUIModelNames()
@@ -853,29 +868,40 @@ void ProcessUI()
 {
 	if(ImGui::BeginMainMenuBar())
 	{
-		//if (ImGui::BeginMenu("Mode"))
+		if (ImGui::BeginMenu("Mode"))
 		{
 			if (ImGui::MenuItem("Level viewer"))
-			{
 				g_renderMode = 0;
-			}
 			
 			if (ImGui::MenuItem("Model viewer"))
-			{
 				g_renderMode = 1;
-			}
 			
-			
+			ImGui::EndMenu();
 		}
-		//ImGui::EndMenu();
+
+		if (ImGui::BeginMenu("Level"))
+		{
+			if (ImGui::MenuItem("Spool all Area Data"))
+				SpoolAllAreaDatas();
+
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("View"))
+		{
+			if (ImGui::MenuItem("Night mode", nullptr, g_nightMode))
+				g_nightMode ^= 1;
+
+			ImGui::EndMenu();
+		}
+		
+		ImGui::EndMainMenuBar();
 	}
-	ImGui::EndMainMenuBar();
-	
+
 	if(ImGui::Begin("HelpFrame", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
 		ImGuiWindowFlags_NoMove | ImGuiInputTextFlags_NoHorizontalScroll |
 		ImGuiWindowFlags_NoSavedSettings | ImGuiColorEditFlags_NoInputs | ImGuiWindowFlags_NoBringToFrontOnFocus))
 	{
-
 		ImGui::SetWindowPos(ImVec2(0, 24));
 
 		if(g_renderMode == 0)
@@ -897,6 +923,8 @@ void ProcessUI()
 			ModelRef_t* ref = g_levModels.GetModelByIndex(g_currentModel);
 			MODEL* model = ref->model;
 
+			ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.5f), "Use arrows to change models");
+			
 			if(model)
 			{
 				ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Polygons: %d", model->num_polys);
@@ -958,8 +986,8 @@ void ProcessUI()
 				ImGui::ListBoxFooter();
 			}
 		}
+		ImGui::End();
 	}
-	ImGui::End();
 }
 
 //-------------------------------------------------------------
@@ -1011,7 +1039,7 @@ int ViewerMain()
 
 		GR_ClearDepth(1.0f);
 
-		if(g_night)
+		if(g_nightMode)
 			GR_ClearColor(19 / 255.0f, 23 / 255.0f, 25 / 255.0f);
 		else
 			GR_ClearColor(128 / 255.0f, 158 / 255.0f, 182 / 255.0f);
