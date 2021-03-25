@@ -298,6 +298,15 @@ struct MODEL
 	{
 		return (char *)(((ubyte *)this) + poly_block + ofs);
 	}
+
+	int GetCollisionBoxCount()
+	{
+		if(collision_block)
+		{
+			return *(int*)(((ubyte*)this) + collision_block);
+		}
+		return 0;
+	}
 };
 
 struct CELL_DATA {

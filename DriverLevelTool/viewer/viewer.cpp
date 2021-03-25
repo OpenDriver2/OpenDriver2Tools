@@ -24,6 +24,10 @@
 
 #include <stdio.h>
 
+
+#include "imgui_impl/imgui_impl_opengl3.h"
+#include "imgui_impl/imgui_impl_sdl.h"
+
 #define MODEL_VERTEX_SHADER \
 	"	attribute vec4 a_position_tu;\n"\
 	"	attribute vec4 a_normal_tv;\n"\
@@ -82,8 +86,11 @@ float g_cameraFOV = 75.0f;
 void SDLPollEvent()
 {
 	SDL_Event event;
+
 	while (SDL_PollEvent(&event))
 	{
+		ImGui_ImplSDL2_ProcessEvent(&event);
+		
 		switch (event.type)
 		{
 			case SDL_QUIT:
@@ -175,6 +182,7 @@ void SDLPollEvent()
 					if (g_cellsDrawDistance < 441)
 						g_cellsDrawDistance = 441;
 				}
+				/*
 				else if (nKey == SDL_SCANCODE_M && event.type == SDL_KEYDOWN)
 				{
 					g_renderMode ^= 1;
@@ -192,7 +200,7 @@ void SDLPollEvent()
 					g_currentModel = MIN(MAX_MODELS, g_currentModel);
 
 					Msg("Current: %d\n", g_currentModel);
-				}
+				}*/
 
 				//Emulator_DoDebugKeys(nKey, (event.type == SDL_KEYUP) ? false : true);
 				break;
@@ -450,6 +458,11 @@ ModelRef_t* GetModelCheckLods(int index, float distSqr)
 	return retRef;
 }
 
+// stats counters
+int g_drawnCells;
+int g_drawnModels;
+int g_drawnPolygons;
+
 void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 {
 	CELL_ITERATOR ci;
@@ -461,6 +474,10 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 	int dir = 0;
 	XZPAIR cell;
 	XZPAIR icell;
+
+	g_drawnCells = 0;
+	g_drawnModels = 0;
+	g_drawnPolygons = 0;
 
 	VECTOR_NOPAD cameraPosition;
 	cameraPosition.vx = cameraPos.x * 4096;
@@ -497,6 +514,8 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 				
 				ppco = levMapDriver2->GetFirstPackedCop(&ci, icell.x, icell.z);
 
+				g_drawnCells++;
+				
 				// walk each cell object in cell
 				while (ppco)
 				{
@@ -552,7 +571,11 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 					{
 						const float boundSphere = ref->model->bounding_sphere * RENDER_SCALING * 2.0f;
 						if (frustrumVolume.IsSphereInside(absCellPosition, boundSphere))
+						{
 							renderModel->Draw();
+							g_drawnModels++;
+							g_drawnPolygons += ref->model->num_polys;
+						}
 					}
 
 					
@@ -603,6 +626,10 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 	XZPAIR cell;
 	XZPAIR icell;
 
+	g_drawnCells = 0;
+	g_drawnModels = 0;
+	g_drawnPolygons = 0;
+
 	VECTOR_NOPAD cameraPosition;
 	cameraPosition.vx = cameraPos.x * 4096;
 	cameraPosition.vy = cameraPos.y * 4096;
@@ -638,6 +665,8 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 				levMapDriver1->SpoolRegion(spoolContext, icell);
 
 				pco = levMapDriver1->GetFirstCop(&ci, icell.x, icell.z);
+
+				g_drawnCells++;
 
 				// walk each cell object in cell
 				while (pco)
@@ -689,7 +718,11 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 					{
 						const float boundSphere = ref->model->bounding_sphere * RENDER_SCALING * 2.0f;
 						if(frustrumVolume.IsSphereInside(absCellPosition, boundSphere))
+						{
 							renderModel->Draw();
+							g_drawnModels++;
+							g_drawnPolygons += ref->model->num_polys;
+						}
 					}
 
 					pco = levMapDriver1->GetNextCop(&ci);
@@ -809,6 +842,126 @@ void RenderModelOnly()
 	}
 }
 
+char g_modelSearchNameBuffer[64];
+
+void PopulateUIModelNames()
+{
+	memset(g_modelSearchNameBuffer, 0, sizeof(g_modelSearchNameBuffer));
+}
+
+void ProcessUI()
+{
+	if(ImGui::BeginMainMenuBar())
+	{
+		//if (ImGui::BeginMenu("Mode"))
+		{
+			if (ImGui::MenuItem("Level viewer"))
+			{
+				g_renderMode = 0;
+			}
+			
+			if (ImGui::MenuItem("Model viewer"))
+			{
+				g_renderMode = 1;
+			}
+			
+			
+		}
+		//ImGui::EndMenu();
+	}
+	ImGui::EndMainMenuBar();
+	
+	if(ImGui::Begin("HelpFrame", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove | ImGuiInputTextFlags_NoHorizontalScroll |
+		ImGuiWindowFlags_NoSavedSettings | ImGuiColorEditFlags_NoInputs | ImGuiWindowFlags_NoBringToFrontOnFocus))
+	{
+
+		ImGui::SetWindowPos(ImVec2(0, 24));
+
+		if(g_renderMode == 0)
+		{
+			ImGui::SetWindowSize(ImVec2(400, 120));
+			
+			ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.25f, 1.0f), "Position: X: %d Y: %d Z: %d",
+				int(g_cameraPosition.x * ONE), int(g_cameraPosition.y * ONE), int(g_cameraPosition.z * ONE));
+
+			ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Draw distance: %d", g_cellsDrawDistance);
+			ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Drawn cells: %d", g_drawnCells);
+			ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Drawn models: %d", g_drawnModels);
+			ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Drawn polygons: %d", g_drawnPolygons);
+		}
+		else if (g_renderMode == 1)
+		{
+			ImGui::SetWindowSize(ImVec2(400, 720));
+			
+			ModelRef_t* ref = g_levModels.GetModelByIndex(g_currentModel);
+			MODEL* model = ref->model;
+
+			if(model)
+			{
+				ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Polygons: %d", model->num_polys);
+				ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Vertices: %d", model->num_vertices);
+				ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Point normals: %d", model->num_point_normals);
+				ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Instance number: %d", model->instance_number);
+				ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Bounding sphere: %d", model->bounding_sphere);
+				ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Z bias: %d", model->zBias);
+				ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Collision boxes: %d", model->GetCollisionBoxCount());
+			}
+			else
+			{
+				ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.5f), "MODEL NOT SPOOLED YET");
+				ImGui::Text("");
+				ImGui::Text("");
+				ImGui::Text("");
+				ImGui::Text("");
+				ImGui::Text("");
+				ImGui::Text("");
+			}
+
+			ImGui::InputText("Filter", g_modelSearchNameBuffer, sizeof(g_modelSearchNameBuffer));
+
+			ImGuiTextFilter filter(g_modelSearchNameBuffer);
+
+			Array<ModelRef_t*> modelRefs;
+			
+			for (int i = 0; i < MAX_MODELS; i++)
+			{
+				ModelRef_t* ref = g_levModels.GetModelByIndex(i);
+				
+				if(filter.PassFilter(g_levModels.GetModelName(ref)))
+					modelRefs.append(ref);
+			}
+			
+			if (ImGui::ListBoxHeader("", modelRefs.size(), 32))
+			{
+				ImGuiListClipper clipper(modelRefs.size(), ImGui::GetTextLineHeightWithSpacing());
+				
+				while (clipper.Step())
+				{
+					for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
+					{
+						ModelRef_t* itemRef = modelRefs[i];
+						const bool item_selected = (i == g_currentModel);
+						
+						String item = String::fromPrintf("%d: %s", itemRef->index, g_levModels.GetModelName(itemRef));
+
+						ImGui::PushID(i);
+
+						if (ImGui::Selectable(item, item_selected))
+						{
+							g_currentModel = itemRef->index;
+						}
+
+						ImGui::PopID();
+					}
+				}
+				ImGui::ListBoxFooter();
+			}
+		}
+	}
+	ImGui::End();
+}
+
 //-------------------------------------------------------------
 // Main level viewer
 //-------------------------------------------------------------
@@ -820,6 +973,20 @@ int ViewerMain()
 		return -1;
 	}
 
+	extern SDL_Window* g_window;
+
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+	ImGui::StyleColorsDark();
+
+	// Setup Platform/Renderer bindings
+	ImGui_ImplSDL2_InitForOpenGL(g_window, nullptr);
+	ImGui_ImplOpenGL3_Init();
+
 	InitModelShader();
 	InitHWTextures();
 
@@ -830,11 +997,17 @@ int ViewerMain()
 		return -1;
 	}
 
+	PopulateUIModelNames();
+	
 	do
 	{
 		SDLPollEvent();
 
 		GR_BeginScene();
+
+		ImGui_ImplSDL2_NewFrame(g_window);
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui::NewFrame();
 
 		GR_ClearDepth(1.0f);
 
@@ -849,6 +1022,10 @@ int ViewerMain()
 		else
 			RenderModelOnly();
 
+		ProcessUI();
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		GR_EndScene();
 
 		GR_SwapWindow();
@@ -856,7 +1033,11 @@ int ViewerMain()
 
 	// free all
 	FreeLevelData();
-	
+
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplSDL2_Shutdown();
+	ImGui::DestroyContext();
+
 	GR_Shutdown();
 
 	return 0;

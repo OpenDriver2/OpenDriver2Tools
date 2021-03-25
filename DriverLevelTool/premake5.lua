@@ -9,11 +9,22 @@ project "DriverLevelTool"
     compileas "C++"
     targetdir "bin/%{cfg.buildcfg}"
 
-	dependson { "libnstd" }
+	dependson { "libnstd", "ImGui" }
 	
+	-- framework link
+	dependson { "frameworkLib" }
+	links { "frameworkLib" }
+	includedirs {
+		"dependencies/libnstd/include",
+	}
+	--
+	
+	defines { "IMGUI_IMPL_OPENGL_LOADER_GLAD" }
+
 	includedirs {
 		"./",
-		"../dependencies/libnstd/include"
+		"../dependencies/libnstd/include",
+		"../dependencies/imgui",
 	}
 
     files {
@@ -46,7 +57,8 @@ project "DriverLevelTool"
 		}
 		links { 
             "SDL2", 
-			"libnstd"
+			"libnstd",
+			"ImGui"
         }
 		libdirs { 
 			SDL2_DIR.."/lib/x86",

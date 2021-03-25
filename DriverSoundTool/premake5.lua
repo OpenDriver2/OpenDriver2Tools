@@ -6,6 +6,14 @@ project "DriverSoundTool"
     compileas "C++"
     targetdir "bin/%{cfg.buildcfg}"
 
+	-- framework link
+	dependson { "frameworkLib" }
+	links { "frameworkLib" }
+	includedirs {
+		"dependencies/libnstd/include",
+	}
+	--
+
     files {
         "**.cpp",
         "**.h",
