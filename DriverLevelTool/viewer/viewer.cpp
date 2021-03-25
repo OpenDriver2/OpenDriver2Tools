@@ -65,7 +65,9 @@ int g_quit = 0;
 int g_night = 0;
 int g_cellsDrawDistance = 441;
 
-int g_currentModel = 191;
+int g_currentModel = 0;
+int g_renderMode = 0;
+
 bool g_holdLeft = false;
 bool g_holdRight = false;
 
@@ -173,7 +175,24 @@ void SDLPollEvent()
 					if (g_cellsDrawDistance < 441)
 						g_cellsDrawDistance = 441;
 				}
-				
+				else if (nKey == SDL_SCANCODE_M && event.type == SDL_KEYDOWN)
+				{
+					g_renderMode ^= 1;
+				}
+				else if (nKey == SDL_SCANCODE_HOME && event.type == SDL_KEYDOWN)
+				{
+					g_currentModel--;
+					g_currentModel = MAX(0, g_currentModel);
+
+					Msg("Current: %d\n", g_currentModel);
+				}
+				else if (nKey == SDL_SCANCODE_END && event.type == SDL_KEYDOWN)
+				{
+					g_currentModel++;
+					g_currentModel = MIN(MAX_MODELS, g_currentModel);
+
+					Msg("Current: %d\n", g_currentModel);
+				}
 
 				//Emulator_DoDebugKeys(nKey, (event.type == SDL_KEYUP) ? false : true);
 				break;
@@ -756,12 +775,46 @@ void RenderView()
 		DrawLevelDriver1(cameraPos, frustumVolume);
 }
 
+void RenderModelOnly()
+{
+	Vector3D forward, right;
+	AngleVectors(g_cameraAngles, &forward, &right);
+
+	Vector3D cameraPos = vec3_zero - forward * g_cameraDistance;
+	Vector3D cameraAngles = VDEG2RAD(g_cameraAngles);
+
+	Matrix4x4 view, proj;
+
+	proj = perspectiveMatrixY(DEG2RAD(g_cameraFOV), g_windowWidth, g_windowHeight, 0.01f, 1000.0f);
+	view = rotateZXY4(-cameraAngles.x, -cameraAngles.y, -cameraAngles.z);
+
+	view.translate(-cameraPos);
+
+	GR_SetMatrix(MATRIX_VIEW, view);
+	GR_SetMatrix(MATRIX_PROJECTION, proj);
+
+	GR_SetMatrix(MATRIX_WORLD, identity4());
+
+	GR_UpdateMatrixUniforms();
+	GR_SetDepth(1);
+	GR_SetCullMode(CULL_FRONT);
+
+	ModelRef_t* ref = g_levModels.GetModelByIndex(g_currentModel);
+
+	if(ref && ref->userData)
+	{
+		CRenderModel* renderModel = (CRenderModel*)ref->userData;
+
+		renderModel->Draw();
+	}
+}
+
 //-------------------------------------------------------------
 // Main level viewer
 //-------------------------------------------------------------
 int ViewerMain()
 {
-	if(!GR_Init("OpenDriver2 Level Tool - Viewer", 1280, 720, 0))
+	if(!GR_Init("OpenDriver2 Level viewer", 1280, 720, 0))
 	{
 		MsgError("Failed to init graphics!\n");
 		return -1;
@@ -791,7 +844,10 @@ int ViewerMain()
 			GR_ClearColor(128 / 255.0f, 158 / 255.0f, 182 / 255.0f);
 
 		// Render stuff
-		RenderView();
+		if (g_renderMode == 0)
+			RenderView();
+		else
+			RenderModelOnly();
 
 		GR_EndScene();
 
