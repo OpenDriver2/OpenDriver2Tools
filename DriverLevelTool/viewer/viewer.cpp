@@ -71,9 +71,11 @@ int g_cellsDrawDistance = 441;
 
 int g_currentModel = 0;
 int g_renderMode = 0;
+int g_noLod = 0;
 
 bool g_holdLeft = false;
 bool g_holdRight = false;
+bool g_holdShift = false;
 
 Vector3D g_cameraPosition(0);
 Vector3D g_cameraAngles(25.0f, 45.0f, 0);
@@ -152,6 +154,9 @@ void SDLPollEvent()
 				else if (nKey == SDL_SCANCODE_RALT)
 					nKey = SDL_SCANCODE_LALT;
 
+				if (nKey == SDL_SCANCODE_LSHIFT || nKey == SDL_SCANCODE_RSHIFT)
+					g_holdShift = (event.type == SDL_KEYDOWN);
+				
 				if(nKey == SDL_SCANCODE_LEFT)
 				{
 					if(g_renderMode == 0)
@@ -429,6 +434,9 @@ const float MODEL_LOD_LOW_MIN_DISTANCE  = 40.0f;
 ModelRef_t* GetModelCheckLods(int index, float distSqr)
 {
 	ModelRef_t* baseRef = g_levModels.GetModelByIndex(index);
+
+	if (g_noLod)
+		return baseRef;
 
 	ModelRef_t* retRef = baseRef;
 	if (baseRef->highDetailId != 0xFFFF)
@@ -751,6 +759,10 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 
 int64 g_oldTicks = 0;
 const float CAMERA_MOVEMENT_SPEED_FACTOR = 140 * RENDER_SCALING;
+const float CAMERA_MOVEMENT_ACCELERATION = 15 * RENDER_SCALING;
+const float CAMERA_MOVEMENT_DECELERATION = 450 * RENDER_SCALING;
+
+Vector3D g_cameraVelocity(0);
 
 void RenderView()
 {
@@ -760,14 +772,37 @@ void RenderView()
 	// tie to framerate
 	const float ticks_to_ms = 1.0f / 10000.0f;
 	int64 curTicks = Time::microTicks();
-	float delta = double(curTicks - g_oldTicks) * ticks_to_ms;
+	float deltaTime = double(curTicks - g_oldTicks) * ticks_to_ms;
 
 	g_oldTicks = curTicks;
 
-	g_cameraPosition += g_cameraMoveDir.x * right * delta * CAMERA_MOVEMENT_SPEED_FACTOR;
-	g_cameraPosition += g_cameraMoveDir.z * forward * delta * CAMERA_MOVEMENT_SPEED_FACTOR;
+	float cameraSpeedModifier = 1.0f;
 
-	Vector3D cameraPos = g_cameraPosition;// -forward * g_cameraDistance;
+	if(g_holdShift)
+	{
+		cameraSpeedModifier = 4.0f;
+	}
+
+	if(lengthSqr(g_cameraMoveDir) > 0.1f)
+	{
+		g_cameraVelocity += g_cameraMoveDir.x * right * deltaTime * CAMERA_MOVEMENT_ACCELERATION * cameraSpeedModifier;
+		g_cameraVelocity += g_cameraMoveDir.z * forward * deltaTime * CAMERA_MOVEMENT_ACCELERATION * cameraSpeedModifier;
+
+		const float maxSpeed = CAMERA_MOVEMENT_SPEED_FACTOR * cameraSpeedModifier;
+		
+		if(length(g_cameraVelocity) > maxSpeed)
+		{
+			g_cameraVelocity = normalize(g_cameraVelocity) * maxSpeed;
+		}
+	}
+	else
+	{
+		g_cameraVelocity -= g_cameraVelocity * CAMERA_MOVEMENT_DECELERATION * deltaTime;
+	}
+
+	g_cameraPosition += g_cameraVelocity * deltaTime;
+
+	Vector3D cameraPos = g_cameraPosition;
 	Vector3D cameraAngles = VDEG2RAD(g_cameraAngles);
 
 	Matrix4x4 view, proj;
@@ -892,6 +927,9 @@ void ProcessUI()
 			if (ImGui::MenuItem("Night mode", nullptr, g_nightMode))
 				g_nightMode ^= 1;
 
+			if (ImGui::MenuItem("Disable LODs", nullptr, g_noLod))
+				g_noLod ^= 1;
+			
 			ImGui::EndMenu();
 		}
 		
