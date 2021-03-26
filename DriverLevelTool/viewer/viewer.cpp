@@ -156,34 +156,33 @@ void SDLPollEvent()
 
 				if (nKey == SDL_SCANCODE_LSHIFT || nKey == SDL_SCANCODE_RSHIFT)
 					g_holdShift = (event.type == SDL_KEYDOWN);
-				
-				if(nKey == SDL_SCANCODE_LEFT)
+				else if(nKey == SDL_SCANCODE_LEFT)
 				{
-					if(g_renderMode == 0)
-						g_cameraMoveDir.x = (event.type == SDL_KEYDOWN) ? -1.0f : 0.0f;
-					else if(g_renderMode == 1)
+					g_cameraMoveDir.x = (event.type == SDL_KEYDOWN) ? -1.0f : 0.0f;
+				}
+				else if (nKey == SDL_SCANCODE_RIGHT)
+				{
+					g_cameraMoveDir.x = (event.type == SDL_KEYDOWN) ? 1.0f : 0.0f;
+				}
+				else if (nKey == SDL_SCANCODE_UP)
+				{
+					if (g_renderMode == 0)
+						g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? 1.0f : 0.0f;
+					else if (g_renderMode == 1 && (event.type == SDL_KEYDOWN))
 					{
 						g_currentModel--;
 						g_currentModel = MAX(0, g_currentModel);
 					}
 				}
-				else if (nKey == SDL_SCANCODE_RIGHT)
+				else if (nKey == SDL_SCANCODE_DOWN)
 				{
-					if (g_renderMode == 0)
-						g_cameraMoveDir.x = (event.type == SDL_KEYDOWN) ? 1.0f : 0.0f;
-					else if(g_renderMode == 1)
+					if(g_renderMode == 0)
+						g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? -1.0f : 0.0f;
+					else if (g_renderMode == 1 && (event.type == SDL_KEYDOWN))
 					{
 						g_currentModel++;
 						g_currentModel = MIN(MAX_MODELS, g_currentModel);
 					}
-				}
-				else if (nKey == SDL_SCANCODE_UP)
-				{
-					g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? 1.0f : 0.0f;
-				}
-				else if (nKey == SDL_SCANCODE_DOWN)
-				{
-					g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? -1.0f : 0.0f;
 				}
 				else if (nKey == SDL_SCANCODE_PAGEUP && event.type == SDL_KEYDOWN)
 				{
@@ -972,10 +971,35 @@ void ProcessUI()
 				ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Bounding sphere: %d", model->bounding_sphere);
 				ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Z bias: %d", model->zBias);
 				ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Collision boxes: %d", model->GetCollisionBoxCount());
+
+				if(ref->lowDetailId != 0xFFFF || ref->highDetailId != 0xFFFF)
+				{
+					ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "LODs:");
+					ImGui::SameLine();
+
+					if(ref->lowDetailId != 0xFFFF)
+					{
+						ImGui::SameLine();
+						if(ImGui::Button("L", ImVec2(14, 14)))
+							g_currentModel = ref->lowDetailId;
+					}
+					
+					if(ref->highDetailId != 0xFFFF)
+					{
+						ImGui::SameLine();
+						if (ImGui::Button("H", ImVec2(14, 14)))
+							g_currentModel = ref->highDetailId;
+					}
+				}
+				else
+				{
+					ImGui::Text("");
+				}
 			}
 			else
 			{
 				ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.5f), "MODEL NOT SPOOLED YET");
+				ImGui::Text("");
 				ImGui::Text("");
 				ImGui::Text("");
 				ImGui::Text("");
@@ -992,13 +1016,13 @@ void ProcessUI()
 			
 			for (int i = 0; i < MAX_MODELS; i++)
 			{
-				ModelRef_t* ref = g_levModels.GetModelByIndex(i);
+				ModelRef_t* itemRef = g_levModels.GetModelByIndex(i);
 				
-				if(filter.PassFilter(g_levModels.GetModelName(ref)))
-					modelRefs.append(ref);
+				if(!filter.IsActive() && !itemRef->name || itemRef->name && filter.PassFilter(itemRef->name))
+					modelRefs.append(itemRef);
 			}
 			
-			if (ImGui::ListBoxHeader("", modelRefs.size(), 32))
+			if (ImGui::ListBoxHeader("", modelRefs.size(), 30))
 			{
 				ImGuiListClipper clipper(modelRefs.size(), ImGui::GetTextLineHeightWithSpacing());
 				
@@ -1007,9 +1031,9 @@ void ProcessUI()
 					for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
 					{
 						ModelRef_t* itemRef = modelRefs[i];
-						const bool item_selected = (i == g_currentModel);
+						const bool item_selected = (itemRef->index == g_currentModel);
 						
-						String item = String::fromPrintf("%d: %s", itemRef->index, g_levModels.GetModelName(itemRef));
+						String item = String::fromPrintf("%d: %s%s", itemRef->index, itemRef->name ? itemRef->name : "", itemRef->model ? "" : "(empty slot)");
 
 						ImGui::PushID(i);
 

@@ -10,6 +10,7 @@
 
 CDriverLevelModels::CDriverLevelModels()
 {
+
 }
 
 CDriverLevelModels::~CDriverLevelModels()
@@ -64,12 +65,12 @@ int CDriverLevelModels::FindModelIndexByName(const char* name) const
 	return -1;
 }
 
-const char* CDriverLevelModels::GetModelName(ModelRef_t* model) const
+const char* CDriverLevelModels::GetModelNameByIndex(int nIndex) const
 {
-	if (!model)
+	if (nIndex >= m_model_names.size())
 		return nullptr;
-
-	return m_model_names[model->index];
+	
+	return m_model_names[nIndex];
 }
 
 CarModelData_t* CDriverLevelModels::GetCarModel(int index) const
@@ -212,6 +213,16 @@ void CDriverLevelModels::LoadLowDetailTableLump(IVirtualStream* pFile, int size)
 //-------------------------------------------------------------
 void CDriverLevelModels::LoadLevelModelsLump(IVirtualStream* pFile)
 {
+	// initialize to dummies
+	for (int i = 0; i < MAX_MODELS; i++)
+	{
+		memset(&m_levelModels[i], 0, sizeof(ModelRef_t));
+		m_levelModels[i].index = i;
+		m_levelModels[i].highDetailId = 0xFFFF;
+		m_levelModels[i].lowDetailId = 0xFFFF;
+	}
+
+	// read from file
 	int l_ofs = pFile->Tell();
 
 	int modelCount;
@@ -221,6 +232,7 @@ void CDriverLevelModels::LoadLevelModelsLump(IVirtualStream* pFile)
 
 	m_numModelsInPack = modelCount;
 
+	// load from pack
 	for (int i = 0; i < modelCount; i++)
 	{
 		int modelSize;
@@ -235,19 +247,22 @@ void CDriverLevelModels::LoadLevelModelsLump(IVirtualStream* pFile)
 			ref.size = modelSize;
 
 			pFile->Read(ref.model, modelSize, 1);
-			
-			
 		}
 		else // leave empty as swap
 		{
 			ModelRef_t& ref = m_levelModels[i];
 			ref.index = i;
 			ref.model = nullptr;
-			ref.size = modelSize;		}
+			ref.size = modelSize;
+		}
 	}
 
 	for (int i = 0; i < modelCount; i++)
 	{
+		// init name
+		ModelRef_t& ref = m_levelModels[i];
+		ref.name = GetModelNameByIndex(i);
+		
 		OnModelLoaded(&m_levelModels[i]);
 	}
 

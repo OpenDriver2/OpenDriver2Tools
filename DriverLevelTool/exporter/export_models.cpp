@@ -341,15 +341,14 @@ void ExportAllModels()
 	for (int i = 0; i < MAX_MODELS; i++)
 	{
 		ModelRef_t* modelRef = g_levModels.GetModelByIndex(i);
-		const char* modelName = g_levModels.GetModelName(modelRef);
-		
+
 		if (!modelRef->model)
 			continue;
 
 		String modelFileName(String::fromPrintf("%s/ZMOD_%d", (char*)g_levname_moddir, i));
 
-		if (modelName && modelName[0] != 0)
-			modelFileName = String::fromPrintf("%s/%d_%s", (char*)g_levname_moddir, i, modelName);
+		if (modelRef->name && modelRef->name[0] != 0)
+			modelFileName = String::fromPrintf("%s/%d_%s", (char*)g_levname_moddir, i, modelRef->name);
 
 		// export model
 		ExportDMODELToOBJ(modelRef->model, modelFileName, i, modelRef->size);

@@ -53,10 +53,12 @@ struct ModelRef_t
 		model = nullptr;
 		userData = nullptr;
 		baseInstance = nullptr;
+		name = nullptr;
 	}
 
 	ModelRef_t* baseInstance;
 
+	const char*	name;
 	MODEL*		model;
 
 	int			index;
@@ -104,7 +106,7 @@ public:
 
 	ModelRef_t*			GetModelByIndex(int nIndex) const;
 	int					FindModelIndexByName(const char* name) const;
-	const char*			GetModelName(ModelRef_t* model) const;
+	const char*			GetModelNameByIndex(int nIndex) const;
 
 	CarModelData_t*		GetCarModel(int index) const;
 	
