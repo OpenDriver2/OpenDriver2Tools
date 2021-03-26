@@ -20,11 +20,6 @@
 #include "driver_routines/regions_d2.h"
 #include "driver_routines/textures.h"
 
-
-
-#include <stdio.h>
-
-
 #include "imgui_impl/imgui_impl_opengl3.h"
 #include "imgui_impl/imgui_impl_sdl.h"
 
@@ -85,124 +80,6 @@ Vector3D g_cameraMoveDir(0);
 float g_cameraDistance = 0.5f;
 float g_cameraFOV = 75.0f;
 
-void SDLPollEvent()
-{
-	SDL_Event event;
-
-	while (SDL_PollEvent(&event))
-	{
-		ImGui_ImplSDL2_ProcessEvent(&event);
-		
-		switch (event.type)
-		{
-			case SDL_QUIT:
-			{
-				g_quit = 1;
-				break;
-			}
-			case SDL_WINDOWEVENT:
-			{
-				switch (event.window.event)
-				{
-				case SDL_WINDOWEVENT_RESIZED:
-					GR_UpdateWindowSize(event.window.data1, event.window.data2);
-
-					break;
-				case SDL_WINDOWEVENT_CLOSE:
-					g_quit = 1;
-					break;
-				}
-				break;
-			}
-			case SDL_MOUSEMOTION:
-			{
-				//Emulator_DoDebugMouseMotion(event.motion.x, event.motion.y);
-
-				if(g_holdLeft)
-				{
-					g_cameraAngles.x += event.motion.yrel * 0.25f;
-					g_cameraAngles.y -= event.motion.xrel * 0.25f;
-				}
-				else if(g_holdRight)
-				{
-					g_cameraDistance += event.motion.yrel * 0.01f;
-				}
-				
-				break;
-			}
-			case SDL_MOUSEBUTTONDOWN:
-			case SDL_MOUSEBUTTONUP:
-			{
-				bool down = (event.type == SDL_MOUSEBUTTONDOWN);
-
-				if (event.button.button == 1)
-					g_holdLeft = down;
-				else if (event.button.button == 3)
-					g_holdRight = down;
-				break;
-			}
-			case SDL_KEYDOWN:
-			case SDL_KEYUP:
-			{
-				int nKey = event.key.keysym.scancode;
-
-				// lshift/right shift
-				if (nKey == SDL_SCANCODE_RSHIFT)
-					nKey = SDL_SCANCODE_LSHIFT;
-				else if (nKey == SDL_SCANCODE_RCTRL)
-					nKey = SDL_SCANCODE_LCTRL;
-				else if (nKey == SDL_SCANCODE_RALT)
-					nKey = SDL_SCANCODE_LALT;
-
-				if (nKey == SDL_SCANCODE_LSHIFT || nKey == SDL_SCANCODE_RSHIFT)
-					g_holdShift = (event.type == SDL_KEYDOWN);
-				else if(nKey == SDL_SCANCODE_LEFT)
-				{
-					g_cameraMoveDir.x = (event.type == SDL_KEYDOWN) ? -1.0f : 0.0f;
-				}
-				else if (nKey == SDL_SCANCODE_RIGHT)
-				{
-					g_cameraMoveDir.x = (event.type == SDL_KEYDOWN) ? 1.0f : 0.0f;
-				}
-				else if (nKey == SDL_SCANCODE_UP)
-				{
-					if (g_renderMode == 0)
-						g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? 1.0f : 0.0f;
-					else if (g_renderMode == 1 && (event.type == SDL_KEYDOWN))
-					{
-						g_currentModel--;
-						g_currentModel = MAX(0, g_currentModel);
-					}
-				}
-				else if (nKey == SDL_SCANCODE_DOWN)
-				{
-					if(g_renderMode == 0)
-						g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? -1.0f : 0.0f;
-					else if (g_renderMode == 1 && (event.type == SDL_KEYDOWN))
-					{
-						g_currentModel++;
-						g_currentModel = MIN(MAX_MODELS, g_currentModel);
-					}
-				}
-				else if (nKey == SDL_SCANCODE_PAGEUP && event.type == SDL_KEYDOWN)
-				{
-					g_cellsDrawDistance += 441;
-				}
-				else if (nKey == SDL_SCANCODE_PAGEDOWN && event.type == SDL_KEYDOWN)
-				{
-					g_cellsDrawDistance -= 441;
-					if (g_cellsDrawDistance < 441)
-						g_cellsDrawDistance = 441;
-				}
-
-				break;
-			}
-		}
-	}
-}
-
-TextureID g_hwTexturePages[128][16];
-
 //-----------------------------------------------------------------
 
 struct WorldRenderProperties
@@ -213,6 +90,7 @@ struct WorldRenderProperties
 	
 } g_worldRenderProperties;
 
+// sets up lighting properties
 void SetupLightingProperties(float ambientScale = 1.0f, float lightScale = 1.0f)
 {
 	g_worldRenderProperties.ambientColor = ColorRGBA(0.95f, 0.9f, 1.0f, 0.45f * ambientScale) ;
@@ -233,6 +111,7 @@ struct ModelShaderInfo
 	int			lightDirConstantId{ -1 };
 } g_modelShader;
 
+// compiles model shader
 void InitModelShader()
 {
 	// create shader
@@ -244,6 +123,8 @@ void InitModelShader()
 	g_modelShader.lightDirConstantId = GR_GetShaderConstantIndex(g_modelShader.shader, "u_lightDir");
 }
 
+// prepares shader for rendering
+// used for Models
 void SetupModelShader()
 {
 	GR_SetShader(g_modelShader.shader);
@@ -254,6 +135,8 @@ void SetupModelShader()
 }
 
 //-----------------------------------------------------------------
+
+TextureID g_hwTexturePages[128][16];
 
 // Creates hardware texture
 void InitHWTexturePage(CTexturePage* tpage)
@@ -328,6 +211,7 @@ void InitHWTexturePage(CTexturePage* tpage)
 
 extern TextureID g_whiteTexture;
 
+// returns hardware texture
 TextureID GetHWTexture(int tpage, int pal)
 {
 	if (tpage < 0 || tpage >= 128 ||
@@ -337,6 +221,7 @@ TextureID GetHWTexture(int tpage, int pal)
 	return g_hwTexturePages[tpage][pal];
 }
 
+// Dummy texture initilization
 void InitHWTextures()
 {
 	for (int i = 0; i < 128; i++)
@@ -348,6 +233,7 @@ void InitHWTextures()
 
 //-----------------------------------------------------------------
 
+// called when model loaded in CDriverLevelModels
 void OnModelLoaded(ModelRef_t* ref)
 {
 	if (!ref->model)
@@ -361,6 +247,7 @@ void OnModelLoaded(ModelRef_t* ref)
 		delete renderModel;
 }
 
+// called when model freed in CDriverLevelModels
 void OnModelFreed(ModelRef_t* ref)
 {
 	CRenderModel* model = (CRenderModel*)ref->userData;
@@ -380,6 +267,9 @@ extern CBaseLevelMap*			g_levMap;
 
 FILE* g_levFile = nullptr;
 
+//-------------------------------------------------------
+// Perorms level loading and renderer data initialization
+//-------------------------------------------------------
 bool LoadLevelFile()
 {
 	g_levFile = fopen(g_levname, "rb");
@@ -409,6 +299,9 @@ bool LoadLevelFile()
 	return loader.LoadFromFile(g_levname);
 }
 
+//-------------------------------------------------------
+// Frees all data
+//-------------------------------------------------------
 void FreeLevelData()
 {
 	MsgWarning("Freeing level data ...\n");
@@ -430,6 +323,10 @@ extern int g_windowHeight;
 const float MODEL_LOD_HIGH_MIN_DISTANCE = 5.0f;
 const float MODEL_LOD_LOW_MIN_DISTANCE  = 40.0f;
 
+//-------------------------------------------------------
+// returns specific model or LOD model
+// based on the distance from camera
+//-------------------------------------------------------
 ModelRef_t* GetModelCheckLods(int index, float distSqr)
 {
 	ModelRef_t* baseRef = g_levModels.GetModelByIndex(index);
@@ -458,6 +355,10 @@ int g_drawnCells;
 int g_drawnModels;
 int g_drawnPolygons;
 
+//-------------------------------------------------------
+// Draws Driver 2 level region cells
+// and spools the world if needed
+//-------------------------------------------------------
 void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 {
 	CELL_ITERATOR ci;
@@ -609,6 +510,10 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 	}
 }
 
+//-------------------------------------------------------
+// Draws Driver 2 level region cells
+// and spools the world if needed
+//-------------------------------------------------------
 void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 {
 	CELL_ITERATOR_D1 ci;
@@ -756,43 +661,35 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 	}
 }
 
-int64 g_oldTicks = 0;
 const float CAMERA_MOVEMENT_SPEED_FACTOR = 140 * RENDER_SCALING;
 const float CAMERA_MOVEMENT_ACCELERATION = 15 * RENDER_SCALING;
 const float CAMERA_MOVEMENT_DECELERATION = 450 * RENDER_SCALING;
 
 Vector3D g_cameraVelocity(0);
 
-void RenderView()
+//-------------------------------------------------------
+// Updates camera movement for level viewer
+//-------------------------------------------------------
+void UpdateCameraMovement(float deltaTime)
 {
 	Vector3D forward, right;
 	AngleVectors(g_cameraAngles, &forward, &right);
-
-	// tie to framerate
-	const float ticks_to_ms = 1.0f / 10000.0f;
-	int64 curTicks = Time::microTicks();
-	float deltaTime = double(curTicks - g_oldTicks) * ticks_to_ms;
-
-	g_oldTicks = curTicks;
-
+	
 	float cameraSpeedModifier = 1.0f;
 
-	if(g_holdShift)
-	{
+	if (g_holdShift)
 		cameraSpeedModifier = 4.0f;
-	}
 
-	if(lengthSqr(g_cameraMoveDir) > 0.1f)
+	const float maxSpeed = CAMERA_MOVEMENT_SPEED_FACTOR * cameraSpeedModifier;
+	
+	if (lengthSqr(g_cameraMoveDir) > 0.1f && 
+		length(g_cameraVelocity) < maxSpeed)
 	{
 		g_cameraVelocity += g_cameraMoveDir.x * right * deltaTime * CAMERA_MOVEMENT_ACCELERATION * cameraSpeedModifier;
 		g_cameraVelocity += g_cameraMoveDir.z * forward * deltaTime * CAMERA_MOVEMENT_ACCELERATION * cameraSpeedModifier;
 
-		const float maxSpeed = CAMERA_MOVEMENT_SPEED_FACTOR * cameraSpeedModifier;
-		
-		if(length(g_cameraVelocity) > maxSpeed)
-		{
-			g_cameraVelocity = normalize(g_cameraVelocity) * maxSpeed;
-		}
+		//if (length(g_cameraVelocity) > maxSpeed)
+		//	g_cameraVelocity = normalize(g_cameraVelocity) * maxSpeed;
 	}
 	else
 	{
@@ -800,10 +697,17 @@ void RenderView()
 	}
 
 	g_cameraPosition += g_cameraVelocity * deltaTime;
+}
 
+//-------------------------------------------------------
+// Render level viewer
+//-------------------------------------------------------
+void RenderLevelView(float deltaTime)
+{
 	Vector3D cameraPos = g_cameraPosition;
 	Vector3D cameraAngles = VDEG2RAD(g_cameraAngles);
 
+	// calculate view matrices
 	Matrix4x4 view, proj;
 	Volume frustumVolume;
 
@@ -811,9 +715,8 @@ void RenderView()
 	view = rotateZXY4(-cameraAngles.x, -cameraAngles.y, -cameraAngles.z);
 	view.translate(-cameraPos);
 
+	// calculate frustum volume
 	frustumVolume.LoadAsFrustum(proj * view);
-
-	SetupLightingProperties();
 
 	GR_SetMatrix(MATRIX_VIEW, view);
 	GR_SetMatrix(MATRIX_PROJECTION, proj);
@@ -821,16 +724,23 @@ void RenderView()
 	GR_SetMatrix(MATRIX_WORLD, identity4());
 
 	GR_UpdateMatrixUniforms();
+	
 	GR_SetDepth(1);
 	GR_SetCullMode(CULL_FRONT);
 
+	// reset lighting
+	SetupLightingProperties();
+	
 	if(g_levMap->GetFormat() >= LEV_FORMAT_DRIVER2_ALPHA16)
 		DrawLevelDriver2(cameraPos, frustumVolume);
 	else
 		DrawLevelDriver1(cameraPos, frustumVolume);
 }
 
-void RenderModelOnly()
+//-------------------------------------------------------
+// Render model viewer
+//-------------------------------------------------------
+void RenderModelView()
 {
 	Vector3D forward, right;
 	AngleVectors(g_cameraAngles, &forward, &right);
@@ -898,7 +808,7 @@ void PopulateUIModelNames()
 	memset(g_modelSearchNameBuffer, 0, sizeof(g_modelSearchNameBuffer));
 }
 
-void ProcessUI()
+void DisplayUI()
 {
 	if(ImGui::BeginMainMenuBar())
 	{
@@ -1053,6 +963,184 @@ void ProcessUI()
 }
 
 //-------------------------------------------------------------
+// SDL2 event handling
+//-------------------------------------------------------------
+void SDLPollEvent()
+{
+	SDL_Event event;
+
+	while (SDL_PollEvent(&event))
+	{
+		ImGui_ImplSDL2_ProcessEvent(&event);
+
+		switch (event.type)
+		{
+		case SDL_QUIT:
+		{
+			g_quit = 1;
+			break;
+		}
+		case SDL_WINDOWEVENT:
+		{
+			switch (event.window.event)
+			{
+			case SDL_WINDOWEVENT_RESIZED:
+				GR_UpdateWindowSize(event.window.data1, event.window.data2);
+
+				break;
+			case SDL_WINDOWEVENT_CLOSE:
+				g_quit = 1;
+				break;
+			}
+			break;
+		}
+		case SDL_MOUSEMOTION:
+		{
+			//Emulator_DoDebugMouseMotion(event.motion.x, event.motion.y);
+
+			if (g_holdLeft)
+			{
+				g_cameraAngles.x += event.motion.yrel * 0.25f;
+				g_cameraAngles.y -= event.motion.xrel * 0.25f;
+			}
+			else if (g_holdRight)
+			{
+				g_cameraDistance += event.motion.yrel * 0.01f;
+			}
+
+			break;
+		}
+		case SDL_MOUSEBUTTONDOWN:
+		case SDL_MOUSEBUTTONUP:
+		{
+			bool down = (event.type == SDL_MOUSEBUTTONDOWN);
+
+			if (event.button.button == 1)
+				g_holdLeft = down;
+			else if (event.button.button == 3)
+				g_holdRight = down;
+			break;
+		}
+		case SDL_KEYDOWN:
+		case SDL_KEYUP:
+		{
+			int nKey = event.key.keysym.scancode;
+
+			// lshift/right shift
+			if (nKey == SDL_SCANCODE_RSHIFT)
+				nKey = SDL_SCANCODE_LSHIFT;
+			else if (nKey == SDL_SCANCODE_RCTRL)
+				nKey = SDL_SCANCODE_LCTRL;
+			else if (nKey == SDL_SCANCODE_RALT)
+				nKey = SDL_SCANCODE_LALT;
+
+			if (nKey == SDL_SCANCODE_LSHIFT || nKey == SDL_SCANCODE_RSHIFT)
+				g_holdShift = (event.type == SDL_KEYDOWN);
+			else if (nKey == SDL_SCANCODE_LEFT)
+			{
+				g_cameraMoveDir.x = (event.type == SDL_KEYDOWN) ? -1.0f : 0.0f;
+			}
+			else if (nKey == SDL_SCANCODE_RIGHT)
+			{
+				g_cameraMoveDir.x = (event.type == SDL_KEYDOWN) ? 1.0f : 0.0f;
+			}
+			else if (nKey == SDL_SCANCODE_UP)
+			{
+				if (g_renderMode == 0)
+					g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? 1.0f : 0.0f;
+				else if (g_renderMode == 1 && (event.type == SDL_KEYDOWN))
+				{
+					g_currentModel--;
+					g_currentModel = MAX(0, g_currentModel);
+				}
+			}
+			else if (nKey == SDL_SCANCODE_DOWN)
+			{
+				if (g_renderMode == 0)
+					g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? -1.0f : 0.0f;
+				else if (g_renderMode == 1 && (event.type == SDL_KEYDOWN))
+				{
+					g_currentModel++;
+					g_currentModel = MIN(MAX_MODELS, g_currentModel);
+				}
+			}
+			else if (nKey == SDL_SCANCODE_PAGEUP && event.type == SDL_KEYDOWN)
+			{
+				g_cellsDrawDistance += 441;
+			}
+			else if (nKey == SDL_SCANCODE_PAGEDOWN && event.type == SDL_KEYDOWN)
+			{
+				g_cellsDrawDistance -= 441;
+				if (g_cellsDrawDistance < 441)
+					g_cellsDrawDistance = 441;
+			}
+
+			break;
+		}
+		}
+	}
+}
+
+extern SDL_Window* g_window;
+
+//-------------------------------------------------------------
+// Loop
+//-------------------------------------------------------------
+void ViewerMainLoop()
+{
+	int64 oldTicks = Time::microTicks();
+
+	// main loop
+	do
+	{
+		// compute time
+		const float ticks_to_ms = 1.0f / 10000.0f;
+		int64 curTicks = Time::microTicks();
+		
+		float deltaTime = double(curTicks - oldTicks) * ticks_to_ms;
+		
+		oldTicks = curTicks;
+		
+		SDLPollEvent();
+
+		GR_BeginScene();
+
+		ImGui_ImplSDL2_NewFrame(g_window);
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui::NewFrame();
+
+		GR_ClearDepth(1.0f);
+
+		if (g_nightMode)
+			GR_ClearColor(19 / 255.0f, 23 / 255.0f, 25 / 255.0f);
+		else
+			GR_ClearColor(128 / 255.0f, 158 / 255.0f, 182 / 255.0f);
+
+		// Render stuff
+		if (g_renderMode == 0)
+		{
+			UpdateCameraMovement(deltaTime);
+			RenderLevelView(deltaTime);
+		}
+		else
+		{
+			RenderModelView();
+		}
+
+		// Do ImGUI interface
+		DisplayUI();
+
+		// draw stuff
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+		GR_EndScene();
+		GR_SwapWindow();
+		
+	} while (!g_quit);
+}
+
+//-------------------------------------------------------------
 // Main level viewer
 //-------------------------------------------------------------
 int ViewerMain()
@@ -1062,8 +1150,6 @@ int ViewerMain()
 		MsgError("Failed to init graphics!\n");
 		return -1;
 	}
-
-	extern SDL_Window* g_window;
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -1087,39 +1173,11 @@ int ViewerMain()
 		return -1;
 	}
 
+	// this is for filtering purposes
 	PopulateUIModelNames();
-	
-	do
-	{
-		SDLPollEvent();
 
-		GR_BeginScene();
-
-		ImGui_ImplSDL2_NewFrame(g_window);
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui::NewFrame();
-
-		GR_ClearDepth(1.0f);
-
-		if(g_nightMode)
-			GR_ClearColor(19 / 255.0f, 23 / 255.0f, 25 / 255.0f);
-		else
-			GR_ClearColor(128 / 255.0f, 158 / 255.0f, 182 / 255.0f);
-
-		// Render stuff
-		if (g_renderMode == 0)
-			RenderView();
-		else
-			RenderModelOnly();
-
-		ProcessUI();
-
-		ImGui::Render();
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-		GR_EndScene();
-
-		GR_SwapWindow();
-	} while (!g_quit);
+	// loop and stuff
+	ViewerMainLoop();
 
 	// free all
 	FreeLevelData();
