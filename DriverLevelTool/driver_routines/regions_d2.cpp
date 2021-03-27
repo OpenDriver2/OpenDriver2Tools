@@ -96,8 +96,12 @@ sdPlane* CDriver2LevelRegion::SdGetCell(const VECTOR_NOPAD& cPosition, int& sdLe
 	if (*surface == -1)
 		return &g_seaPlane;
 
+	bool simplerMethod = m_owner->m_format == LEV_FORMAT_DRIVER2_ALPHA16;
+
 	// check surface has overlapping planes flag (aka multiple levels)
-	if ((*surface & 0x6000) == 0x2000)
+	if(simplerMethod ?
+		(*surface & 0x8000) : 
+		(*surface & 0x6000) == 0x2000)
 	{
 		surface = &m_bspData[*surface & 0x1fff];
 		do {
@@ -125,7 +129,10 @@ sdPlane* CDriver2LevelRegion::SdGetCell(const VECTOR_NOPAD& cPosition, int& sdLe
 			cell.z = cPosition.vz & 1023;
 
 			// get closest surface by BSP lookup
-			BSPSurface = SdGetBSP(&m_nodeData[*surface & 0x3fff], &cell);
+			if(simplerMethod)
+				BSPSurface = SdGetBSP(&m_nodeData[*surface & 0x1fff], &cell);
+			else
+				BSPSurface = SdGetBSP(&m_nodeData[*surface & 0x3fff], &cell);
 
 			if (*BSPSurface == 0x7fff)
 			{
@@ -443,8 +450,8 @@ void CDriver2LevelMap::LoadJunctionsLump(IVirtualStream* pFile, bool oldFormat)
 		{
 			m_junctions[i].flags = oldJunctions[i].flags;
 
-			for (i = 0; i < 4; i++)
-				m_junctions[i].ExitIdx[i] = oldJunctions[i].ExitIdx[i];
+			for (int j = 0; j < 4; j++)
+				m_junctions[i].ExitIdx[j] = oldJunctions[i].ExitIdx[j];
 		}
 	}
 	else
