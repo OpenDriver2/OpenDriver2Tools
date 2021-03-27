@@ -83,8 +83,6 @@ CarModelData_t* CDriverLevelModels::GetCarModel(int index) const
 //-------------------------------------------------------------
 void CDriverLevelModels::LoadCarModelsLump(IVirtualStream* pFile, int size)
 {
-	int l_ofs = pFile->Tell();
-
 	int modelCount;
 	pFile->Read(&modelCount, sizeof(int), 1);
 
@@ -145,8 +143,6 @@ void CDriverLevelModels::LoadCarModelsLump(IVirtualStream* pFile, int size)
 
 		OnCarModelLoaded(&carModelData);
 	}
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
 //-------------------------------------------------------------
@@ -154,8 +150,6 @@ void CDriverLevelModels::LoadCarModelsLump(IVirtualStream* pFile, int size)
 //-------------------------------------------------------------
 void CDriverLevelModels::LoadModelNamesLump(IVirtualStream* pFile, int size)
 {
-	int l_ofs = pFile->Tell();
-
 	char* modelnames = new char[size];
 	pFile->Read(modelnames, size, 1);
 
@@ -174,8 +168,6 @@ void CDriverLevelModels::LoadModelNamesLump(IVirtualStream* pFile, int size)
 	} while (sz < size);
 
 	delete[] modelnames;
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
 //-------------------------------------------------------------
@@ -183,8 +175,6 @@ void CDriverLevelModels::LoadModelNamesLump(IVirtualStream* pFile, int size)
 //-------------------------------------------------------------
 void CDriverLevelModels::LoadLowDetailTableLump(IVirtualStream* pFile, int size)
 {
-	int l_ofs = pFile->Tell();
-
 	// read high detail table
 	for (int i = 0; i < m_numModelsInPack; i++)
 	{
@@ -204,8 +194,6 @@ void CDriverLevelModels::LoadLowDetailTableLump(IVirtualStream* pFile, int size)
 		ModelRef_t& ref = m_levelModels[i];
 		ref.lowDetailId = mappedId;
 	}
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
 //-------------------------------------------------------------
@@ -223,8 +211,6 @@ void CDriverLevelModels::LoadLevelModelsLump(IVirtualStream* pFile)
 	}
 
 	// read from file
-	int l_ofs = pFile->Tell();
-
 	int modelCount;
 	pFile->Read(&modelCount, sizeof(int), 1);
 
@@ -265,8 +251,6 @@ void CDriverLevelModels::LoadLevelModelsLump(IVirtualStream* pFile)
 		
 		OnModelLoaded(&m_levelModels[i]);
 	}
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
 void CDriverLevelModels::SetModelLoadingCallbacks(OnModelLoaded_t onLoaded, OnModelFreed_t onFreed)

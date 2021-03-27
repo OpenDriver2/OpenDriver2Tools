@@ -149,16 +149,12 @@ void CDriver1LevelMap::FreeAll()
 //-------------------------------------------------------------
 void CDriver1LevelMap::LoadMapLump(IVirtualStream* pFile)
 {
-	int l_ofs = pFile->Tell();
-
 	CBaseLevelMap::LoadMapLump(pFile);
 
 	// read straddlers
 	// Driver 1 CO
 	m_straddlers = new CELL_OBJECT[m_numStraddlers];
 	pFile->Read(m_straddlers, m_numStraddlers, sizeof(CELL_OBJECT));
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
 //-------------------------------------------------------------
@@ -166,8 +162,6 @@ void CDriver1LevelMap::LoadMapLump(IVirtualStream* pFile)
 //-------------------------------------------------------------
 void CDriver1LevelMap::LoadSpoolInfoLump(IVirtualStream* pFile)
 {
-	int l_ofs = pFile->Tell();
-
 	CBaseLevelMap::LoadSpoolInfoLump(pFile);
 
 	// Init regions
@@ -177,9 +171,6 @@ void CDriver1LevelMap::LoadSpoolInfoLump(IVirtualStream* pFile)
 
 	for (int i = 0; i < total_regions; i++)
 		InitRegion(&m_regions[i], i);
-
-	// seek back
-	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
 CBaseLevelRegion* CDriver1LevelMap::GetRegion(const XZPAIR& cell) const

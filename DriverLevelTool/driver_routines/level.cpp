@@ -19,13 +19,8 @@ char*						g_overlayMapData = nullptr;
 //-------------------------------------------------------------
 void LoadOverlayMapLump(IVirtualStream* pFile, int lumpSize)
 {
-	int l_ofs = pFile->Tell();
-
 	g_overlayMapData = new char[lumpSize];
 	pFile->Read(g_overlayMapData, 1, lumpSize);
-
-	// seek back
-	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
 //-------------------------------------------------------------
@@ -149,6 +144,8 @@ void CDriverLevelLoader::ProcessLumps(IVirtualStream* pFile)
 		if (lump.type == 255)
 			break;
 
+		int l_ofs = pFile->Tell();
+
 		switch (lump.type)
 		{
 			// Lumps shared between formats
@@ -212,15 +209,23 @@ void CDriverLevelLoader::ProcessLumps(IVirtualStream* pFile)
 			// Driver 2 - only lumps
 			case LUMP_STRAIGHTS2:
 				DevMsg(SPEW_WARNING, "LUMP_STRAIGHTS2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				if (m_map)
+					((CDriver2LevelMap*)m_map)->LoadStraightsLump(pFile);
 				break;
 			case LUMP_CURVES2:
 				DevMsg(SPEW_WARNING, "LUMP_CURVES2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				if (m_map)
+					((CDriver2LevelMap*)m_map)->LoadCurvesLump(pFile);
 				break;
 			case LUMP_JUNCTIONS2:
 				DevMsg(SPEW_WARNING, "LUMP_JUNCTIONS2 ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				if (m_map)
+					((CDriver2LevelMap*)m_map)->LoadJunctionsLump(pFile, true);
 				break;
 			case LUMP_JUNCTIONS2_NEW:
 				DevMsg(SPEW_WARNING, "LUMP_JUNCTIONS2_NEW ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				if (m_map)
+					((CDriver2LevelMap*)m_map)->LoadJunctionsLump(pFile, false);
 				break;
 			// Driver 1 - only lumps
 			case LUMP_ROADMAP:
@@ -247,6 +252,9 @@ void CDriverLevelLoader::ProcessLumps(IVirtualStream* pFile)
 			default:
 				DevMsg(SPEW_WARNING, "LUMP type: %d (0x%X) ofs=%d size=%d\n", lump.type, lump.type, pFile->Tell(), lump.size);
 		}
+
+		// seek back to initial position
+		pFile->Seek(l_ofs, VS_SEEK_SET);
 
 		// skip lump
 		pFile->Seek(lump.size, VS_SEEK_CUR);

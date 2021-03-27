@@ -6,17 +6,18 @@
 #include "core/IVirtualStream.h"
 
 #include "math/isin.h"
+#include "math/ratan2.cpp"
 
 #include <malloc.h>
+
 
 sdPlane g_defaultPlane	= { 0, 0, 0, 0, 2048 };
 sdPlane g_seaPlane		= { 9, 0, 16384, 0, 2048 };
 
-int SdHeightOnPlane(const VECTOR_NOPAD& position, sdPlane* plane)
+int SdHeightOnPlane(const VECTOR_NOPAD& position, sdPlane* plane, DRIVER2_CURVE* curves)
 {
 	int angle;
 	int i, d;
-	//DRIVER2_CURVE* curve;
 	int lx;
 	int ly;
 
@@ -30,10 +31,10 @@ int SdHeightOnPlane(const VECTOR_NOPAD& position, sdPlane* plane)
 		if ((plane->surfaceType & 0xE000) == 0x4000 && plane->b == 0)
 		{
 			// calculate curve point
-			//curve = &Driver2CurvesPtr[(plane->surfaceType & 0x1fff) - 32];
-			//angle = ratan2(curve->Midz - position.vz, curve->Midx - position.vx);
+			DRIVER2_CURVE& curve = curves[(plane->surfaceType & 0x1fff) - 32];
+			angle = ratan2(curve.Midz - position.vz, curve.Midx - position.vx);
 
-			return 0;//((curve->gradient * (angle + 2048 & 0xfff)) / ONE_F) - curve->height;
+			return ((curve.gradient * (angle + 2048 & 0xfff)) / ONE_F) - curve.height;
 		}
 
 		i = plane->b;
@@ -369,6 +370,15 @@ void CDriver2LevelMap::FreeAll()
 	delete[] m_straddlers;
 	m_straddlers = nullptr;
 
+	delete[] m_straights;
+	m_straights = nullptr;
+
+	delete[] m_curves;
+	m_curves = nullptr;
+
+	delete[] m_junctions;
+	m_junctions = nullptr;
+
 	CBaseLevelMap::FreeAll();
 }
 
@@ -377,22 +387,12 @@ void CDriver2LevelMap::FreeAll()
 //-------------------------------------------------------------
 void CDriver2LevelMap::LoadMapLump(IVirtualStream* pFile)
 {
-	int l_ofs = pFile->Tell();
-
 	CBaseLevelMap::LoadMapLump(pFile);
 
 	// read straddlers
 	// Driver 2 PCO
 	m_straddlers = new PACKED_CELL_OBJECT[m_numStraddlers];
 	pFile->Read(m_straddlers, m_numStraddlers, sizeof(PACKED_CELL_OBJECT));
-
-#if 0
-	// Driver 1 CO
-	m_straddlers = malloc(sizeof(CELL_OBJECT) * m_numStraddlers);
-	pFile->Read(m_straddlers, 1, sizeof(CELL_OBJECT) * m_numStraddlers);
-#endif
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
 //-------------------------------------------------------------
@@ -400,8 +400,6 @@ void CDriver2LevelMap::LoadMapLump(IVirtualStream* pFile)
 //-------------------------------------------------------------
 void CDriver2LevelMap::LoadSpoolInfoLump(IVirtualStream* pFile)
 {
-	int l_ofs = pFile->Tell();
-
 	CBaseLevelMap::LoadSpoolInfoLump(pFile);
 
 	// Init regions
@@ -411,9 +409,46 @@ void CDriver2LevelMap::LoadSpoolInfoLump(IVirtualStream* pFile)
 
 	for (int i = 0; i < total_regions; i++)
 		InitRegion(&m_regions[i], i);
+}
 
-	// seek back
-	pFile->Seek(l_ofs, VS_SEEK_SET);
+void CDriver2LevelMap::LoadStraightsLump(IVirtualStream* pFile)
+{
+	pFile->Read(&m_numStraights, 1, sizeof(int));
+	m_straights = new DRIVER2_STRAIGHT[m_numStraights];
+
+	pFile->Read(m_straights, m_numStraights, sizeof(DRIVER2_STRAIGHT));
+}
+
+void CDriver2LevelMap::LoadCurvesLump(IVirtualStream* pFile)
+{
+	pFile->Read(&m_numCurves, 1, sizeof(int));
+	m_curves = new DRIVER2_CURVE[m_numCurves];
+
+	pFile->Read(m_curves, m_numCurves, sizeof(DRIVER2_CURVE));
+}
+
+void CDriver2LevelMap::LoadJunctionsLump(IVirtualStream* pFile, bool oldFormat)
+{
+	pFile->Read(&m_numJunctions, 1, sizeof(int));
+	m_junctions = new DRIVER2_JUNCTION[m_numJunctions];
+
+	// convert old format to new format
+	if (oldFormat)
+	{
+		OLD_DRIVER2_JUNCTION* oldJunctions = new OLD_DRIVER2_JUNCTION[m_numJunctions];
+
+		pFile->Read(oldJunctions, m_numJunctions, sizeof(DRIVER2_JUNCTION));
+
+		for (int i = 0; i < m_numJunctions; i++)
+		{
+			m_junctions[i].flags = oldJunctions[i].flags;
+
+			for (i = 0; i < 4; i++)
+				m_junctions[i].ExitIdx[i] = oldJunctions[i].ExitIdx[i];
+		}
+	}
+	else
+		pFile->Read(m_curves, m_numJunctions, sizeof(DRIVER2_JUNCTION));
 }
 
 CBaseLevelRegion* CDriver2LevelMap::GetRegion(const XZPAIR& cell) const
@@ -468,7 +503,7 @@ int CDriver2LevelMap::MapHeight(const VECTOR_NOPAD& position) const
 	XZPAIR cell;
 	int level = 0;
 
-	cellPos.vx = position.vx - 512;
+	cellPos.vx = position.vx - 512;	// FIXME: is that a quarter of a cell?
 	cellPos.vy = position.vy;
 	cellPos.vz = position.vz - 512;
 
@@ -478,7 +513,7 @@ int CDriver2LevelMap::MapHeight(const VECTOR_NOPAD& position) const
 	sdPlane* plane = region->SdGetCell(cellPos, level);
 
 	if (plane)
-		return SdHeightOnPlane(position, plane);
+		return SdHeightOnPlane(position, plane, m_curves);
 
 	return 0;
 }

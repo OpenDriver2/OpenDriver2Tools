@@ -61,6 +61,12 @@ public:
 	void 					LoadMapLump(IVirtualStream* pFile) override;
 	void					LoadSpoolInfoLump(IVirtualStream* pFile) override;
 
+	void					LoadStraightsLump(IVirtualStream* pFile);
+	void					LoadCurvesLump(IVirtualStream* pFile);
+	void					LoadJunctionsLump(IVirtualStream* pFile, bool oldFormat);
+
+	//----------------------------------------
+
 	void					SpoolRegion(const SPOOL_CONTEXT& ctx, const XZPAIR& cell) override;
 	void					SpoolRegion(const SPOOL_CONTEXT& ctx, int regionIdx) override;
 
@@ -80,6 +86,14 @@ protected:
 	// Driver 2 - specific
 	CDriver2LevelRegion*	m_regions{ nullptr };					// map of regions
 	PACKED_CELL_OBJECT*		m_straddlers { nullptr };				// cell objects between regions
+
+	DRIVER2_STRAIGHT*		m_straights{ nullptr };
+	DRIVER2_CURVE*			m_curves{ nullptr };
+	DRIVER2_JUNCTION*		m_junctions{ nullptr };
+
+	int						m_numStraights{ 0 };
+	int						m_numCurves{ 0 };
+	int						m_numJunctions{ 0 };
 };
 
 

@@ -386,8 +386,6 @@ void CDriverLevelTextures::LoadPermanentTPages(IVirtualStream* pFile)
 //-------------------------------------------------------------
 void CDriverLevelTextures::LoadTextureInfoLump(IVirtualStream* pFile)
 {
-	int l_ofs = pFile->Tell();
-
 	int numPages;
 	pFile->Read(&numPages, 1, sizeof(int));
 
@@ -424,8 +422,6 @@ void CDriverLevelTextures::LoadTextureInfoLump(IVirtualStream* pFile)
 
 	DevMsg(SPEW_NORM,"Special/Car TPages = %d\n", m_numSpecPages);
 
-	pFile->Seek(l_ofs, VS_SEEK_SET);
-
 	// not needed
 	delete tpage_position;
 }
@@ -435,8 +431,6 @@ void CDriverLevelTextures::LoadTextureInfoLump(IVirtualStream* pFile)
 //-------------------------------------------------------------
 void CDriverLevelTextures::LoadTextureNamesLump(IVirtualStream* pFile, int size)
 {
-	int l_ofs = pFile->Tell();
-
 	m_textureNamesData = new char[size+1];
 	memset(m_textureNamesData, 0, size + 1);
 
@@ -453,8 +447,6 @@ void CDriverLevelTextures::LoadTextureNamesLump(IVirtualStream* pFile, int size)
 
 		sz += len + 1;
 	} while (sz < size);
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
 //-------------------------------------------------------------
@@ -464,7 +456,6 @@ void CDriverLevelTextures::ProcessPalletLump(IVirtualStream* pFile)
 {
 	ushort* clutTablePtr;
 	int total_cluts;
-	int l_ofs = pFile->Tell();
 
 	pFile->Read(&total_cluts, 1, sizeof(int));
 
@@ -544,8 +535,6 @@ void CDriverLevelTextures::ProcessPalletLump(IVirtualStream* pFile)
 
 	DevMsg(SPEW_NORM,"    added: %d\n", added_cluts);
 	m_numExtraPalettes = added_cluts;
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
 //----------------------------------------------------------------------------------------------------
