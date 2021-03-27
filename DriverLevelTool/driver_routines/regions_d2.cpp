@@ -34,7 +34,7 @@ int SdHeightOnPlane(const VECTOR_NOPAD& position, sdPlane* plane, DRIVER2_CURVE*
 			DRIVER2_CURVE& curve = curves[(plane->surfaceType & 0x1fff) - 32];
 			angle = ratan2(curve.Midz - position.vz, curve.Midx - position.vx);
 
-			return ((curve.gradient * (angle + 2048 & 0xfff)) / ONE_F) - curve.height;
+			return ((curve.gradient * (angle + 2048 & 0xfff)) / ONE) - curve.height;
 		}
 
 		i = plane->b;
