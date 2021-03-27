@@ -37,6 +37,23 @@ struct TEXCLUT
 	ushort colors[16];
 };
 
+//------------------------------------------------------------------------------------------------------------
+
+struct PALLET_INFO
+{
+	int palette;
+	int texnum;
+	int tpage;
+	int clut_number;
+};
+
+struct PALLET_INFO_D1
+{
+	int palette;
+	int texnum;
+	int tpage;
+};
+
 //---------------------------------------------------------------
 
 struct LUMP
@@ -233,6 +250,7 @@ enum ModelFlags2	// effect flags?
 	sidewalk = 32768
 };
 #else
+
 enum ModelShapeFlags
 {
 	SHAPE_FLAG_SMASH_QUIET = 0x8,
@@ -309,9 +327,12 @@ struct MODEL
 	}
 };
 
+//------------------------------------------------------------------------------------------------------------
+
 struct CELL_DATA {
 	ushort num; // size=0, offset=0
 };
+
 struct CELL_DATA_D1 {
 	ushort num; // size=0, offset=0
 	ushort next_ptr;
@@ -328,6 +349,8 @@ struct CELL_OBJECT {
 	ubyte					yang;
 	ushort					type;
 };
+
+//------------------------------------------------------------------------------------------------------------
 
 struct sdPlane
 {
@@ -351,6 +374,56 @@ struct sdHeightmapHeader
 	short bspOfs;
 	short nodesOfs;
 };
+
+//------------------------------------------------------------------------------------------------------------
+
+struct DRIVER2_CURVE
+{
+	int Midx;
+	int Midz;
+	short start;
+	short end;
+	short ConnectIdx[4];
+	short gradient;
+	short height;
+	char NumLanes;
+	char LaneDirs;
+	char inside;
+	char AILanes;
+};
+
+struct DRIVER2_STRAIGHT
+{
+	int Midx;
+	int Midz;
+	ushort length;
+	short bing;
+	short angle;
+	short ConnectIdx[4];
+	char NumLanes;
+	char LaneDirs;
+	char AILanes;
+	char packing;
+};
+
+struct OLD_DRIVER2_JUNCTION
+{
+	int Midx;
+	int Midz;
+	short length;
+	short width;
+	short angle;
+	short ExitIdx[4];
+	ushort flags;
+};
+
+struct DRIVER2_JUNCTION
+{
+	short ExitIdx[4];
+	uint flags;
+};
+
+//------------------------------------------------------------------------------------------------------------
 
 struct AreaDataStr {
 	uint16	gfx_offset;
@@ -384,7 +457,8 @@ struct AreaTpageList
 
 #define REGTEXPAGE_EMPTY	(0xFF)
 
-struct Spool {
+struct Spool 
+{
 	uint16	offset;
 	uint8	connected_areas[2];
 	uint8	pvs_size;
@@ -396,20 +470,5 @@ struct Spool {
 };
 
 #define REGION_EMPTY	(0xFFFF)
-
-struct PALLET_INFO
-{
-	int palette;
-	int texnum;
-	int tpage;
-	int clut_number;
-};
-
-struct PALLET_INFO_D1
-{
-	int palette;
-	int texnum;
-	int tpage;
-};
 
 #endif
