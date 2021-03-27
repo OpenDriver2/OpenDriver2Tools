@@ -329,6 +329,29 @@ struct CELL_OBJECT {
 	ushort					type;
 };
 
+struct sdPlane
+{
+	short surfaceType;
+	short a, b, c;
+	int d;
+};
+
+struct sdNode
+{
+	int angle : 11;
+	int dist : 12;
+	int offset : 8;
+	int node : 1;
+};
+
+struct sdHeightmapHeader
+{
+	short type;
+	short planesOfs;
+	short bspOfs;
+	short nodesOfs;
+};
+
 struct AreaDataStr {
 	uint16	gfx_offset;
 	uint16	model_offset;

@@ -3,7 +3,7 @@
 
 #include "math/Vector.h"
 
-#define RENDER_SCALING			(1.0f / ONE)
+#define RENDER_SCALING			(1.0f / ONE_F)
 
 struct ModelRef_t;
 struct GrVAO;

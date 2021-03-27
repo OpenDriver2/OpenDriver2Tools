@@ -31,10 +31,22 @@ public:
 
 	// cell iterator
 	PACKED_CELL_OBJECT*		StartIterator(CELL_ITERATOR* iterator, int cellNumber) const;
-	
+
+	sdPlane*				SdGetCell(const VECTOR_NOPAD& position, int& sdLevel);
+
 protected:
+
+	void					ReadHeightmapData(const SPOOL_CONTEXT& ctx);
+
 	CELL_DATA*				m_cells{ nullptr };				// cell data that holding information about cell pointers. 3D world seeks cells first here
 	PACKED_CELL_OBJECT*		m_cellObjects{ nullptr };		// cell objects that represents objects placed in the world
+
+	char*					m_pvsData{ nullptr };
+
+	sdPlane*				m_planeData{ nullptr };
+	short*					m_bspData{ nullptr };
+	sdNode*					m_nodeData{ nullptr };
+	short*					m_surfaceData{ nullptr };
 };
 
 // Driver 2 level map
@@ -54,6 +66,8 @@ public:
 
 	CBaseLevelRegion*		GetRegion(const XZPAIR& cell) const override;
 	CBaseLevelRegion*		GetRegion(int regionIdx) const override;
+
+	int						MapHeight(const VECTOR_NOPAD& position) const override;
 	
 	//----------------------------------------
 	// cell iterator

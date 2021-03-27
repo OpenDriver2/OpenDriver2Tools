@@ -47,9 +47,9 @@ inline int GetDamageZoneId(const char* zoneName)
 
 void ConvertVertexToDriver(SVECTOR* dest, Vector3D* src)
 {
-	dest->x = -src->x * ONE;
-	dest->y = -src->y * ONE;
-	dest->z = src->z * ONE;
+	dest->x = -src->x * ONE_F;
+	dest->y = -src->y * ONE_F;
+	dest->z = src->z * ONE_F;
 }
 
 //--------------------------------------------------------------------------

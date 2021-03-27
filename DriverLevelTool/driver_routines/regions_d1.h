@@ -55,6 +55,8 @@ public:
 	CBaseLevelRegion*		GetRegion(const XZPAIR& cell) const override;
 	CBaseLevelRegion*		GetRegion(int regionIdx) const override;
 
+	int						MapHeight(const VECTOR_NOPAD& position) const override;
+
 	//----------------------------------------
 	// cell iterator
 	CELL_OBJECT*			GetFirstCop(CELL_ITERATOR_D1* iterator, int cellx, int cellz) const;

@@ -326,7 +326,7 @@ void CBaseLevelMap::LoadSpoolInfoLump(IVirtualStream* pFile)
 		int pvs_size;
 		pFile->Read(&pvs_size, 1, sizeof(int));
 
-		m_PVS_size[i] = pvs_size + 0x7ff & 0xfffff800;
+		m_PVS_size[i] = pvs_size + 2047 & 0xfffff800;
 	}
 
 	DevMsg(SPEW_NORM, "cell_slots_add = {%d,%d,%d,%d}\n", m_cell_slots_add[0], m_cell_slots_add[1], m_cell_slots_add[2], m_cell_slots_add[3]);

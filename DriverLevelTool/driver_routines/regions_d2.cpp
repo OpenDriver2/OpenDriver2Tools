@@ -5,7 +5,155 @@
 #include "core/cmdlib.h"
 #include "core/IVirtualStream.h"
 
+#include "math/isin.h"
+
 #include <malloc.h>
+
+sdPlane g_defaultPlane	= { 0, 0, 0, 0, 2048 };
+sdPlane g_seaPlane		= { 9, 0, 16384, 0, 2048 };
+
+int SdHeightOnPlane(const VECTOR_NOPAD& position, sdPlane* plane)
+{
+	int angle;
+	int i, d;
+	//DRIVER2_CURVE* curve;
+	int lx;
+	int ly;
+
+	if (plane)
+	{
+		d = plane->d;
+
+		if ((d >> 1 ^ d) & 0x40000000)
+			return d ^ 0x40000000;
+
+		if ((plane->surfaceType & 0xE000) == 0x4000 && plane->b == 0)
+		{
+			// calculate curve point
+			//curve = &Driver2CurvesPtr[(plane->surfaceType & 0x1fff) - 32];
+			//angle = ratan2(curve->Midz - position.vz, curve->Midx - position.vx);
+
+			return 0;//((curve->gradient * (angle + 2048 & 0xfff)) / ONE_F) - curve->height;
+		}
+
+		i = plane->b;
+
+		if (i != 0)
+		{
+			if (i == 0x4000)
+				return -d;
+
+			lx = (int)plane->a * ((position.vx - 512 & 0xffff) + 512);
+			ly = (int)plane->c * ((position.vz - 512 & 0xffff) + 512);
+
+			return -d - (lx + ly) / i;
+		}
+	}
+
+	return 0;
+}
+
+// walk BSP nodes
+short* SdGetBSP(sdNode* node, XZPAIR* pos)
+{
+	int ang, dot;
+
+	while (*(int*)node < 0)
+	{
+		int ang = node->angle;
+		dot = pos->z * icos(ang) - pos->x * isin(ang);
+
+		if (dot < node->dist * 4096)
+			node++;
+		else
+			node += node->offset;
+	}
+
+	return (short*)node;
+}
+
+// walk the heightmap to get a cPosition
+sdPlane* CDriver2LevelRegion::SdGetCell(const VECTOR_NOPAD& cPosition, int& sdLevel)
+{
+	bool nextLevel;
+	sdPlane* plane;
+	short* surface;
+	short* BSPSurface;
+	XZPAIR cell;
+
+	plane = nullptr;
+
+	sdLevel = 0;
+
+	if (!m_surfaceData)
+		return nullptr;
+
+	surface = &m_surfaceData[(cPosition.vx >> 10 & 63) +
+							 (cPosition.vz >> 10 & 63) * 64];
+
+	// initial surface
+	if (*surface == -1)
+		return &g_seaPlane;
+
+	// check surface has overlapping planes flag (aka multiple levels)
+	if ((*surface & 0x6000) == 0x2000)
+	{
+		surface = &m_bspData[*surface & 0x1fff];
+		do {
+			if (-256 - cPosition.vy > *surface)
+			{
+				surface += 2;
+				sdLevel++;
+			}
+			else
+				break;
+		} while (*surface != -0x8000); // end flag
+
+		surface += 1;
+	}
+
+	// iterate surfaces if BSP
+	do {
+		nextLevel = false;
+
+		// check if it's has BSP properties
+		// basically it determines surface bounds
+		if (*surface & 0x4000)
+		{
+			cell.x = cPosition.vx & 1023;
+			cell.z = cPosition.vz & 1023;
+
+			// get closest surface by BSP lookup
+			BSPSurface = SdGetBSP(&m_nodeData[*surface & 0x3fff], &cell);
+
+			if (*BSPSurface == 0x7fff)
+			{
+				sdLevel++;
+				nextLevel = true;
+
+				BSPSurface = surface + 2; // get to the next node
+			}
+
+			surface = BSPSurface;
+		}
+	} while (nextLevel);
+
+	plane = &m_planeData[*surface];
+
+	if (((int)plane & 3) == 0 && *(int*)plane != -1)
+	{
+		// TODO: event surface handling
+
+		//if (plane->surfaceType - 16U < 16)
+		//	plane = EventSurface(pos, plane);
+
+		//plane = nullptr;
+	}
+	else
+		plane = &g_seaPlane;
+
+	return plane;
+}
 
 void CDriver2LevelRegion::FreeAll()
 {
@@ -21,6 +169,10 @@ void CDriver2LevelRegion::FreeAll()
 	if (m_cellObjects)
 		free(m_cellObjects);
 	m_cellObjects = nullptr;
+
+	if (m_pvsData)
+		free(m_pvsData);
+	m_pvsData = nullptr;
 }
 
 void CDriver2LevelRegion::LoadRegionData(const SPOOL_CONTEXT& ctx)
@@ -51,21 +203,21 @@ void CDriver2LevelRegion::LoadRegionData(const SPOOL_CONTEXT& ctx)
 	int cellPointersOffset;
 	int cellDataOffset;
 	int cellObjectsOffset;
-	int pvsDataOffset;
+	int pvsHeightmapDataOffset;
 
 	if (m_owner->m_format == LEV_FORMAT_DRIVER2_RETAIL) // retail
 	{
-		cellPointersOffset = m_spoolInfo->offset; // SKIP PVS buffers, no need rn...
+		cellPointersOffset = m_spoolInfo->offset;
 		cellDataOffset = cellPointersOffset + m_spoolInfo->cell_data_size[1];
 		cellObjectsOffset = cellDataOffset + m_spoolInfo->cell_data_size[0];
-		pvsDataOffset = cellObjectsOffset + m_spoolInfo->cell_data_size[2];
+		pvsHeightmapDataOffset = cellObjectsOffset + m_spoolInfo->cell_data_size[2];
 	}
 	else // 1.6 alpha
 	{
-		cellPointersOffset = m_spoolInfo->offset + m_spoolInfo->roadm_size;
+		pvsHeightmapDataOffset = m_spoolInfo->offset;
+		cellPointersOffset = pvsHeightmapDataOffset + m_spoolInfo->roadm_size;
 		cellDataOffset = cellPointersOffset + m_spoolInfo->cell_data_size[1];
 		cellObjectsOffset = cellDataOffset + m_spoolInfo->cell_data_size[0];
-		pvsDataOffset = cellObjectsOffset + m_spoolInfo->cell_data_size[2];
 	}
 
 	char* packed_cell_pointers = new char[m_spoolInfo->cell_data_size[1] * SPOOL_CD_BLOCK_SIZE];
@@ -95,12 +247,43 @@ void CDriver2LevelRegion::LoadRegionData(const SPOOL_CONTEXT& ctx)
 
 	delete [] packed_cell_pointers;
 
+	pFile->Seek(ctx.lumpInfo->spooled_offset + pvsHeightmapDataOffset * SPOOL_CD_BLOCK_SIZE, VS_SEEK_SET);
+	ReadHeightmapData(ctx);
+
+	// TODO: PVS data for LEV_FORMAT_DRIVER2_ALPHA, which in separate spool offset
+
 	// even if error occured we still need it to be here
 	m_loaded = true;
 
 	m_owner->OnRegionLoaded(this);
+}
 
-	// TODO: PVS and heightmap data
+void CDriver2LevelRegion::ReadHeightmapData(const SPOOL_CONTEXT& ctx)
+{
+	IVirtualStream* pFile = ctx.dataStream;
+
+	int pvsDataSize = 0;
+	m_pvsData = (char*)malloc(m_spoolInfo->roadm_size * SPOOL_CD_BLOCK_SIZE);
+
+	if (m_owner->m_format == LEV_FORMAT_DRIVER2_RETAIL) // retail do have PVS data in the start
+		pFile->Read(&pvsDataSize, 1, sizeof(int));
+
+	pFile->Read(m_pvsData, m_spoolInfo->roadm_size * SPOOL_CD_BLOCK_SIZE, sizeof(char));
+
+	// go to heightmap
+	sdHeightmapHeader* hdr = (sdHeightmapHeader*)(m_pvsData + pvsDataSize);
+
+	if (hdr->type == 2)
+	{
+		m_planeData = (sdPlane*)((char*)hdr + hdr->planesOfs);
+		m_bspData = (short*)((char*)hdr + hdr->bspOfs);
+		m_nodeData = (sdNode*)((char*)hdr + hdr->nodesOfs);
+		m_surfaceData = (short*)(hdr + 1);	// surface indexes
+	}
+	else
+	{
+		MsgError("Incorrect format or read error\n");
+	}
 }
 
 PACKED_CELL_OBJECT* CDriver2LevelRegion::GetCellObject(int num) const
@@ -146,7 +329,7 @@ PACKED_CELL_OBJECT* CDriver2LevelRegion::StartIterator(CELL_ITERATOR* iterator, 
 	cellx += m_regionX * mapInfo.region_size;
 	cellz += m_regionZ * mapInfo.region_size;
 	
-	// get the near cell position in the world
+	// get the near cell cPosition in the world
 	iterator->nearCell.x = (cellx - (mapInfo.cells_across / 2))* mapInfo.cell_size;
 	iterator->nearCell.z = (cellz - (mapInfo.cells_down / 2))* mapInfo.cell_size;
 
@@ -279,6 +462,27 @@ void CDriver2LevelMap::SpoolRegion(const SPOOL_CONTEXT& ctx, int regionIdx)
 	}
 }
 
+int CDriver2LevelMap::MapHeight(const VECTOR_NOPAD& position) const
+{
+	VECTOR_NOPAD cellPos;
+	XZPAIR cell;
+	int level = 0;
+
+	cellPos.vx = position.vx - 512;
+	cellPos.vy = position.vy;
+	cellPos.vz = position.vz - 512;
+
+	WorldPositionToCellXZ(cell, cellPos);
+	CDriver2LevelRegion* region = (CDriver2LevelRegion*)GetRegion(cell);
+
+	sdPlane* plane = region->SdGetCell(cellPos, level);
+
+	if (plane)
+		return SdHeightOnPlane(position, plane);
+
+	return 0;
+}
+
 //-------------------------------------------------------------
 // returns first cell object of cell
 //-------------------------------------------------------------
@@ -310,7 +514,7 @@ PACKED_CELL_OBJECT* CDriver2LevelMap::GetFirstPackedCop(CELL_ITERATOR* iterator,
 	if (cell_ptr == 0xFFFF)
 		return nullptr;
 
-	// get the near cell position in the world
+	// get the near cell cPosition in the world
 	iterator->nearCell.x = (cellx - (m_mapInfo.cells_across / 2)) * m_mapInfo.cell_size;
 	iterator->nearCell.z = (cellz - (m_mapInfo.cells_down / 2)) * m_mapInfo.cell_size;
 

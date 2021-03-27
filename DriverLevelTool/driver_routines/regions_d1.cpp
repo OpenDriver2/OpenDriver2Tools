@@ -228,6 +228,12 @@ void CDriver1LevelMap::SpoolRegion(const SPOOL_CONTEXT& ctx, int regionIdx)
 	}
 }
 
+int	CDriver1LevelMap::MapHeight(const VECTOR_NOPAD& position) const
+{
+	MsgWarning("UNIMPLEMENTED MapHeight for D1\n");
+	return 0;
+}
+
 //-------------------------------------------------------------
 // returns first cell object of cell
 //-------------------------------------------------------------

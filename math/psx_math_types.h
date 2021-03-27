@@ -1,7 +1,8 @@
 #ifndef PSX_MATH_TYPES_H
 #define PSX_MATH_TYPES_H
 
-#define ONE						(4096.0f)
+#define ONE			4096
+#define ONE_F		float(ONE)
 
 struct VECTOR_NOPAD {
 	int vx;

@@ -697,6 +697,20 @@ void UpdateCameraMovement(float deltaTime)
 	}
 
 	g_cameraPosition += g_cameraVelocity * deltaTime;
+
+	VECTOR_NOPAD cameraPosition;
+	cameraPosition.vx = g_cameraPosition.x * ONE_F;
+	cameraPosition.vy = g_cameraPosition.y * ONE_F;
+	cameraPosition.vz = g_cameraPosition.z * ONE_F;
+
+	int height = g_levMap->MapHeight(cameraPosition);
+
+	if (cameraPosition.vy < height)
+	{
+		cameraPosition.vy = height;
+
+		g_cameraPosition.y = float(height) / ONE_F;
+	}
 }
 
 //-------------------------------------------------------
@@ -856,7 +870,7 @@ void DisplayUI()
 			ImGui::SetWindowSize(ImVec2(400, 120));
 			
 			ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.25f, 1.0f), "Position: X: %d Y: %d Z: %d",
-				int(g_cameraPosition.x * ONE), int(g_cameraPosition.y * ONE), int(g_cameraPosition.z * ONE));
+				int(g_cameraPosition.x * ONE_F), int(g_cameraPosition.y * ONE_F), int(g_cameraPosition.z * ONE_F));
 
 			ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Draw distance: %d", g_cellsDrawDistance);
 			ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Drawn cells: %d", g_drawnCells);
@@ -1100,14 +1114,14 @@ void ViewerMainLoop()
 		float deltaTime = double(curTicks - oldTicks) * ticks_to_ms;
 		
 		oldTicks = curTicks;
-		
+
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplSDL2_NewFrame(g_window);
+		ImGui::NewFrame();
+
 		SDLPollEvent();
 
 		GR_BeginScene();
-
-		ImGui_ImplSDL2_NewFrame(g_window);
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui::NewFrame();
 
 		GR_ClearDepth(1.0f);
 
