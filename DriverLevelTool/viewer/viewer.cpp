@@ -70,6 +70,7 @@ int g_cellsDrawDistance = 441;
 
 int g_currentModel = 0;
 bool g_displayCollisionBoxes = false;
+bool g_displayHeightMap = false;
 int g_renderMode = 0;
 int g_noLod = 0;
 
@@ -720,6 +721,37 @@ const float CAMERA_MOVEMENT_DECELERATION = 450 * RENDER_SCALING;
 
 Vector3D g_cameraVelocity(0);
 
+VECTOR_NOPAD g_debugCellPos;
+
+void DebugDrawSdNode(sdNode* node)
+{
+	Vector3D cpos(g_debugCellPos.vx - 512, g_debugCellPos.vy, g_debugCellPos.vz - 512);
+	cpos /= ONE_F;
+
+	Vector3D dir(icos(node->angle), 0.0f, isin(node->angle));
+	dir /= ONE_F;
+
+	Vector3D tangent = cross(dir, vec3_up);
+
+	ColorRGBA color(0, 1, 0, 1);
+	DebugOverlay_Line(cpos - dir + tangent * float(node->dist / ONE_F), cpos + dir + tangent * float(node->dist / ONE_F), color);
+}
+
+// recursively walks heightmap nodes
+short* DebugDriver2SdCell_r(sdNode* node, XZPAIR* pos)
+{
+	if (node->node)
+	{
+		DebugDrawSdNode(node);
+
+		DebugDriver2SdCell_r(node + 1, pos);
+		DebugDriver2SdCell_r(node + node->offset, pos);
+	}
+
+	return SdGetBSP(node, pos);
+}
+
+// display heightmap cell
 void DebugDrawDriver2HeightmapCell(const VECTOR_NOPAD& cellPos, const ColorRGBA& color)
 {
 	// cell bounds
@@ -728,13 +760,20 @@ void DebugDrawDriver2HeightmapCell(const VECTOR_NOPAD& cellPos, const ColorRGBA&
 
 	Vector3D cMin, cMax;
 	cMin.y = cMax.y = cellPos.vy / ONE_F;
-	cMax.y += 1.0f;// / ONE_F;
 
 	cMin.x = cellMinX / ONE_F;
 	cMin.z = cellMinZ / ONE_F;
 
 	cMax.x = (cellMinX + 1024) / ONE_F;
 	cMax.z = (cellMinZ + 1024) / ONE_F;
+
+	XZPAIR cell;
+	g_levMap->WorldPositionToCellXZ(cell, cellPos);
+	CDriver2LevelRegion* region = (CDriver2LevelRegion*)g_levMap->GetRegion(cell);
+
+	VECTOR_NOPAD cpos = cellPos;
+	cpos.vx -= 512;
+	cpos.vz -= 512;
 	
 	DebugOverlay_Line(Vector3D(cMax.x, cMin.y, cMin.z),
 		Vector3D(cMax.x, cMin.y, cMax.z), color);
@@ -747,6 +786,13 @@ void DebugDrawDriver2HeightmapCell(const VECTOR_NOPAD& cellPos, const ColorRGBA&
 
 	DebugOverlay_Line(Vector3D(cMin.x, cMin.y, cMax.z),
 		Vector3D(cMax.x, cMin.y, cMax.z), color);
+
+	g_debugCellPos.vx = cellMinX + 512;
+	g_debugCellPos.vy = cellPos.vy;
+	g_debugCellPos.vz = cellMinZ + 512;
+	
+	int level = 0;
+	region->SdGetCell(cpos, level, DebugDriver2SdCell_r);
 }
 
 //-------------------------------------------------------
@@ -787,16 +833,17 @@ void UpdateCameraMovement(float deltaTime)
 
 	int height = g_levMap->MapHeight(cameraPosition);
 
-	// draw the cell
-	VECTOR_NOPAD cameraCell = cameraPosition;
-	cameraCell.vy = height;
-
-	DebugDrawDriver2HeightmapCell(cameraCell, ColorRGBA(1, 1, 0.25, 1.0f));
-
+	if(g_displayHeightMap)
+	{
+		// draw the cell
+		VECTOR_NOPAD cameraCell = cameraPosition;
+		cameraCell.vy = height;
+		DebugDrawDriver2HeightmapCell(cameraCell, ColorRGBA(1, 1, 0.25, 1.0f));
+	}
+	
 	if (cameraPosition.vy < height)
 	{
 		cameraPosition.vy = height;
-
 		g_cameraPosition.y = float(height) / ONE_F;
 	}
 }
@@ -966,6 +1013,9 @@ void DisplayUI()
 
 			if (ImGui::MenuItem("Display collision boxes", nullptr, g_displayCollisionBoxes))
 				g_displayCollisionBoxes ^= 1;
+
+			if (ImGui::MenuItem("Display heightmap", nullptr, g_displayHeightMap))
+				g_displayHeightMap ^= 1;
 
 			if (ImGui::MenuItem("Reset camera", nullptr, g_noLod))
 			{

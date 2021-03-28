@@ -10,7 +10,6 @@
 
 #include <malloc.h>
 
-
 sdPlane g_defaultPlane	= { 0, 0, 0, 0, 2048 };
 sdPlane g_seaPlane		= { 9, 0, 16384, 0, 2048 };
 
@@ -57,12 +56,10 @@ int SdHeightOnPlane(const VECTOR_NOPAD& position, sdPlane* plane, DRIVER2_CURVE*
 // walk BSP nodes
 short* SdGetBSP(sdNode* node, XZPAIR* pos)
 {
-	int ang, dot;
-
 	while (node->node < 0)
 	{
 		int ang = node->angle;
-		dot = pos->z * icos(ang) - pos->x * isin(ang);
+		int dot = pos->z * icos(ang) - pos->x * isin(ang);
 
 		if (dot < node->dist * 4096)
 			node++;
@@ -74,7 +71,7 @@ short* SdGetBSP(sdNode* node, XZPAIR* pos)
 }
 
 // walk the heightmap to get a cPosition
-sdPlane* CDriver2LevelRegion::SdGetCell(const VECTOR_NOPAD& cPosition, int& sdLevel)
+sdPlane* CDriver2LevelRegion::SdGetCell(const VECTOR_NOPAD& cPosition, int& sdLevel, sdBspCallback bspWalker) const
 {
 	bool nextLevel;
 	sdPlane* plane;
@@ -117,7 +114,7 @@ sdPlane* CDriver2LevelRegion::SdGetCell(const VECTOR_NOPAD& cPosition, int& sdLe
 
 		surface += 1;
 	}
-
+	
 	// iterate surfaces if BSP
 	do {
 		nextLevel = false;
@@ -131,9 +128,9 @@ sdPlane* CDriver2LevelRegion::SdGetCell(const VECTOR_NOPAD& cPosition, int& sdLe
 
 			// get closest surface by BSP lookup
 			if(simplerMethod)
-				BSPSurface = SdGetBSP(&m_nodeData[*surface & 0x1fff], &cell);
+				BSPSurface = bspWalker(&m_nodeData[*surface & 0x1fff], &cell);
 			else
-				BSPSurface = SdGetBSP(&m_nodeData[*surface & 0x3fff], &cell);
+				BSPSurface = bspWalker(&m_nodeData[*surface & 0x3fff], &cell);
 
 			if (*BSPSurface == 0x7fff)
 			{
@@ -518,7 +515,7 @@ int CDriver2LevelMap::MapHeight(const VECTOR_NOPAD& position) const
 	WorldPositionToCellXZ(cell, cellPos);
 	CDriver2LevelRegion* region = (CDriver2LevelRegion*)GetRegion(cell);
 
-	sdPlane* plane = region->SdGetCell(cellPos, level);
+	sdPlane* plane = region->SdGetCell(cellPos, level, SdGetBSP);
 
 	if (plane)
 		return SdHeightOnPlane(position, plane, m_curves);

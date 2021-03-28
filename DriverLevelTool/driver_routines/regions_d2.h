@@ -18,6 +18,11 @@ struct CELL_ITERATOR
 	XZPAIR					nearCell;
 };
 
+typedef short* (*sdBspCallback)(sdNode* node, XZPAIR* pos);
+
+// standard BSP walker
+short* SdGetBSP(sdNode* node, XZPAIR* pos);
+
 // Driver 2 region
 class CDriver2LevelRegion : public CBaseLevelRegion
 {
@@ -32,7 +37,7 @@ public:
 	// cell iterator
 	PACKED_CELL_OBJECT*		StartIterator(CELL_ITERATOR* iterator, int cellNumber) const;
 
-	sdPlane*				SdGetCell(const VECTOR_NOPAD& position, int& sdLevel);
+	sdPlane*				SdGetCell(const VECTOR_NOPAD& position, int& sdLevel, sdBspCallback bspWalker) const;
 
 protected:
 
