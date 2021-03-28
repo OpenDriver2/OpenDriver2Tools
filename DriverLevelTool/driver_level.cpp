@@ -49,22 +49,39 @@ void ExportLevelData()
 	Msg("-------------\nExporting level data\n-------------\n");
 
 	if (g_export_models || g_export_carmodels)
+	{
+		Directory::create(g_levname_moddir);
 		SaveModelPagesMTL();
+	}
 	
 	if (g_export_models)
+	{
+		Directory::create(g_levname_moddir);
 		ExportAllModels();
+	}
 
 	if (g_export_carmodels)
+	{
+		Directory::create(g_levname_moddir);
 		ExportAllCarModels();
+	}
 	
 	if (g_export_world)
+	{
 		ExportRegions();
+	}
 
 	if (g_export_textures)
+	{
+		Directory::create(g_levname_texdir);
 		ExportAllTextures();
+	}
 
 	if (g_export_overmap)
+	{
+		Directory::create(g_levname_texdir);
 		ExportOverlayMap();
+	}
 
 	Msg("Export done\n");
 }
@@ -95,13 +112,6 @@ void ExportLevelFile()
 		g_levMap = new CDriver1LevelMap();
 
 	levLoader.Initialize(g_levInfo, &g_levTextures, &g_levModels, g_levMap);
-
-	String lev_no_ext = File::dirname(g_levname) + "/" + File::basename(g_levname, File::extension(g_levname));
-	g_levname_moddir = lev_no_ext + "_models";
-	g_levname_texdir = lev_no_ext + "_textures";
-
-	Directory::create(g_levname_moddir);
-	Directory::create(g_levname_texdir);
 
 	if (levLoader.LoadFromFile(g_levname))
 	{
@@ -264,6 +274,11 @@ int main(int argc, char* argv[])
 		PrintCommandLineArguments();
 		return 0;
 	}
+
+	// prepare anyway
+	String lev_no_ext = File::dirname(g_levname) + "/" + File::basename(g_levname, File::extension(g_levname));
+	g_levname_moddir = lev_no_ext + "_models";
+	g_levname_texdir = lev_no_ext + "_textures";
 
 	if (main_routine == 1)
 	{

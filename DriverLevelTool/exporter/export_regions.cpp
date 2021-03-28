@@ -173,7 +173,6 @@ void ExportRegions()
 	Msg("\n");
 
 	int numCellObjectsRead = 0;
-
 	FILE* cellsFile = fopen(String::fromPrintf("%s_CELLPOS_MAP.obj", (char*)g_levname), "wb");
 	FILE* levelFile = fopen(String::fromPrintf("%s_LEVELMODEL.obj", (char*)g_levname), "wb");
 
@@ -197,30 +196,31 @@ void ExportRegions()
 		spoolContext.models = &g_levModels;
 		spoolContext.textures = &g_levTextures;
 
-		for (int y = 0; y < dim_y; y++)
+		int totalRegions = g_levMap->GetRegionsAcross() * g_levMap->GetRegionsDown();
+		
+		for (int i = 0; i < totalRegions; i++)
 		{
-			for (int x = 0; x < dim_x; x++)
+			// load region
+			// it will also load area data models for it
+			g_levMap->SpoolRegion(spoolContext, i);
+
+			CBaseLevelRegion* region = g_levMap->GetRegion(i);
+
+			if (region->IsEmpty())
+				continue;
+
+			Msg("Exporting region %d...", i);
+			
+			if (g_levMap->GetFormat() >= LEV_FORMAT_DRIVER2_ALPHA16)
 			{
-				int regIdx = y * dim_x + x;
-
-				CBaseLevelRegion* region = g_levMap->GetRegion(regIdx);
-
-				if (region->IsEmpty())
-					continue;
-
-				// load region
-				// it will also load area data models for it
-				g_levMap->SpoolRegion(spoolContext, regIdx);
-
-				if (g_levMap->GetFormat() >= LEV_FORMAT_DRIVER2_ALPHA16)
-				{
-					numCellObjectsRead += ExportRegionDriver2((CDriver2LevelRegion*)region, &cellsFileStream, &levelFileStream, lobj_first_v, lobj_first_t);
-				}
-				else
-				{
-					numCellObjectsRead += ExportRegionDriver1((CDriver1LevelRegion*)region, &cellsFileStream, &levelFileStream, lobj_first_v, lobj_first_t);
-				}
+				numCellObjectsRead += ExportRegionDriver2((CDriver2LevelRegion*)region, &cellsFileStream, &levelFileStream, lobj_first_v, lobj_first_t);
 			}
+			else
+			{
+				numCellObjectsRead += ExportRegionDriver1((CDriver1LevelRegion*)region, &cellsFileStream, &levelFileStream, lobj_first_v, lobj_first_t);
+			}
+
+			Msg("DONE\n");
 		}
 
 		// @FIXME: it doesn't really match up but still correct
@@ -229,6 +229,8 @@ void ExportRegions()
 		//if (numCellObjectsRead != numCellsObjectsFile)
 		//	MsgError("numAllObjects mismatch: in file: %d, read %d\n", numCellsObjectsFile, numCellObjectsRead);
 
+		MsgAccept("Successfully saved '%s_LEVELMODEL.obj'\n", (char*)g_levname);
+		
 		fclose(fp);
 	}
 	else

@@ -2,11 +2,13 @@
 #include <SDL_events.h>
 
 #include <nstd/Array.hpp>
+#include <nstd/Directory.hpp>
 #include <nstd/String.hpp>
 #include <nstd/Time.hpp>
 
 
 #include "debug_overlay.h"
+#include "driver_level.h"
 #include "gl_renderer.h"
 #include "rendermodel.h"
 
@@ -64,15 +66,16 @@ const char* model_shader =
 	MODEL_FRAGMENT_SHADER
 	"#endif\n";
 
-int g_quit = 0;
-int g_nightMode = 0;
-int g_cellsDrawDistance = 441;
-
-int g_currentModel = 0;
+bool g_quit = false;
+bool g_nightMode = false;
 bool g_displayCollisionBoxes = false;
 bool g_displayHeightMap = false;
-int g_renderMode = 0;
-int g_noLod = 0;
+bool g_noLod = false;
+
+int g_cellsDrawDistance = 441;
+int g_currentModel = 0;
+
+int g_viewerMode = 0;
 
 bool g_holdLeft = false;
 bool g_holdRight = false;
@@ -266,6 +269,8 @@ void OnModelFreed(ModelRef_t* ref)
 
 // extern some vars
 extern String					g_levname;
+extern String					g_levname_moddir;
+extern String					g_levname_texdir;
 extern OUT_CITYLUMP_INFO		g_levInfo;
 extern CDriverLevelTextures		g_levTextures;
 extern CDriverLevelModels		g_levModels;
@@ -363,15 +368,18 @@ int g_drawnPolygons;
 
 void DrawModelCollisionBox(ModelRef_t* ref, const VECTOR_NOPAD& position, int rotation);
 
+struct PCO_PAIR_D2
+{
+	PACKED_CELL_OBJECT* pco;
+	XZPAIR nearCell;
+};
+
 //-------------------------------------------------------
 // Draws Driver 2 level region cells
 // and spools the world if needed
 //-------------------------------------------------------
 void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 {
-	CELL_ITERATOR ci;
-	PACKED_CELL_OBJECT* ppco;
-
 	int i = g_cellsDrawDistance;
 	int vloop = 0;
 	int hloop = 0;
@@ -423,6 +431,10 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 	int backsin = isin(backAng);
 	*/
 
+	static Array<PCO_PAIR_D2> drawObjects;
+	drawObjects.reserve(g_cellsDrawDistance * 2);
+	drawObjects.clear();
+
 	// walk through all cells
 	while (i >= 0)
 	{
@@ -441,6 +453,9 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 				icell.x > -1 && icell.x < levMapDriver2->GetCellsAcross() &&
 			    icell.z > -1 && icell.z < levMapDriver2->GetCellsDown())
 			{
+				CELL_ITERATOR ci;
+				PACKED_CELL_OBJECT* ppco;
+				
 				levMapDriver2->SpoolRegion(spoolContext, icell);
 				
 				ppco = levMapDriver2->GetFirstPackedCop(&ci, icell.x, icell.z);
@@ -450,69 +465,11 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 				// walk each cell object in cell
 				while (ppco)
 				{
-					CELL_OBJECT co;
-					CDriver2LevelMap::UnpackCellObject(co, ppco, ci.nearCell);
+					PCO_PAIR_D2 pair;
+					pair.nearCell = ci.nearCell;
+					pair.pco = ppco;
 
-					if(co.type >= MAX_MODELS)
-					{
-						ppco = levMapDriver2->GetNextPackedCop(&ci);
-						// WHAT THE FUCK?
-						continue;
-					}
-
-					Vector3D absCellPosition(co.pos.vx * RENDER_SCALING, co.pos.vy * -RENDER_SCALING, co.pos.vz * RENDER_SCALING);
-
-					float distanceFromCamera = lengthSqr(absCellPosition - cameraPos);
-
-					ModelRef_t* ref = GetModelCheckLods(co.type, distanceFromCamera);
-
-					MODEL* model = ref->model;
-					
-					float cellRotationRad = -co.yang / 64.0f * PI_F * 2.0f;
-
-					bool isGround = false;
-					
-					if(model)
-					{
-						if(model->shape_flags & SHAPE_FLAG_SMASH_SPRITE)
-						{
-							cellRotationRad = DEG2RAD(g_cameraAngles.y);
-						}
-
-						if ((model->shape_flags & (SHAPE_FLAG_SUBSURFACE | SHAPE_FLAG_ALLEYWAY)) ||
-							(model->flags2 & (MODEL_FLAG_SIDEWALK | MODEL_FLAG_GRASS)))
-						{
-							isGround = true;
-						}
-					}
-
-					SetupModelShader();
-					
-					Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
-					GR_SetMatrix(MATRIX_WORLD, objectMatrix);
-					GR_UpdateMatrixUniforms();
-					
-					if (isGround && g_nightMode)
-						SetupLightingProperties(0.35f, 0.0f);
-					else
-						SetupLightingProperties(1.0f, 1.0f);
-
-					CRenderModel* renderModel = (CRenderModel*)ref->userData;
-					
-					if (renderModel)
-					{
-						const float boundSphere = ref->model->bounding_sphere * RENDER_SCALING * 2.0f;
-						if (frustrumVolume.IsSphereInside(absCellPosition, boundSphere))
-						{
-							renderModel->Draw();
-							g_drawnModels++;
-							g_drawnPolygons += ref->model->num_polys;
-
-							if (g_displayCollisionBoxes)
-								DrawModelCollisionBox(ref, co.pos, co.yang);
-						}
-					}
-
+					drawObjects.append(pair);
 					
 					ppco = levMapDriver2->GetNextPackedCop(&ci);
 				}
@@ -566,6 +523,76 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 
 		i--;
 	}
+
+	// perform early depth test
+	
+
+	// at least once we should do that
+	SetupModelShader();
+	
+	// draw object list
+	for(int i = 0; i < drawObjects.size(); i++)
+	{
+		CELL_OBJECT co;
+		CDriver2LevelMap::UnpackCellObject(co, drawObjects[i].pco, drawObjects[i].nearCell);
+
+		if (co.type >= MAX_MODELS)
+		{
+			// WHAT THE FUCK?
+			continue;
+		}
+		
+		Vector3D absCellPosition(co.pos.vx * RENDER_SCALING, co.pos.vy * -RENDER_SCALING, co.pos.vz * RENDER_SCALING);
+
+		float distanceFromCamera = lengthSqr(absCellPosition - cameraPos);
+
+		ModelRef_t* ref = GetModelCheckLods(co.type, distanceFromCamera);
+
+		MODEL* model = ref->model;
+
+		float cellRotationRad = -co.yang / 64.0f * PI_F * 2.0f;
+
+		bool isGround = false;
+
+		if (model)
+		{
+			if (model->shape_flags & SHAPE_FLAG_SMASH_SPRITE)
+			{
+				cellRotationRad = DEG2RAD(g_cameraAngles.y);
+			}
+
+			if ((model->shape_flags & (SHAPE_FLAG_SUBSURFACE | SHAPE_FLAG_ALLEYWAY)) ||
+				(model->flags2 & (MODEL_FLAG_SIDEWALK | MODEL_FLAG_GRASS)))
+			{
+				isGround = true;
+			}
+		}
+
+		Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
+		GR_SetMatrix(MATRIX_WORLD, objectMatrix);
+		GR_UpdateMatrixUniforms();
+
+		if (isGround && g_nightMode)
+			SetupLightingProperties(0.35f, 0.0f);
+		else
+			SetupLightingProperties(1.0f, 1.0f);
+
+		CRenderModel* renderModel = (CRenderModel*)ref->userData;
+
+		if (renderModel)
+		{
+			const float boundSphere = ref->model->bounding_sphere * RENDER_SCALING * 2.0f;
+			if (frustrumVolume.IsSphereInside(absCellPosition, boundSphere))
+			{
+				renderModel->Draw();
+				g_drawnModels++;
+				g_drawnPolygons += ref->model->num_polys;
+
+				if (g_displayCollisionBoxes)
+					DrawModelCollisionBox(ref, co.pos, co.yang);
+			}
+		}
+	}
 }
 
 //-------------------------------------------------------
@@ -604,6 +631,10 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 
 	levMapDriver1->WorldPositionToCellXZ(cell, cameraPosition);
 
+	static Array<CELL_OBJECT*> drawObjects;
+	drawObjects.reserve(g_cellsDrawDistance * 2);
+	drawObjects.clear();
+	
 	// walk through all cells
 	while (i >= 0)
 	{
@@ -629,63 +660,7 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 				// walk each cell object in cell
 				while (pco)
 				{
-					if (pco->type >= MAX_MODELS)
-					{
-						pco = levMapDriver1->GetNextCop(&ci);
-						// WHAT THE FUCK?
-						continue;
-					}
-
-					Vector3D absCellPosition(pco->pos.vx * RENDER_SCALING, pco->pos.vy * -RENDER_SCALING, pco->pos.vz * RENDER_SCALING);
-					float distanceFromCamera = lengthSqr(absCellPosition - cameraPos);
-
-					ModelRef_t* ref = GetModelCheckLods(pco->type, distanceFromCamera);
-					MODEL* model = ref->model;
-
-					float cellRotationRad = -pco->yang / 64.0f * PI_F * 2.0f;
-
-					bool isGround = false;
-
-					if (model)
-					{
-						if (model->shape_flags & SHAPE_FLAG_SMASH_SPRITE)
-						{
-							cellRotationRad = DEG2RAD(g_cameraAngles.y);
-						}
-
-						if ((model->shape_flags & (SHAPE_FLAG_SUBSURFACE | SHAPE_FLAG_ALLEYWAY)) ||
-							(model->flags2 & (MODEL_FLAG_SIDEWALK | MODEL_FLAG_GRASS)))
-						{
-							isGround = true;
-						}
-					}
-
-					SetupModelShader();
-					
-					Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
-					GR_SetMatrix(MATRIX_WORLD, objectMatrix);
-					GR_UpdateMatrixUniforms();
-
-					if (g_nightMode)
-						SetupLightingProperties(0.45f, 0.0f);
-					else
-						SetupLightingProperties(1.0f, 1.0f);
-
-					CRenderModel* renderModel = (CRenderModel*)ref->userData;
-
-					if (renderModel)
-					{
-						const float boundSphere = ref->model->bounding_sphere * RENDER_SCALING * 2.0f;
-						if(frustrumVolume.IsSphereInside(absCellPosition, boundSphere))
-						{
-							renderModel->Draw();
-							g_drawnModels++;
-							g_drawnPolygons += ref->model->num_polys;
-
-							if (g_displayCollisionBoxes)
-								DrawModelCollisionBox(ref, pco->pos, pco->yang);
-						}
-					}
+					drawObjects.append(pco);
 
 					pco = levMapDriver1->GetNextCop(&ci);
 				}
@@ -720,6 +695,69 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 		}
 
 		i--;
+	}
+
+	// at least once we should do that
+	SetupModelShader();
+	
+	for(i = 0; i < drawObjects.size(); i++)
+	{
+		pco = drawObjects[i];
+	
+		if (pco->type >= MAX_MODELS)
+		{
+			// WHAT THE FUCK?
+			continue;
+		}
+
+		Vector3D absCellPosition(pco->pos.vx * RENDER_SCALING, pco->pos.vy * -RENDER_SCALING, pco->pos.vz * RENDER_SCALING);
+		float distanceFromCamera = lengthSqr(absCellPosition - cameraPos);
+
+		ModelRef_t* ref = GetModelCheckLods(pco->type, distanceFromCamera);
+		MODEL* model = ref->model;
+
+		float cellRotationRad = -pco->yang / 64.0f * PI_F * 2.0f;
+
+		bool isGround = false;
+
+		if (model)
+		{
+			if (model->shape_flags & SHAPE_FLAG_SMASH_SPRITE)
+			{
+				cellRotationRad = DEG2RAD(g_cameraAngles.y);
+			}
+
+			if ((model->shape_flags & (SHAPE_FLAG_SUBSURFACE | SHAPE_FLAG_ALLEYWAY)) ||
+				(model->flags2 & (MODEL_FLAG_SIDEWALK | MODEL_FLAG_GRASS)))
+			{
+				isGround = true;
+			}
+		}
+
+		Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
+		GR_SetMatrix(MATRIX_WORLD, objectMatrix);
+		GR_UpdateMatrixUniforms();
+
+		if (g_nightMode)
+			SetupLightingProperties(0.45f, 0.0f);
+		else
+			SetupLightingProperties(1.0f, 1.0f);
+
+		CRenderModel* renderModel = (CRenderModel*)ref->userData;
+
+		if (renderModel)
+		{
+			const float boundSphere = ref->model->bounding_sphere * RENDER_SCALING * 2.0f;
+			if (frustrumVolume.IsSphereInside(absCellPosition, boundSphere))
+			{
+				renderModel->Draw();
+				g_drawnModels++;
+				g_drawnPolygons += ref->model->num_polys;
+
+				if (g_displayCollisionBoxes)
+					DrawModelCollisionBox(ref, pco->pos, pco->yang);
+			}
+		}
 	}
 }
 
@@ -976,6 +1014,7 @@ void RenderModelView()
 
 void SpoolAllAreaDatas()
 {
+	Msg("Spooling regions...\n");
 	// Open file stream
 	FILE* fp = fopen(g_levname, "rb");
 	if (fp)
@@ -1008,17 +1047,132 @@ void PopulateUIModelNames()
 	memset(g_modelSearchNameBuffer, 0, sizeof(g_modelSearchNameBuffer));
 }
 
+bool g_exportWidget = false;
+int g_exportMode = 0;
+
+void DisplayExportUI()
+{
+	extern bool g_extract_dmodels;
+	extern bool g_explode_tpages;
+	extern int g_overlaymap_width;
+	
+	if (ImGui::Begin("Export options", &g_exportWidget))
+	{
+		ImGui::SetWindowSize(ImVec2(400, 220));
+
+		if(g_exportMode == 0)
+		{
+			// TODO: Unity export option
+			
+			if(ImGui::Button("Export world"))
+			{
+				Directory::create(g_levname_moddir);
+				SaveModelPagesMTL();
+
+				// idk why, but some regions are bugged while exporting
+				SpoolAllAreaDatas();
+				
+				ExportRegions();
+				MsgInfo("Job done!\n");
+			}
+		}
+		else if(g_exportMode == 1)
+		{
+			ImGui::Checkbox("Only extract as DMODEL", &g_extract_dmodels);
+
+			if (ImGui::Button("Export models"))
+			{
+				Directory::create(g_levname_moddir);
+				SaveModelPagesMTL();
+				ExportAllModels();
+				MsgInfo("Job done!\n");
+			}
+		}
+		else if (g_exportMode == 2)
+		{
+			ImGui::Checkbox("Only extract as DMODEL", &g_extract_dmodels);
+
+			if (ImGui::Button("Export models"))
+			{
+				Directory::create(g_levname_moddir);
+				SaveModelPagesMTL();
+				ExportAllCarModels();
+				MsgInfo("Job done!\n");
+			}
+		}
+		else if (g_exportMode == 3)
+		{
+			ImGui::Checkbox("Extract as TIM files for REDRIVER2", &g_explode_tpages);
+
+			if (ImGui::Button("Export textures"))
+			{
+				Directory::create(g_levname_texdir);
+				ExportAllTextures();
+				MsgInfo("Job done!\n");
+			}
+		}
+		else if (g_exportMode == 4)
+		{
+			ImGui::InputInt("Image width", &g_overlaymap_width);
+
+			if (ImGui::Button("Export textures"))
+			{
+				Directory::create(g_levname_texdir);
+				ExportOverlayMap();
+				MsgInfo("Job done!\n");
+			}
+		}
+
+		ImGui::End();
+	}
+}
+
 void DisplayUI()
 {
 	if(ImGui::BeginMainMenuBar())
 	{
+		if (ImGui::BeginMenu("File"))
+		{
+			if (ImGui::MenuItem("Export level..."))
+			{
+				g_exportWidget = true;
+				g_exportMode = 0;
+			}
+
+			if (ImGui::MenuItem("Export models..."))
+			{
+				g_exportWidget = true;
+				g_exportMode = 1;
+			}
+
+			if (ImGui::MenuItem("Export car models..."))
+			{
+				g_exportWidget = true;
+				g_exportMode = 2;
+			}
+
+			if (ImGui::MenuItem("Export textures..."))
+			{
+				g_exportWidget = true;
+				g_exportMode = 3;
+			}
+
+			if (ImGui::MenuItem("Export overhead map..."))
+			{
+				g_exportWidget = true;
+				g_exportMode = 4;
+			}
+
+			ImGui::EndMenu();
+		}
+		
 		if (ImGui::BeginMenu("Mode"))
 		{
 			if (ImGui::MenuItem("Level viewer"))
-				g_renderMode = 0;
+				g_viewerMode = 0;
 			
 			if (ImGui::MenuItem("Model viewer"))
-				g_renderMode = 1;
+				g_viewerMode = 1;
 			
 			ImGui::EndMenu();
 		}
@@ -1039,12 +1193,16 @@ void DisplayUI()
 			if (ImGui::MenuItem("Disable LODs", nullptr, g_noLod))
 				g_noLod ^= 1;
 
+			ImGui::Separator();
+
 			if (ImGui::MenuItem("Display collision boxes", nullptr, g_displayCollisionBoxes))
 				g_displayCollisionBoxes ^= 1;
 
 			if (ImGui::MenuItem("Display heightmap", nullptr, g_displayHeightMap))
 				g_displayHeightMap ^= 1;
 
+			ImGui::Separator();
+			
 			if (ImGui::MenuItem("Reset camera", nullptr, g_noLod))
 			{
 				g_cameraPosition = 0;
@@ -1063,7 +1221,7 @@ void DisplayUI()
 	{
 		ImGui::SetWindowPos(ImVec2(0, 24));
 
-		if(g_renderMode == 0)
+		if(g_viewerMode == 0)
 		{
 			ImGui::SetWindowSize(ImVec2(400, 120));
 			
@@ -1075,7 +1233,7 @@ void DisplayUI()
 			ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Drawn models: %d", g_drawnModels);
 			ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Drawn polygons: %d", g_drawnPolygons);
 		}
-		else if (g_renderMode == 1)
+		else if (g_viewerMode == 1)
 		{
 			ImGui::SetWindowSize(ImVec2(400, 720));
 			
@@ -1172,6 +1330,9 @@ void DisplayUI()
 		}
 		ImGui::End();
 	}
+
+	if(g_exportWidget)
+		DisplayExportUI();
 }
 
 //-------------------------------------------------------------
@@ -1258,9 +1419,9 @@ void SDLPollEvent()
 			}
 			else if (nKey == SDL_SCANCODE_UP)
 			{
-				if (g_renderMode == 0)
+				if (g_viewerMode == 0)
 					g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? 1.0f : 0.0f;
-				else if (g_renderMode == 1 && (event.type == SDL_KEYDOWN))
+				else if (g_viewerMode == 1 && (event.type == SDL_KEYDOWN))
 				{
 					g_currentModel--;
 					g_currentModel = MAX(0, g_currentModel);
@@ -1268,9 +1429,9 @@ void SDLPollEvent()
 			}
 			else if (nKey == SDL_SCANCODE_DOWN)
 			{
-				if (g_renderMode == 0)
+				if (g_viewerMode == 0)
 					g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? -1.0f : 0.0f;
-				else if (g_renderMode == 1 && (event.type == SDL_KEYDOWN))
+				else if (g_viewerMode == 1 && (event.type == SDL_KEYDOWN))
 				{
 					g_currentModel++;
 					g_currentModel = MIN(MAX_MODELS, g_currentModel);
@@ -1332,7 +1493,7 @@ void ViewerMainLoop()
 			GR_ClearColor(128 / 255.0f, 158 / 255.0f, 182 / 255.0f);
 
 		// Render stuff
-		if (g_renderMode == 0)
+		if (g_viewerMode == 0)
 		{
 			UpdateCameraMovement(deltaTime);
 			RenderLevelView(deltaTime);
