@@ -21,6 +21,8 @@ environment:
   linux_premake_url: 'https://github.com/premake/premake-core/releases/download/v5.0.0-alpha15/premake-5.0.0-alpha15-linux.tar.gz'
 
 install:
+  - cd %APPVEYOR_BUILD_FOLDER%
+  - git submodule update --init --recursive
   - cmd: '%APPVEYOR_BUILD_FOLDER%\.appveyor\Install.bat'
   - sh: '${APPVEYOR_BUILD_FOLDER}/.appveyor/Install.sh'
 
