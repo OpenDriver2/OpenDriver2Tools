@@ -134,10 +134,10 @@ void InitModelShader()
 void SetupModelShader()
 {
 	GR_SetShader(g_modelShader.shader);
-	GR_SetShaderConstatntVector3D(g_modelShader.lightDirConstantId, g_worldRenderProperties.lightDir);
+	GR_SetShaderConstantVector3D(g_modelShader.lightDirConstantId, g_worldRenderProperties.lightDir);
 
-	GR_SetShaderConstatntVector4D(g_modelShader.ambientColorConstantId, g_worldRenderProperties.ambientColor);
-	GR_SetShaderConstatntVector4D(g_modelShader.lightColorConstantId, g_worldRenderProperties.lightColor);
+	GR_SetShaderConstantVector4D(g_modelShader.ambientColorConstantId, g_worldRenderProperties.ambientColor);
+	GR_SetShaderConstantVector4D(g_modelShader.lightColorConstantId, g_worldRenderProperties.lightColor);
 }
 
 //-----------------------------------------------------------------
@@ -361,6 +361,8 @@ int g_drawnCells;
 int g_drawnModels;
 int g_drawnPolygons;
 
+void DrawModelCollisionBox(ModelRef_t* ref, const VECTOR_NOPAD& position, int rotation);
+
 //-------------------------------------------------------
 // Draws Driver 2 level region cells
 // and spools the world if needed
@@ -505,6 +507,9 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 							renderModel->Draw();
 							g_drawnModels++;
 							g_drawnPolygons += ref->model->num_polys;
+
+							if (g_displayCollisionBoxes)
+								DrawModelCollisionBox(ref, co.pos, co.yang);
 						}
 					}
 
@@ -676,6 +681,9 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 							renderModel->Draw();
 							g_drawnModels++;
 							g_drawnPolygons += ref->model->num_polys;
+
+							if (g_displayCollisionBoxes)
+								DrawModelCollisionBox(ref, pco->pos, pco->yang);
 						}
 					}
 
@@ -848,6 +856,11 @@ void UpdateCameraMovement(float deltaTime)
 	}
 }
 
+const float Z_NEAR = 0.01f;
+const float Z_FAR = 100.0f;
+
+bool g_reverseDepthBuffer = false;
+
 //-------------------------------------------------------
 // Render level viewer
 //-------------------------------------------------------
@@ -860,7 +873,7 @@ void RenderLevelView(float deltaTime)
 	Matrix4x4 view, proj;
 	Volume frustumVolume;
 
-	proj = perspectiveMatrixY(DEG2RAD(g_cameraFOV), g_windowWidth, g_windowHeight, 0.01f, 1000.0f);
+	proj = perspectiveMatrixY(DEG2RAD(g_cameraFOV), g_windowWidth, g_windowHeight, Z_NEAR, Z_FAR);
 	view = rotateZXY4(-cameraAngles.x, -cameraAngles.y, -cameraAngles.z);
 	view.translate(-cameraPos);
 
@@ -884,6 +897,38 @@ void RenderLevelView(float deltaTime)
 		DrawLevelDriver2(cameraPos, frustumVolume);
 	else
 		DrawLevelDriver1(cameraPos, frustumVolume);
+}
+
+//-------------------------------------------------------
+// Render model viewer
+//-------------------------------------------------------
+void DrawModelCollisionBox(ModelRef_t* ref, const VECTOR_NOPAD& position, int rotation)
+{
+	if (ref->baseInstance)
+		ref = ref->baseInstance;
+	
+	float objRotationRad = -rotation / 64.0f * PI_F * 2.0f;
+	Vector3D offset(position.vx / ONE_F, -position.vy / ONE_F, position.vz / ONE_F);
+
+	Matrix4x4 world = translate(offset) * rotateY4(objRotationRad);
+	
+	// add collision box drawing
+	int numcb = ref->model->GetCollisionBoxCount();
+	COLLISION_PACKET* box = ref->model->pCollisionBox(0);
+
+	for (int i = 0; i < numcb; i++)
+	{
+		float boxRotationRad = -box->yang / 64.0f * PI_F * 2.0f;
+
+		Vector3D pos(box->xpos, -box->ypos, box->zpos);
+		Vector3D size(box->xsize / 2, box->ysize / 2, box->zsize / 2);
+
+		DebugOverlay_SetTransform(world * translate(pos / ONE_F) * rotateY4(boxRotationRad));
+		DebugOverlay_Box(-size / ONE_F, size / ONE_F, ColorRGBA(1, 1, 0, 0.5f));
+		box++;
+	}
+
+	DebugOverlay_SetTransform(identity4());
 }
 
 //-------------------------------------------------------
@@ -924,25 +969,8 @@ void RenderModelView()
 
 		renderModel->Draw();
 
-		if(g_displayCollisionBoxes)
-		{
-			// add collision box drawing
-			int numcb = ref->model->GetCollisionBoxCount();
-			for (int i = 0; i < numcb; i++)
-			{
-				COLLISION_PACKET* box = ref->model->pCollisionBox(i);
-
-				float boxRotationRad = -box->yang / 64.0f * PI_F * 2.0f;
-
-				Vector3D pos(box->xpos, -box->ypos, box->zpos);
-				Vector3D size(box->xsize / 2, box->ysize / 2, box->zsize / 2);
-
-				DebugOverlay_SetTransform(translate(pos / ONE_F) * rotateY4(boxRotationRad));
-				DebugOverlay_Box(-size / ONE_F, size / ONE_F, ColorRGBA(1, 1, 0, 0.5f));
-			}
-
-			DebugOverlay_SetTransform(identity4());
-		}
+		if (g_displayCollisionBoxes)
+			DrawModelCollisionBox(ref, {0,0,0}, 0.0f);
 	}
 }
 

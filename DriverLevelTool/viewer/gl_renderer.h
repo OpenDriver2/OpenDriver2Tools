@@ -126,13 +126,13 @@ void		GR_DestroyVAO(GrVAO* vaoPtr);
 void		GR_SetShader(const ShaderID& shader);
 int			GR_GetShaderConstantIndex(ShaderID shaderId, char* name);
 
-void		GR_SetShaderConstatntvi(int index, GR_ConstantType constantType, int count, float* value);
+void		GR_SetShaderConstantvi(int index, GR_ConstantType constantType, int count, float* value);
 
-void		GR_SetShaderConstatntFloat(int index, float value);
-void		GR_SetShaderConstatntVector3D(int index, const Vector3D& value);
-void		GR_SetShaderConstatntVector4D(int index, const Vector4D& value);
-void		GR_SetShaderConstatntMatrix3x3(int index, const Matrix3x3& value);
-void		GR_SetShaderConstatntMatrix4x4(int index, const Matrix4x4& value);
+void		GR_SetShaderConstantFloat(int index, float value);
+void		GR_SetShaderConstantVector3D(int index, const Vector3D& value);
+void		GR_SetShaderConstantVector4D(int index, const Vector4D& value);
+void		GR_SetShaderConstantMatrix3x3(int index, const Matrix3x3& value);
+void		GR_SetShaderConstantMatrix4x4(int index, const Matrix4x4& value);
 
 void		GR_SetVAO(GrVAO* vaoPtr);
 void		GR_SetTexture(TextureID texture);

@@ -315,36 +315,35 @@ struct MODEL
 
 	SVECTOR* pVertex(int i) const
 	{
-		return (SVECTOR *)(((ubyte *)this) + vertices) + i;
+		return (SVECTOR *)((ubyte *)this + vertices) + i;
 	}
 
 	SVECTOR* pNormal(int i) const
 	{
-		return (SVECTOR*)(((ubyte*)this) + normals) + i;
+		return (SVECTOR*)((ubyte*)this + normals) + i;
 	}
 	
 	SVECTOR* pPointNormal(int i) const
 	{
-		return (SVECTOR *)(((ubyte *)this) + point_normals) + i;
+		return (SVECTOR *)((ubyte *)this + point_normals) + i;
 	}
 
 	char* pPolyAt(int ofs) const
 	{
-		return (char *)(((ubyte *)this) + poly_block + ofs);
+		return (char *)((ubyte *)this + poly_block + ofs);
 	}
 
 	int GetCollisionBoxCount()
 	{
-		if(collision_block)
-		{
-			return *(int*)(((ubyte*)this) + collision_block);
-		}
+		if(collision_block != 0)
+			return *(int*)((ubyte*)this + collision_block);
+
 		return 0;
 	}
 
 	COLLISION_PACKET* pCollisionBox(int i)
 	{
-		return (COLLISION_PACKET*)(((ubyte*)this) + collision_block + 4) + i;
+		return (COLLISION_PACKET*)((ubyte*)this + collision_block + sizeof(int)) + i;
 	}
 };
 

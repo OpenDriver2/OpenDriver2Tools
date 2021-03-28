@@ -376,7 +376,7 @@ int GR_GetShaderConstantIndex(ShaderID shaderId, char* name)
 	return glGetUniformLocation(shaderId, name);
 }
 
-void GR_SetShaderConstatntvi(int index, GR_ConstantType constantType, int count, float* value)
+void GR_SetShaderConstantvi(int index, GR_ConstantType constantType, int count, float* value)
 {
 	if (constantType >= CONSTANT_MATRIX2x2)
 		((UNIFORM_MAT_FUNC)s_uniformFuncs[constantType])(index, count, GL_TRUE, value);
@@ -384,29 +384,29 @@ void GR_SetShaderConstatntvi(int index, GR_ConstantType constantType, int count,
 		((UNIFORM_FUNC)s_uniformFuncs[constantType])(index, count, value);
 }
 
-void GR_SetShaderConstatntFloat(int index, float value)
+void GR_SetShaderConstantFloat(int index, float value)
 {
-	GR_SetShaderConstatntvi(index, CONSTANT_FLOAT, 1, &value);
+	GR_SetShaderConstantvi(index, CONSTANT_FLOAT, 1, &value);
 }
 
-void GR_SetShaderConstatntVector3D(int index, const Vector3D& value)
+void GR_SetShaderConstantVector3D(int index, const Vector3D& value)
 {
-	GR_SetShaderConstatntvi(index, CONSTANT_VECTOR3D, 1, (float*)&value);
+	GR_SetShaderConstantvi(index, CONSTANT_VECTOR3D, 1, (float*)&value);
 }
 
-void GR_SetShaderConstatntVector4D(int index, const Vector4D& value)
+void GR_SetShaderConstantVector4D(int index, const Vector4D& value)
 {
-	GR_SetShaderConstatntvi(index, CONSTANT_VECTOR4D, 1, (float*)&value);
+	GR_SetShaderConstantvi(index, CONSTANT_VECTOR4D, 1, (float*)&value);
 }
 
-void GR_SetShaderConstatntMatrix3x3(int index, const Matrix3x3& value)
+void GR_SetShaderConstantMatrix3x3(int index, const Matrix3x3& value)
 {
-	GR_SetShaderConstatntvi(index, CONSTANT_MATRIX3x3, 1, (float*)&value);
+	GR_SetShaderConstantvi(index, CONSTANT_MATRIX3x3, 1, (float*)&value);
 }
 
-void GR_SetShaderConstatntMatrix4x4(int index, const Matrix4x4& value)
+void GR_SetShaderConstantMatrix4x4(int index, const Matrix4x4& value)
 {
-	GR_SetShaderConstatntvi(index, CONSTANT_MATRIX4x4, 1, (float*)&value);
+	GR_SetShaderConstantvi(index, CONSTANT_MATRIX4x4, 1, (float*)&value);
 }
 
 //----------------------------------------------------------------
@@ -493,7 +493,6 @@ void GR_ClearDepth(float depth)
 void GR_BeginScene()
 {
 	GR_SetViewPort(0, 0, g_windowWidth, g_windowHeight);
-	
 }
 
 void GR_EndScene()
