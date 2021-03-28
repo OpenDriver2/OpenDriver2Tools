@@ -169,7 +169,7 @@ void PrintCommandLineArguments()
 {
 	const char* argumentsMessage =
 		"Example: DriverLevelTool <command> [arguments]\n\n\n"
-		"  -lev <filename.LEV> \t: Specify level file you want to input\n\n"
+		"  <filename.LEV> \t: Specify level file you want to input\n\n"
 		"  -format <n> \t: Specify level format. 1 = Driver 1, 2 = Driver 2 Demo (alpha 1.6), 3 = Driver 2 Retail\n\n"
 		"  -textures <1/0> \t: Export textures (TGA)\n\n"
 		"  -models <1/0> \t: Export models (OBJ\n\n"
@@ -242,11 +242,6 @@ int main(int argc, char* argv[])
 			main_routine = 1;
 			i++;
 		}
-		else if (!stricmp(argv[i], "-lev"))
-		{
-			g_levname = String::fromCString(argv[i + 1], strlen(argv[i + 1]));
-			i++;
-		}
 		else if (!stricmp(argv[i], "-dmodel2obj"))
 		{
 			ConvertDModelFileToOBJ(argv[i + 1], argv[i + 2]);
@@ -266,9 +261,16 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			MsgWarning("Unknown command line parameter '%s'\n", argv[i]);
-			PrintCommandLineArguments();
-			return 0;
+			String test = String::fromCString(argv[i], strlen(argv[i]));
+
+			if(File::extension(test).compareIgnoreCase("lev"))
+			{
+				MsgWarning("Unknown command line parameter '%s'\n", argv[i]);
+				PrintCommandLineArguments();
+				return 0;
+			}
+			
+			g_levname = test;
 		}
 	}
 
