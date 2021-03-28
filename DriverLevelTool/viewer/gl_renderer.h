@@ -1,7 +1,7 @@
 #ifndef GL_RENDERER_H
 #define GL_RENDERER_H
 
-#include "glad.h"
+#include <glad/glad.h>
 #include "math/dktypes.h"
 #include "math/Matrix.h"
 

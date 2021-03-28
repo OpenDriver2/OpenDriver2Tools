@@ -167,7 +167,6 @@ void PrintCommandLineArguments()
 	const char* argumentsMessage =
 		"Example: DriverLevelTool <command> [arguments]\n\n\n"
 		"  -lev <filename.LEV> \t: Specify level file you want to input\n\n"
-		"  -viewer \t: Enables level file viewer\n\n"
 		"  -format <n> \t: Specify level format. 1 = Driver 1, 2 = Driver 2 Demo (alpha 1.6), 3 = Driver 2 Retail\n\n"
 		"  -textures <1/0> \t: Export textures (TGA)\n\n"
 		"  -models <1/0> \t: Export models (OBJ\n\n"
@@ -197,32 +196,32 @@ int main(int argc, char* argv[])
 	}
 
 	bool generate_denting = false;
-	int main_routine = 1;
+	int main_routine = 2;
 
 	for (int i = 1; i < argc; i++)
 	{
-		if (!stricmp(argv[i], "-viewer"))
-		{
-			main_routine = 2;
-		}
-		else if (!stricmp(argv[i], "-textures"))
+		if (!stricmp(argv[i], "-textures"))
 		{
 			g_export_textures = atoi(argv[i + 1]) > 0;
+			main_routine = 1;
 			i++;
 		}
 		else if (!stricmp(argv[i], "-world"))
 		{
 			g_export_world = atoi(argv[i + 1]) > 0;
+			main_routine = 1;
 			i++;
 		}
 		else if (!stricmp(argv[i], "-models"))
 		{
 			g_export_models = atoi(argv[i + 1]) > 0;
+			main_routine = 1;
 			i++;
 		}
 		else if (!stricmp(argv[i], "-carmodels"))
 		{
 			g_export_carmodels = atoi(argv[i + 1]) > 0;
+			main_routine = 1;
 			i++;
 		}
 		else if (!stricmp(argv[i], "-extractmodels"))
@@ -237,6 +236,7 @@ int main(int argc, char* argv[])
 		{
 			g_export_overmap = true;
 			g_overlaymap_width = atoi(argv[i + 1]);
+			main_routine = 1;
 			i++;
 		}
 		else if (!stricmp(argv[i], "-lev"))

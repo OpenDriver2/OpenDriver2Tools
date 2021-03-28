@@ -18,13 +18,12 @@ project "DriverLevelTool"
 		"dependencies/libnstd/include",
 	}
 	--
-	
-	defines { "IMGUI_IMPL_OPENGL_LOADER_GLAD" }
 
 	includedirs {
 		"./",
 		"../dependencies/libnstd/include",
 		"../dependencies/imgui",
+		"../dependencies"
 	}
 
     files {

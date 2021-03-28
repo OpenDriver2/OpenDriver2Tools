@@ -25,8 +25,8 @@
 #include "driver_routines/regions_d2.h"
 #include "driver_routines/textures.h"
 
-#include "imgui_impl/imgui_impl_opengl3.h"
-#include "imgui_impl/imgui_impl_sdl.h"
+#include "backends/imgui_impl_opengl3.h"
+#include "backends/imgui_impl_sdl.h"
 
 
 #define MODEL_VERTEX_SHADER \
@@ -861,13 +861,14 @@ void UpdateCameraMovement(float deltaTime)
 	{
 		g_cameraVelocity += g_cameraMoveDir.x * right * deltaTime * CAMERA_MOVEMENT_ACCELERATION * cameraSpeedModifier;
 		g_cameraVelocity += g_cameraMoveDir.z * forward * deltaTime * CAMERA_MOVEMENT_ACCELERATION * cameraSpeedModifier;
-
-		//if (length(g_cameraVelocity) > maxSpeed)
-		//	g_cameraVelocity = normalize(g_cameraVelocity) * maxSpeed;
 	}
 	else
 	{
-		g_cameraVelocity -= g_cameraVelocity * CAMERA_MOVEMENT_DECELERATION * deltaTime;
+		float speed = length(g_cameraVelocity);
+		if (speed < 1.0f)
+			speed = 1.0f;
+	
+		g_cameraVelocity -= (g_cameraVelocity / speed) * CAMERA_MOVEMENT_DECELERATION * deltaTime;
 	}
 
 	g_cameraPosition += g_cameraVelocity * deltaTime;
@@ -958,11 +959,15 @@ void DrawModelCollisionBox(ModelRef_t* ref, const VECTOR_NOPAD& position, int ro
 	{
 		float boxRotationRad = -box->yang / 64.0f * PI_F * 2.0f;
 
-		Vector3D pos(box->xpos, -box->ypos, box->zpos);
-		Vector3D size(box->xsize / 2, box->ysize / 2, box->zsize / 2);
+		//if(box->type == 0)
+		{
+			Vector3D pos(box->xpos, -box->ypos, box->zpos);
+			Vector3D size(box->xsize / 2, box->ysize / 2, box->zsize / 2);
 
-		DebugOverlay_SetTransform(world * translate(pos / ONE_F) * rotateY4(boxRotationRad));
-		DebugOverlay_Box(-size / ONE_F, size / ONE_F, ColorRGBA(1, 1, 0, 0.5f));
+			DebugOverlay_SetTransform(world * translate(pos / ONE_F) * rotateY4(boxRotationRad));
+			DebugOverlay_Box(-size / ONE_F, size / ONE_F, ColorRGBA(1, 1, 0, 0.5f));
+		}
+		
 		box++;
 	}
 

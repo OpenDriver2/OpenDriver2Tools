@@ -38,7 +38,7 @@ project "libnstd"
     kind "StaticLib"
     language "C++"
 	filter "system:Windows"
-		defines { "_CRT_SECURE_NO_WARNINGS" }
+		defines { "_CRT_SECURE_NO_WARNINGS", "__PLACEMENT_NEW_INLINE" }
     
 	includedirs {
 		"dependencies/libnstd/include"
@@ -49,8 +49,8 @@ project "libnstd"
         "dependencies/libnstd/src/**.h",
     }
 	
--- ImGui
-project "ImGui"
+-- GLAD
+project "glad"
     kind "StaticLib"
     language "C++"
 	filter "system:Windows"
@@ -61,9 +61,35 @@ project "ImGui"
 	}
 	
     files {
+        "dependencies/glad/*.c",
+        "dependencies/glad/*.h",
+    }
+	
+-- ImGui
+project "ImGui"
+    kind "StaticLib"
+    language "C++"
+	filter "system:Windows"
+		defines { "_CRT_SECURE_NO_WARNINGS", "IMGUI_IMPL_OPENGL_LOADER_GLAD" }
+    
+	includedirs {
+		"dependencies/imgui",
+		"dependencies",
+		SDL2_DIR.."/include"
+	}
+	
+    files {
         "dependencies/imgui/*.cpp",
         "dependencies/imgui/*.h",
+		"dependencies/imgui/backends/imgui_impl_opengl3.cpp",
+		"dependencies/imgui/backends/imgui_impl_opengl3.h",
+		"dependencies/imgui/backends/imgui_impl_sdl.cpp",
+        "dependencies/imgui/backends/imgui_impl_sdl.h",
     }
+	
+	links {
+		"glad"
+	}
 	
 -- little framework
 project "frameworkLib"
