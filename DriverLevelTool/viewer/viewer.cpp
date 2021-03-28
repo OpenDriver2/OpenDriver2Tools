@@ -5,6 +5,8 @@
 #include <nstd/String.hpp>
 #include <nstd/Time.hpp>
 
+
+#include "debug_overlay.h"
 #include "gl_renderer.h"
 #include "rendermodel.h"
 
@@ -12,6 +14,7 @@
 #include "core/VirtualStream.h"
 
 #include "math/Volume.h"
+#include "math/isin.h"
 
 #include "driver_routines/d2_types.h"
 #include "driver_routines/level.h"
@@ -22,6 +25,7 @@
 
 #include "imgui_impl/imgui_impl_opengl3.h"
 #include "imgui_impl/imgui_impl_sdl.h"
+
 
 #define MODEL_VERTEX_SHADER \
 	"	attribute vec4 a_position_tu;\n"\
@@ -376,9 +380,9 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 	g_drawnPolygons = 0;
 
 	VECTOR_NOPAD cameraPosition;
-	cameraPosition.vx = cameraPos.x * 4096;
-	cameraPosition.vy = cameraPos.y * 4096;
-	cameraPosition.vz = cameraPos.z * 4096;
+	cameraPosition.vx = cameraPos.x * ONE_F;
+	cameraPosition.vy = cameraPos.y * ONE_F;
+	cameraPosition.vz = cameraPos.z * ONE_F;
 
 	CDriver2LevelMap* levMapDriver2 = (CDriver2LevelMap*)g_levMap;
 	CFileStream spoolStream(g_levFile);
@@ -390,6 +394,30 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 	spoolContext.textures = &g_levTextures;
 
 	levMapDriver2->WorldPositionToCellXZ(cell, cameraPosition);
+
+	/*
+	int cameraAngleY = g_cameraAngles.y * (4096.0f / 360.0f);
+	int FrAng = 512;
+
+	// setup planes
+	int backPlane = 6144;
+	int rightPlane = -6144;
+	int leftPlane = 6144;
+
+	int farClipLimit = 280000;
+	
+	int rightAng = cameraAngleY - FrAng & 0xfff;
+	int leftAng = cameraAngleY + FrAng & 0xfff;
+	int backAng = cameraAngleY + 1024 & 0xfff;
+
+	int rightcos = icos(rightAng);
+	int rightsin = isin(rightAng);
+
+	int leftcos = icos(leftAng);
+	int leftsin = isin(leftAng);
+	int backcos = icos(backAng);
+	int backsin = isin(backAng);
+	*/
 
 	// walk through all cells
 	while (i >= 0)
@@ -403,8 +431,11 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 			icell.x = cell.x + hloop;
 			icell.z = cell.z + vloop;
 
-			if(icell.x > -1 && icell.x < levMapDriver2->GetCellsAcross() &&
-			   icell.z > -1 && icell.z < levMapDriver2->GetCellsDown())
+			if( //rightPlane < 0 &&
+				//leftPlane > 0 &&
+				//backPlane < farClipLimit &&  // check planes
+				icell.x > -1 && icell.x < levMapDriver2->GetCellsAcross() &&
+			    icell.z > -1 && icell.z < levMapDriver2->GetCellsDown())
 			{
 				levMapDriver2->SpoolRegion(spoolContext, icell);
 				
@@ -451,6 +482,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 						}
 					}
 
+					SetupModelShader();
 					
 					Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
 					GR_SetMatrix(MATRIX_WORLD, objectMatrix);
@@ -482,6 +514,10 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 
 		if (dir == 0)
 		{
+			//leftPlane += leftcos;
+			//backPlane += backcos;
+			//rightPlane += rightcos;
+
 			hloop++;
 
 			if (hloop + vloop == 1)
@@ -489,19 +525,34 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 		}
 		else if (dir == 1)
 		{
+			//leftPlane += leftsin;
+			//backPlane += backsin;
+			//rightPlane += rightsin;
+			
 			vloop++;
+
 			if (hloop == vloop)
 				dir = 2;
 		}
 		else if (dir == 2)
 		{
+			//leftPlane -= leftcos;
+			//backPlane -= backcos;
+			//rightPlane -= rightcos;
+			
 			hloop--;
+
 			if (hloop + vloop == 0)
 				dir = 3;
 		}
 		else
 		{
+			//leftPlane -= leftsin;
+			//backPlane -= backsin;
+			//rightPlane -= rightsin;
+			
 			vloop--;
+
 			if (hloop == vloop)
 				dir = 0;
 		}
@@ -531,9 +582,9 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 	g_drawnPolygons = 0;
 
 	VECTOR_NOPAD cameraPosition;
-	cameraPosition.vx = cameraPos.x * 4096;
-	cameraPosition.vy = cameraPos.y * 4096;
-	cameraPosition.vz = cameraPos.z * 4096;
+	cameraPosition.vx = cameraPos.x * ONE_F;
+	cameraPosition.vy = cameraPos.y * ONE_F;
+	cameraPosition.vz = cameraPos.z * ONE_F;
 
 	CDriver1LevelMap* levMapDriver1 = (CDriver1LevelMap*)g_levMap;
 	CFileStream spoolStream(g_levFile);
@@ -602,6 +653,7 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 						}
 					}
 
+					SetupModelShader();
 					
 					Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
 					GR_SetMatrix(MATRIX_WORLD, objectMatrix);
@@ -667,6 +719,35 @@ const float CAMERA_MOVEMENT_DECELERATION = 450 * RENDER_SCALING;
 
 Vector3D g_cameraVelocity(0);
 
+void DebugDrawDriver2HeightmapCell(const VECTOR_NOPAD& cellPos, const ColorRGBA& color)
+{
+	// cell bounds
+	int cellMinX = (((cellPos.vx - 512) >> 10) << 10) + 512;
+	int cellMinZ = (((cellPos.vz - 512) >> 10) << 10) + 512;
+
+	Vector3D cMin, cMax;
+	cMin.y = cMax.y = cellPos.vy / ONE_F;
+	cMax.y += 1.0f;// / ONE_F;
+
+	cMin.x = cellMinX / ONE_F;
+	cMin.z = cellMinZ / ONE_F;
+
+	cMax.x = (cellMinX + 1024) / ONE_F;
+	cMax.z = (cellMinZ + 1024) / ONE_F;
+	
+	DebugOverlay_Line(Vector3D(cMax.x, cMin.y, cMin.z),
+		Vector3D(cMax.x, cMin.y, cMax.z), color);
+
+	DebugOverlay_Line(Vector3D(cMin.x, cMin.y, cMax.z),
+		Vector3D(cMin.x, cMin.y, cMin.z), color);
+
+	DebugOverlay_Line(Vector3D(cMin.x, cMin.y, cMin.z),
+		Vector3D(cMax.x, cMin.y, cMin.z), color);
+
+	DebugOverlay_Line(Vector3D(cMin.x, cMin.y, cMax.z),
+		Vector3D(cMax.x, cMin.y, cMax.z), color);
+}
+
 //-------------------------------------------------------
 // Updates camera movement for level viewer
 //-------------------------------------------------------
@@ -704,6 +785,12 @@ void UpdateCameraMovement(float deltaTime)
 	cameraPosition.vz = g_cameraPosition.z * ONE_F;
 
 	int height = g_levMap->MapHeight(cameraPosition);
+
+	// draw the cell
+	VECTOR_NOPAD cameraCell = cameraPosition;
+	cameraCell.vy = height;
+
+	DebugDrawDriver2HeightmapCell(cameraCell, ColorRGBA(1, 1, 0.25, 1.0f));
 
 	if (cameraPosition.vy < height)
 	{
@@ -852,6 +939,12 @@ void DisplayUI()
 
 			if (ImGui::MenuItem("Disable LODs", nullptr, g_noLod))
 				g_noLod ^= 1;
+
+			if (ImGui::MenuItem("Reset camera", nullptr, g_noLod))
+			{
+				g_cameraPosition = 0;
+				g_cameraAngles = Vector3D(25.0f, 45.0f, 0);
+			}
 			
 			ImGui::EndMenu();
 		}
@@ -1124,6 +1217,9 @@ void ViewerMainLoop()
 		GR_BeginScene();
 
 		GR_ClearDepth(1.0f);
+		GR_SetCullMode(CULL_NONE);
+		GR_SetBlendMode(BM_NONE);
+		GR_SetDepth(1);
 
 		if (g_nightMode)
 			GR_ClearColor(19 / 255.0f, 23 / 255.0f, 25 / 255.0f);
@@ -1140,6 +1236,8 @@ void ViewerMainLoop()
 		{
 			RenderModelView();
 		}
+
+		DebugOverlay_Draw();
 
 		// Do ImGUI interface
 		DisplayUI();
@@ -1178,6 +1276,7 @@ int ViewerMain()
 	ImGui_ImplOpenGL3_Init();
 
 	InitModelShader();
+	DebugOverlay_Init();
 	InitHWTextures();
 
 	// Load level file
@@ -1200,6 +1299,7 @@ int ViewerMain()
 	ImGui_ImplSDL2_Shutdown();
 	ImGui::DestroyContext();
 
+	DebugOverlay_Destroy();
 	GR_Shutdown();
 
 	return 0;

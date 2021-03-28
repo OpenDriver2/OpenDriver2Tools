@@ -34,7 +34,7 @@ int SdHeightOnPlane(const VECTOR_NOPAD& position, sdPlane* plane, DRIVER2_CURVE*
 			DRIVER2_CURVE& curve = curves[(plane->surfaceType & 0x1fff) - 32];
 			angle = ratan2(curve.Midz - position.vz, curve.Midx - position.vx);
 
-			return ((curve.gradient * (angle + 2048 & 0xfff)) / ONE) - curve.height;
+			return ((curve.gradient * (angle + 2048 & 4095)) / ONE) - curve.height;
 		}
 
 		i = plane->b;
@@ -59,7 +59,7 @@ short* SdGetBSP(sdNode* node, XZPAIR* pos)
 {
 	int ang, dot;
 
-	while (*(int*)node < 0)
+	while (node->node < 0)
 	{
 		int ang = node->angle;
 		dot = pos->z * icos(ang) - pos->x * isin(ang);
@@ -89,6 +89,7 @@ sdPlane* CDriver2LevelRegion::SdGetCell(const VECTOR_NOPAD& cPosition, int& sdLe
 	if (!m_surfaceData)
 		return nullptr;
 
+	// FIXME: divide by cell size??
 	surface = &m_surfaceData[(cPosition.vx >> 10 & 63) +
 							 (cPosition.vz >> 10 & 63) * 64];
 

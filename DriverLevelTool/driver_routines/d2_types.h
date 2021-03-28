@@ -10,20 +10,21 @@
 #define TEXPAGE_4BIT_SIZE	(TEXPAGE_SIZE_X*TEXPAGE_SIZE_Y)
 #define TEXPAGE_SIZE		(TEXPAGE_SIZE_Y*TEXPAGE_SIZE_Y)
 
-struct TEXINF {
+enum EPageStorage
+{
+	TPAGE_PERMANENT = (1 << 0),		// permanently loaded into VRAM
+	TPAGE_AREADATA = (1 << 1),		// spooled and uncompressed
+	TPAGE_SPECPAGES = (1 << 2),		// special car texture page
+};
+
+struct TEXINF
+{
 	uint16		id;
 	uint16		nameoffset;
 	uint8		x;
 	uint8		y;
 	uint8		width;
 	uint8		height;
-};
-
-enum EPageStorage
-{
-	TPAGE_PERMANENT = (1 << 0),		// permanently loaded into VRAM
-	TPAGE_AREADATA = (1 << 1),		// spooled and uncompressed
-	TPAGE_SPECPAGES = (1 << 2),		// special car texture page
 };
 
 struct TEXPAGE_POS	// og name: TP
@@ -79,7 +80,8 @@ struct OUT_CITYLUMP_INFO
 
 //------------------------------------------------------------------------------------------------------------
 
-struct OUT_CELL_FILE_HEADER {
+struct OUT_CELL_FILE_HEADER
+{
 	int cells_across;
 	int cells_down;
 	int cell_size;
