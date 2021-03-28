@@ -15,7 +15,7 @@ struct GrVertex
 {
 	float vx, vy, vz, tc_u;
 	float nx, ny, nz, tc_v;
-	float cr, cg, cb, _cpad;
+	float cr, cg, cb, ca;
 };
 
 struct GrVAO;
@@ -33,7 +33,8 @@ enum GR_BlendMode
 	BM_AVERAGE,
 	BM_ADD,
 	BM_SUBTRACT,
-	BM_ADD_QUATER_SOURCE
+	BM_ADD_QUATER_SOURCE,
+	BM_SEMITRANS_ALPHA,
 };
 
 enum GR_CullMode
@@ -115,6 +116,9 @@ void		GR_DestroyTexture(TextureID texture);
 
 GrVAO*		GR_CreateVAO(int numVertices, GrVertex* verts = nullptr, int dynamic = 0);
 GrVAO*		GR_CreateVAO(int numVertices, int numIndices, GrVertex* verts = nullptr, int* indices = nullptr, int dynamic = 0);
+
+void		GR_UpdateVAO(GrVAO* vaoPtr, int numVertices, GrVertex* verts);
+
 void		GR_DestroyVAO(GrVAO* vaoPtr);
 
 //--------------------------------------------------
@@ -137,6 +141,7 @@ void		GR_SetMatrix(GR_MatrixMode mode, const Matrix4x4& matrix);
 void		GR_SetPolygonOffset(float ofs);
 void		GR_SetDepth(int enable);
 void		GR_SetCullMode(GR_CullMode cullMode);
+void		GR_SetBlendMode(GR_BlendMode blendMode);
 
 void		GR_UpdateMatrixUniforms();
 

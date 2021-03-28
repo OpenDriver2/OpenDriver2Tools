@@ -15,6 +15,8 @@ struct GrVAO
 
 	int numVertices;
 	int numIndices;
+
+	int dynamic;
 };
 
 //-------------------------------------------------------------
@@ -491,6 +493,7 @@ void GR_ClearDepth(float depth)
 void GR_BeginScene()
 {
 	GR_SetViewPort(0, 0, g_windowWidth, g_windowHeight);
+	
 }
 
 void GR_EndScene()
@@ -566,6 +569,10 @@ void GR_SetBlendMode(GR_BlendMode blendMode)
 		glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE);
 		glBlendEquation(GL_FUNC_ADD);
 		break;
+	case BM_SEMITRANS_ALPHA:
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendEquation(GL_FUNC_ADD);
+		break;
 	}
 
 	g_CurrentBlendMode = blendMode;
@@ -636,8 +643,16 @@ GrVAO* GR_CreateVAO(int numVertices, int numIndices, GrVertex* verts /*= nullptr
 	newVAO->vertexArray = vertexArray;
 	newVAO->buffers[0] = buffers[0];
 	newVAO->buffers[1] = buffers[1];
+	newVAO->dynamic = dynamic;
 
 	return newVAO;
+}
+
+void GR_UpdateVAO(GrVAO* vaoPtr, int numVertices, GrVertex* verts)
+{
+	glBindBuffer(GL_ARRAY_BUFFER, vaoPtr->buffers[0]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GrVertex) * numVertices, verts, vaoPtr->dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void GR_SetVAO(GrVAO* vaoPtr)

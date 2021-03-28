@@ -1,0 +1,121 @@
+#include "gl_renderer.h"
+
+#define LINE_VERTEX_SHADER \
+	"	attribute vec4 a_position_tu;\n"\
+	"	attribute vec4 a_normal_tv;\n"\
+	"	attribute vec4 a_color;\n"\
+	"	uniform mat4 u_View;\n"\
+	"	uniform mat4 u_Projection;\n"\
+	"	uniform mat4 u_World;\n"\
+	"	uniform mat4 u_WorldViewProj;\n"\
+	"	void main() {\n"\
+	"		v_color = a_color;\n"\
+	"		gl_Position = u_WorldViewProj * vec4(a_position_tu.xyz, 1.0);\n"\
+	"	}\n"
+
+#define LINE_FRAGMENT_SHADER \
+	"	void main() {\n"\
+	"		fragColor = v_color;\n"\
+	"	}\n"
+
+const char* line_shader =
+"varying vec2 v_texcoord;\n"
+"varying vec3 v_normal;\n"
+"varying vec4 v_color;\n"
+"#ifdef VERTEX\n"
+LINE_VERTEX_SHADER
+"#else\n"
+LINE_FRAGMENT_SHADER
+"#endif\n";
+
+#define MAX_LINE_BUFFER_SIZE		8192
+
+GrVertex g_lineBuffer[MAX_LINE_BUFFER_SIZE];
+int g_numLineVerts;
+
+GrVAO* g_linesVAO = nullptr;
+ShaderID g_linesShader = -1;
+
+void DebugOverlay_Init()
+{
+	g_linesVAO = GR_CreateVAO(1024, nullptr, 1);
+	g_linesShader = GR_CompileShader(line_shader);
+}
+
+void DebugOverlay_Destroy()
+{
+	GR_DestroyVAO(g_linesVAO);
+	g_linesVAO = nullptr;
+
+	//GR_DestroyShader(g_linesShader);
+}
+
+void DebugOverlay_Line(const Vector3D& posA, const Vector3D& posB, const ColorRGBA& color)
+{
+	if(g_numLineVerts + 2 < MAX_LINE_BUFFER_SIZE)
+	{
+		g_lineBuffer[g_numLineVerts++] = GrVertex{ posA.x, posA.y,posA.z, 0,0,0, 0,0, color.x, color.y, color.z, color.w };
+		g_lineBuffer[g_numLineVerts++] = GrVertex{ posB.x, posB.y,posB.z, 0,0,0, 0,0, color.x, color.y, color.z, color.w };
+	}
+}
+
+void DebugOverlay_Box(const Vector3D& mins, const Vector3D& maxs, const ColorRGBA& color)
+{
+	DebugOverlay_Line(Vector3D(mins.x, maxs.y, mins.z),
+		Vector3D(mins.x, maxs.y, maxs.z), color);
+
+	DebugOverlay_Line(Vector3D(maxs.x, maxs.y, maxs.z),
+		Vector3D(maxs.x, maxs.y, mins.z), color);
+
+	DebugOverlay_Line(Vector3D(maxs.x, mins.y, mins.z),
+		Vector3D(maxs.x, mins.y, maxs.z), color);
+
+	DebugOverlay_Line(Vector3D(mins.x, mins.y, maxs.z),
+		Vector3D(mins.x, mins.y, mins.z), color);
+
+	DebugOverlay_Line(Vector3D(mins.x, mins.y, maxs.z),
+		Vector3D(mins.x, maxs.y, maxs.z), color);
+
+	DebugOverlay_Line(Vector3D(maxs.x, mins.y, maxs.z),
+		Vector3D(maxs.x, maxs.y, maxs.z), color);
+
+	DebugOverlay_Line(Vector3D(mins.x, mins.y, mins.z),
+		Vector3D(mins.x, maxs.y, mins.z), color);
+
+	DebugOverlay_Line(Vector3D(maxs.x, mins.y, mins.z),
+		Vector3D(maxs.x, maxs.y, mins.z), color);
+
+	DebugOverlay_Line(Vector3D(mins.x, maxs.y, mins.z),
+		Vector3D(maxs.x, maxs.y, mins.z), color);
+
+	DebugOverlay_Line(Vector3D(mins.x, maxs.y, maxs.z),
+		Vector3D(maxs.x, maxs.y, maxs.z), color);
+
+	DebugOverlay_Line(Vector3D(mins.x, mins.y, mins.z),
+		Vector3D(maxs.x, mins.y, mins.z), color);
+
+	DebugOverlay_Line(Vector3D(mins.x, mins.y, maxs.z),
+		Vector3D(maxs.x, mins.y, maxs.z), color);
+}
+
+void DebugOverlay_Draw()
+{
+	if (g_numLineVerts == 0)
+		return;
+
+	GR_UpdateVAO(g_linesVAO, g_numLineVerts, g_lineBuffer);
+	
+	GR_SetShader(g_linesShader);
+	GR_SetVAO(g_linesVAO);
+
+	GR_SetMatrix(MATRIX_WORLD, identity4());
+	GR_UpdateMatrixUniforms();
+	
+	GR_SetCullMode(CULL_NONE);
+	GR_SetBlendMode(BM_SEMITRANS_ALPHA);
+	GR_SetDepth(0);
+
+	GR_DrawNonIndexed(PRIM_LINES, 0, g_numLineVerts);
+
+	g_numLineVerts = 0;
+}
