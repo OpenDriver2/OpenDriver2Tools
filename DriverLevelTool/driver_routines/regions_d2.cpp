@@ -453,7 +453,7 @@ void CDriver2LevelMap::LoadJunctionsLump(IVirtualStream* pFile, bool oldFormat)
 		}
 	}
 	else
-		pFile->Read(m_curves, m_numJunctions, sizeof(DRIVER2_JUNCTION));
+		pFile->Read(m_junctions, m_numJunctions, sizeof(DRIVER2_JUNCTION));
 }
 
 CBaseLevelRegion* CDriver2LevelMap::GetRegion(const XZPAIR& cell) const
