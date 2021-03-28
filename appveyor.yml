@@ -1,4 +1,4 @@
-version: 1.8.{build}
+version: 2.0.{build}
 
 branches:
   only:
@@ -21,8 +21,6 @@ environment:
   linux_premake_url: 'https://github.com/premake/premake-core/releases/download/v5.0.0-alpha15/premake-5.0.0-alpha15-linux.tar.gz'
 
 install:
-  - cd %APPVEYOR_BUILD_FOLDER%
-  - git submodule update --init --recursive
   - cmd: '%APPVEYOR_BUILD_FOLDER%\.appveyor\Install.bat'
   - sh: '${APPVEYOR_BUILD_FOLDER}/.appveyor/Install.sh'
 
@@ -34,9 +32,9 @@ after_build:
   - cmd: '%APPVEYOR_BUILD_FOLDER%\.appveyor\AfterBuild.bat'
   - sh: '${APPVEYOR_BUILD_FOLDER}/.appveyor/AfterBuild.sh'
 
-cache:
-  - 'DriverLevelTool\obj\'
-  - 'DriverSoundTool\obj\'
+#cache:
+#  - 'DriverLevelTool\obj\'
+#  - 'DriverSoundTool\obj\'
     
 artifacts:
   - path: DriverLevelTool\bin\*\*.zip

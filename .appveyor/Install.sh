@@ -2,6 +2,7 @@
 set -ex
 
 cd "$APPVEYOR_BUILD_FOLDER"
+git submodule update --init --recursive
 
 # Download premake5
 # because it isn't in the repos (yet?)
