@@ -9,6 +9,7 @@
 #include "math/ratan2.cpp"
 
 #include <malloc.h>
+#include <string.h>
 
 sdPlane g_defaultPlane	= { 0, 0, 0, 0, 2048 };
 sdPlane g_seaPlane		= { 9, 0, 16384, 0, 2048 };

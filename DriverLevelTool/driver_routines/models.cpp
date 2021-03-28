@@ -3,8 +3,10 @@
 
 #include <malloc.h>
 #include <nstd/HashSet.hpp>
-
+#include "util/util.h"
 #include "models.h"
+
+#include <string.h>
 
 //--------------------------------------------------------------------------------
 
@@ -58,7 +60,7 @@ int CDriverLevelModels::FindModelIndexByName(const char* name) const
 {
 	for (int i = 0; i < MAX_MODELS; i++)
 	{
-		if (!strcmp(m_model_names[i], name))
+		if (!stricmp(m_model_names[i], name))
 			return i;
 	}
 

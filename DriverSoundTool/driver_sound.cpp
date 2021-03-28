@@ -1,9 +1,10 @@
 ﻿#include <math.h>
 
 #include <malloc.h>
+#include <string.h>
 #include "core/VirtualStream.h"
 #include "core/cmdlib.h"
-#include "math/dktypes.h"
+#include "core/dktypes.h"
 #include "util/util.h"
 
 

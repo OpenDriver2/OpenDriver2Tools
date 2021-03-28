@@ -3,10 +3,10 @@
 #include "core/VirtualStream.h"
 
 #include "util/image.h"
-#include "util/util.h"
 #include "util/rnc2.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #include <nstd/File.hpp>
 #include <nstd/Directory.hpp>

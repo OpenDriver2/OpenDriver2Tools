@@ -1,7 +1,7 @@
 #include "regions.h"
 
+#include <string.h>
 #include <malloc.h>
-
 
 #include "models.h"
 #include "textures.h"

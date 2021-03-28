@@ -1,11 +1,13 @@
 #include <stdio.h>
 
 #include "driver_routines/models.h"
-#include "util/util.h"
 #include "core/VirtualStream.h"
 
 #include "driver_level.h"
+#include "core/cmdlib.h"
 #include "math/Matrix.h"
+
+#include <string.h>
 
 extern bool		g_extract_dmodels;
 extern String	g_levname_moddir;

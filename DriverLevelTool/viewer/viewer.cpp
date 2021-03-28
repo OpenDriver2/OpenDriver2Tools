@@ -531,7 +531,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
 	SetupModelShader();
 	
 	// draw object list
-	for(int i = 0; i < drawObjects.size(); i++)
+	for(uint i = 0; i < drawObjects.size(); i++)
 	{
 		CELL_OBJECT co;
 		CDriver2LevelMap::UnpackCellObject(co, drawObjects[i].pco, drawObjects[i].nearCell);
@@ -700,7 +700,7 @@ void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
 	// at least once we should do that
 	SetupModelShader();
 	
-	for(i = 0; i < drawObjects.size(); i++)
+	for(uint i = 0; i < drawObjects.size(); i++)
 	{
 		pco = drawObjects[i];
 	

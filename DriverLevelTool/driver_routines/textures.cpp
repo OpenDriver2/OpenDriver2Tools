@@ -2,6 +2,8 @@
 #include "core/IVirtualStream.h"
 #include "math/Vector.h"
 
+#include <string.h>
+
 #include <nstd/String.hpp>
 
 #include "textures.h"

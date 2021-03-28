@@ -4,7 +4,7 @@
 #include <nstd/String.hpp>
 #include <nstd/Array.hpp>
 
-#include "math/dktypes.h"
+#include "core/dktypes.h"
 #include "math/psx_math_types.h"
 #include "d2_types.h"
 

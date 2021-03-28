@@ -5,6 +5,9 @@
 #include <nstd/String.hpp>
 #include <nstd/File.hpp>
 
+#include "core/cmdlib.h"
+#include <string.h>
+
 // TODO: sync with DR2LIMITS.H
 #define NUM_DAMAGE_ZONES		6
 

@@ -1,4 +1,5 @@
 #include "VirtualStream.h"
+#include <string.h> // va_*
 #include <stdarg.h> // va_*
 #include <malloc.h> // va_*
 

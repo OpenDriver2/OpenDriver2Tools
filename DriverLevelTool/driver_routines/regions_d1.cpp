@@ -1,6 +1,7 @@
 #include "regions_d1.h"
 
 #include "level.h"
+#include <string.h>
 #include "core/cmdlib.h"
 #include "core/IVirtualStream.h"
 

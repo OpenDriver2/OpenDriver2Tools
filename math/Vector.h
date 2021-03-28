@@ -12,7 +12,7 @@
 #include <limits.h>
 #include <float.h>
 
-#include "dktypes.h"
+#include "core/dktypes.h"
 #include "math_common.h"
 
 struct half

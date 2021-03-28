@@ -1,4 +1,5 @@
-#include "math/dktypes.h"
+#include "core/dktypes.h"
+#include "core/cmdlib.h"
 #include "core/VirtualStream.h"
 
 #include <nstd/String.hpp>
@@ -9,6 +10,7 @@
 #include "textures.h"
 
 #include "level.h"
+
 
 //--------------------------------------------------------------------------------------------------------------------------
 

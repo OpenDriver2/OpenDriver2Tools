@@ -1,4 +1,7 @@
 #include "driver_level.h"
+
+#include <string.h>
+
 #include "core/cmdlib.h"
 #include "core/VirtualStream.h"
 

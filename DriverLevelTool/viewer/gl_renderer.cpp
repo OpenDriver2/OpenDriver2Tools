@@ -5,7 +5,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include "math/dktypes.h"
+#include "core/dktypes.h"
 #include "math/Matrix.h"
 
 struct GrVAO

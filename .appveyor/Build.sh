@@ -3,7 +3,7 @@ set -ex
 
 cd "$APPVEYOR_BUILD_FOLDER"
 
-./premake5 gmake2
+./premake5 gmake2 verbose
 
 for config in debug release
 do

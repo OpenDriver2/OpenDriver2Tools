@@ -3,9 +3,11 @@
 #include <malloc.h>
 #include "core/VirtualStream.h"
 #include "core/cmdlib.h"
-#include "math/dktypes.h"
+#include "core/dktypes.h"
 #include "util/image.h"
 #include "util/util.h"
+
+#include <string.h>
 
 struct RECT16
 {

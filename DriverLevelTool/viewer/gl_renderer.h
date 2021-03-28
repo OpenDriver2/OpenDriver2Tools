@@ -2,7 +2,7 @@
 #define GL_RENDERER_H
 
 #include <glad/glad.h>
-#include "math/dktypes.h"
+#include "core/dktypes.h"
 #include "math/Matrix.h"
 
 #define RO_DOUBLE_BUFFERED

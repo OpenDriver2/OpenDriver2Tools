@@ -2,7 +2,6 @@
 #define VIRTUALSTREAM_H
 
 #include "IVirtualStream.h"
-#include "cmdlib.h"
 #include <stdio.h>
 
 //--------------------------

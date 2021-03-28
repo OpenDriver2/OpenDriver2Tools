@@ -1,7 +1,7 @@
 #ifndef REGIONS_H
 #define REGIONS_H
 
-#include "math/dktypes.h"
+#include "core/dktypes.h"
 #include "models.h"
 #include "level.h"
 

@@ -3,14 +3,13 @@
 project "Driver2MissionTool"
     kind "ConsoleApp"
     language "C++"
-    compileas "C++"
     targetdir "bin/%{cfg.buildcfg}"
 
 	-- framework link
-	dependson { "frameworkLib" }
-	links { "frameworkLib" }
+	dependson { "frameworkLib", "libnstd" }
+	links { "frameworkLib", "libnstd" }
 	includedirs {
-		"dependencies/libnstd/include",
+		"../dependencies/libnstd/include",
 	}
 	--
 

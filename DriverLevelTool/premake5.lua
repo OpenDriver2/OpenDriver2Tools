@@ -9,13 +9,12 @@ project "DriverLevelTool"
     compileas "C++"
     targetdir "bin/%{cfg.buildcfg}"
 
-	dependson { "libnstd", "ImGui" }
+	dependson { "ImGui", "frameworkLib", "libnstd", "glad" }
 	
 	-- framework link
-	dependson { "frameworkLib" }
-	links { "frameworkLib" }
+	links {  "libnstd", "glad", "ImGui", "frameworkLib" }
 	includedirs {
-		"dependencies/libnstd/include",
+		"../dependencies/libnstd/include",
 	}
 	--
 
@@ -56,7 +55,6 @@ project "DriverLevelTool"
 		}
 		links { 
             "SDL2", 
-			"libnstd",
 			"ImGui"
         }
 		libdirs { 

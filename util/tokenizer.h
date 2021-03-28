@@ -1,7 +1,7 @@
 #ifndef TOKENIZER_H
 #define TOKENIZER_H
 
-#include "math/dktypes.h"
+#include "core/dktypes.h"
 #include <nstd/Array.hpp>
 
 typedef bool (*BOOLFUNC)(const char ch);

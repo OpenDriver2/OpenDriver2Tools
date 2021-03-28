@@ -1,7 +1,7 @@
 #ifndef IMAGE_H
 #define IMAGE_H
 
-#include "math/dktypes.h"
+#include "core/dktypes.h"
 
 // Define targa header.
 #pragma pack( push, 1 )

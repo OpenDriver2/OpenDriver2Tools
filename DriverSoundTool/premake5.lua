@@ -7,18 +7,16 @@ project "DriverSoundTool"
     targetdir "bin/%{cfg.buildcfg}"
 
 	-- framework link
-	dependson { "frameworkLib" }
-	links { "frameworkLib" }
+	dependson { "frameworkLib", "libnstd" }
+	links { "frameworkLib", "libnstd" }
 	includedirs {
-		"dependencies/libnstd/include",
+		"../dependencies/libnstd/include",
 	}
 	--
 
     files {
         "**.cpp",
         "**.h",
-		"driver_routines/**.cpp",
-		"driver_routines/**.h",
     }
         
     filter "system:linux"

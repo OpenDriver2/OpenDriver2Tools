@@ -7,10 +7,10 @@ project "Driver2CutsceneTool"
     targetdir "bin/%{cfg.buildcfg}"
 	
 	-- framework link
-	dependson { "frameworkLib" }
-	links { "frameworkLib" }
+	dependson { "frameworkLib", "libnstd" }
+	links { "frameworkLib", "libnstd" }
 	includedirs {
-		"dependencies/libnstd/include",
+		"../dependencies/libnstd/include",
 	}
 	--
 

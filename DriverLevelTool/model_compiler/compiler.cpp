@@ -1,12 +1,11 @@
 #include "compiler.h"
 
-#include "obj_loader.h"
+#include <string.h>
+
 #include "driver_routines/d2_types.h"
 
-#include <malloc.h>
 #include "math/TriangleUtil.inl"
 
-#include "driver_level.h"
 #include "core/VirtualStream.h"
 #include "util/ini.h"
 #include "util/util.h"
@@ -14,6 +13,8 @@
 #include <nstd/File.hpp>
 #include <nstd/Directory.hpp>
 #include <nstd/Array.hpp>
+
+#include "core/cmdlib.h"
 
 extern String	g_levname;
 

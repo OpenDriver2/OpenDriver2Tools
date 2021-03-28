@@ -1,7 +1,7 @@
 #ifndef D2_TYPES
 #define D2_TYPES
 
-#include "math/dktypes.h"
+#include "core/dktypes.h"
 #include "math/psx_math_types.h"
 
 #define TEXPAGE_SIZE_X	(128)
