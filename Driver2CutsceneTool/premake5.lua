@@ -23,11 +23,6 @@ project "Driver2CutsceneTool"
         buildoptions {
             "-Wno-narrowing",
             "-fpermissive",
-            "-m32"
-        }
-        
-        linkoptions {
-            "-m32"
         }
         
     filter "configurations:Debug"
