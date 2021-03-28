@@ -35,6 +35,7 @@ int g_numLineVerts;
 
 GrVAO* g_linesVAO = nullptr;
 ShaderID g_linesShader = -1;
+Matrix4x4 g_lineTransform = identity3();
 
 void DebugOverlay_Init()
 {
@@ -50,12 +51,20 @@ void DebugOverlay_Destroy()
 	//GR_DestroyShader(g_linesShader);
 }
 
+void DebugOverlay_SetTransform(const Matrix4x4& transform)
+{
+	g_lineTransform = transform;
+}
+
 void DebugOverlay_Line(const Vector3D& posA, const Vector3D& posB, const ColorRGBA& color)
 {
 	if(g_numLineVerts + 2 < MAX_LINE_BUFFER_SIZE)
 	{
-		g_lineBuffer[g_numLineVerts++] = GrVertex{ posA.x, posA.y,posA.z, 0,0,0, 0,0, color.x, color.y, color.z, color.w };
-		g_lineBuffer[g_numLineVerts++] = GrVertex{ posB.x, posB.y,posB.z, 0,0,0, 0,0, color.x, color.y, color.z, color.w };
+		Vector3D rPosA = (g_lineTransform*Vector4D(posA, 1.0f)).xyz();
+		Vector3D rPosB = (g_lineTransform*Vector4D(posB, 1.0f)).xyz();
+		
+		g_lineBuffer[g_numLineVerts++] = GrVertex{ rPosA.x, rPosA.y,rPosA.z, 0,0,0, 0,0, color.x, color.y, color.z, color.w };
+		g_lineBuffer[g_numLineVerts++] = GrVertex{ rPosB.x, rPosB.y,rPosB.z, 0,0,0, 0,0, color.x, color.y, color.z, color.w };
 	}
 }
 
@@ -118,4 +127,5 @@ void DebugOverlay_Draw()
 	GR_DrawNonIndexed(PRIM_LINES, 0, g_numLineVerts);
 
 	g_numLineVerts = 0;
+	g_lineTransform = identity3();
 }

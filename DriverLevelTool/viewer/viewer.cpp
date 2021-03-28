@@ -69,6 +69,7 @@ int g_nightMode = 0;
 int g_cellsDrawDistance = 441;
 
 int g_currentModel = 0;
+bool g_displayCollisionBoxes = false;
 int g_renderMode = 0;
 int g_noLod = 0;
 
@@ -856,6 +857,9 @@ void RenderModelView()
 
 	view.translate(-cameraPos);
 
+	SetupModelShader();
+	SetupLightingProperties(0.5f, 0.5f);
+	
 	GR_SetMatrix(MATRIX_VIEW, view);
 	GR_SetMatrix(MATRIX_PROJECTION, proj);
 
@@ -872,6 +876,26 @@ void RenderModelView()
 		CRenderModel* renderModel = (CRenderModel*)ref->userData;
 
 		renderModel->Draw();
+
+		if(g_displayCollisionBoxes)
+		{
+			// add collision box drawing
+			int numcb = ref->model->GetCollisionBoxCount();
+			for (int i = 0; i < numcb; i++)
+			{
+				COLLISION_PACKET* box = ref->model->pCollisionBox(i);
+
+				float boxRotationRad = -box->yang / 64.0f * PI_F * 2.0f;
+
+				Vector3D pos(box->xpos, -box->ypos, box->zpos);
+				Vector3D size(box->xsize / 2, box->ysize / 2, box->zsize / 2);
+
+				DebugOverlay_SetTransform(translate(pos / ONE_F) * rotateY4(boxRotationRad));
+				DebugOverlay_Box(-size / ONE_F, size / ONE_F, ColorRGBA(1, 1, 0, 0.5f));
+			}
+
+			DebugOverlay_SetTransform(identity4());
+		}
 	}
 }
 
@@ -939,6 +963,9 @@ void DisplayUI()
 
 			if (ImGui::MenuItem("Disable LODs", nullptr, g_noLod))
 				g_noLod ^= 1;
+
+			if (ImGui::MenuItem("Display collision boxes", nullptr, g_displayCollisionBoxes))
+				g_displayCollisionBoxes ^= 1;
 
 			if (ImGui::MenuItem("Reset camera", nullptr, g_noLod))
 			{

@@ -211,6 +211,20 @@ struct POLYGT4
 	CVECTOR color;
 };
 
+struct COLLISION_PACKET
+{
+	short type;
+	short xpos;
+	short ypos;
+	short zpos;
+	short flags;
+	short yang;
+	short empty;
+	short xsize;
+	short ysize;
+	short zsize;
+};
+
 #if 0
 enum ModelFlags1	// collision flags?
 {
@@ -326,6 +340,11 @@ struct MODEL
 			return *(int*)(((ubyte*)this) + collision_block);
 		}
 		return 0;
+	}
+
+	COLLISION_PACKET* pCollisionBox(int i)
+	{
+		return (COLLISION_PACKET*)(((ubyte*)this) + collision_block + 4) + i;
 	}
 };
 
