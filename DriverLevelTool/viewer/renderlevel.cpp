@@ -148,7 +148,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 				icell.x > -1 && icell.x < levMapDriver2->GetCellsAcross() &&
 				icell.z > -1 && icell.z < levMapDriver2->GetCellsDown())
 			{
-				CELL_ITERATOR ci;
+				CELL_ITERATOR_D2 ci;
 				PACKED_CELL_OBJECT* ppco;
 
 				levMapDriver2->SpoolRegion(spoolContext, icell);

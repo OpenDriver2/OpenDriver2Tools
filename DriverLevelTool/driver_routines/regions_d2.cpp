@@ -314,7 +314,7 @@ CELL_DATA* CDriver2LevelRegion::GetCellData(int num) const
 }
 
 // cell iterator
-PACKED_CELL_OBJECT* CDriver2LevelRegion::StartIterator(CELL_ITERATOR* iterator, int cellNumber) const
+PACKED_CELL_OBJECT* CDriver2LevelRegion::StartIterator(CELL_ITERATOR_D2* iterator, int cellNumber) const
 {
 	ushort cell_ptr = m_cellPointers[cellNumber];
 
@@ -341,14 +341,32 @@ PACKED_CELL_OBJECT* CDriver2LevelRegion::StartIterator(CELL_ITERATOR* iterator, 
 	iterator->nearCell.z = (cellz - (mapInfo.cells_down / 2))* mapInfo.cell_size;
 
 	// get the packed cell data start and near cell
-	CELL_DATA& cell = m_cells[cell_ptr];
+	CELL_DATA* cell = &m_cells[cell_ptr];
 
-	if (cell.num & 0x4000) // FIXME: other objects are flagged with 0x8000 etc
-		return nullptr;
+	int drawValue = iterator->drawValue;
 
-	PACKED_CELL_OBJECT* ppco = GetCellObject(cell.num & 0x3fff);
+	if(drawValue != -1)
+	{
+		if (drawValue == 0)
+		{
+			if (cell->num & 0x4000)
+				return nullptr;
+		}
+		else
+		{
+			cell++;
+			while (cell->num != (drawValue | 0x4000))
+			{
+				if (cell->num & 0x8000)
+					return nullptr;
+				
+				cell++;
+			}
+		}
+	}
 
-	iterator->pcd = &cell;
+	PACKED_CELL_OBJECT* ppco = GetCellObject(cell->num & 0x3fff);
+	iterator->pcd = cell;
 
 	if (ppco->value == 0xffff && (ppco->pos.vy & 1))
 		ppco = ((CDriver2LevelMap*)m_owner)->GetNextPackedCop(iterator);
@@ -527,7 +545,7 @@ int CDriver2LevelMap::MapHeight(const VECTOR_NOPAD& position) const
 //-------------------------------------------------------------
 // returns first cell object of cell
 //-------------------------------------------------------------
-PACKED_CELL_OBJECT* CDriver2LevelMap::GetFirstPackedCop(CELL_ITERATOR* iterator, int cellx, int cellz) const
+PACKED_CELL_OBJECT* CDriver2LevelMap::GetFirstPackedCop(CELL_ITERATOR_D2* iterator, int cellx, int cellz) const
 {
 	// lookup region
 	const int region_x = cellx / m_mapInfo.region_size;
@@ -560,14 +578,33 @@ PACKED_CELL_OBJECT* CDriver2LevelMap::GetFirstPackedCop(CELL_ITERATOR* iterator,
 	iterator->nearCell.z = (cellz - (m_mapInfo.cells_down / 2)) * m_mapInfo.cell_size;
 
 	// get the packed cell data start and near cell
-	CELL_DATA& cell = region.m_cells[cell_ptr];
+	CELL_DATA* cell = &region.m_cells[cell_ptr];
 
-	if (cell.num & 0x4000) // FIXME: other objects are flagged with 0x8000 etc
-		return nullptr;
+	int drawValue = iterator->drawValue;
 
-	PACKED_CELL_OBJECT* ppco = region.GetCellObject(cell.num & 0x3fff);
+	if (drawValue != -1)
+	{
+		if (drawValue == 0)
+		{
+			if (cell->num & 0x4000)
+				return nullptr;
+		}
+		else
+		{
+			cell++;
+			while (cell->num != (drawValue | 0x4000))
+			{
+				if (cell->num & 0x8000)
+					return nullptr;
 
-	iterator->pcd = &cell;
+				cell++;
+			}
+		}
+	}
+
+	PACKED_CELL_OBJECT* ppco = region.GetCellObject(cell->num & 0x3fff);
+
+	iterator->pcd = cell;
 
 	if (ppco->value == 0xffff && (ppco->pos.vy & 1))
 		ppco = GetNextPackedCop(iterator);
@@ -580,7 +617,7 @@ PACKED_CELL_OBJECT* CDriver2LevelMap::GetFirstPackedCop(CELL_ITERATOR* iterator,
 //-------------------------------------------------------------
 // iterates cell objects
 //-------------------------------------------------------------
-PACKED_CELL_OBJECT* CDriver2LevelMap::GetNextPackedCop(CELL_ITERATOR* iterator) const
+PACKED_CELL_OBJECT* CDriver2LevelMap::GetNextPackedCop(CELL_ITERATOR_D2* iterator) const
 {
 	ushort num;
 	PACKED_CELL_OBJECT* ppco;
@@ -592,7 +629,7 @@ PACKED_CELL_OBJECT* CDriver2LevelMap::GetNextPackedCop(CELL_ITERATOR* iterator) 
 		iterator->pcd++;
 		num = iterator->pcd->num;
 
-		if (num & 0x4000) // FIXME: other objects are flagged with 0x8000 etc
+		if (iterator->drawValue != -1 && num & 0x4000)
 			return nullptr;
 
 		ppco = iterator->region->GetCellObject(num & 0x3fff);

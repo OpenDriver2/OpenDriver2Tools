@@ -127,7 +127,7 @@ int ExportRegionDriver2(CDriver2LevelRegion* region, IVirtualStream* levelFileSt
 	// walk through all cell data
 	for (int i = 0; i < mapInfo.region_size * mapInfo.region_size; i++)
 	{
-		CELL_ITERATOR iterator;
+		CELL_ITERATOR_D2 iterator;
 		PACKED_CELL_OBJECT* pco = region->StartIterator(&iterator, i);
 
 		if (!pco)

@@ -10,12 +10,18 @@
 class CDriver2LevelRegion;
 class CDriver2LevelMap;
 
-struct CELL_ITERATOR
+struct CELL_ITERATOR_D2
 {
+	CELL_ITERATOR_D2()
+	{
+		drawValue = -1;
+	}
+	
 	CDriver2LevelRegion*	region;
 	CELL_DATA*				pcd;
 	PACKED_CELL_OBJECT*		ppco;
 	XZPAIR					nearCell;
+	int						drawValue;
 };
 
 typedef short* (*sdBspCallback)(sdNode* node, XZPAIR* pos);
@@ -35,7 +41,7 @@ public:
 	CELL_DATA*				GetCellData(int num) const;
 
 	// cell iterator
-	PACKED_CELL_OBJECT*		StartIterator(CELL_ITERATOR* iterator, int cellNumber) const;
+	PACKED_CELL_OBJECT*		StartIterator(CELL_ITERATOR_D2* iterator, int cellNumber) const;
 
 	sdPlane*				SdGetCell(const VECTOR_NOPAD& position, int& sdLevel, sdBspCallback bspWalker) const;
 
@@ -82,8 +88,8 @@ public:
 	
 	//----------------------------------------
 	// cell iterator
-	PACKED_CELL_OBJECT*		GetFirstPackedCop(CELL_ITERATOR* iterator, int cellx, int cellz) const;
-	PACKED_CELL_OBJECT*		GetNextPackedCop(CELL_ITERATOR* iterator) const;
+	PACKED_CELL_OBJECT*		GetFirstPackedCop(CELL_ITERATOR_D2* iterator, int cellx, int cellz) const;
+	PACKED_CELL_OBJECT*		GetNextPackedCop(CELL_ITERATOR_D2* iterator) const;
 	static bool				UnpackCellObject(CELL_OBJECT& co, PACKED_CELL_OBJECT* pco, const XZPAIR& nearCell);
 
 protected:
