@@ -293,6 +293,16 @@ int	CFileStream::Flush()
 	return fflush( m_pFilePtr );
 }
 
+// prints string to stream
+void CFileStream::Print(const char* pFmt, ...)
+{
+	va_list		argptr;
+
+	va_start(argptr, pFmt);
+	int wcount = vfprintf(m_pFilePtr, pFmt, argptr);
+	va_end(argptr);
+}
+
 long CFileStream::GetSize()
 {
 	long pos = Tell();

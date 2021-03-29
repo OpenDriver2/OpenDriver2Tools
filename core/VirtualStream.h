@@ -79,6 +79,7 @@ public:
     size_t				Write( const void *src, size_t count, size_t size);
     int					Error();
     int					Flush();
+	void				Print(const char* pFmt, ...);
 
 	long				GetSize();
 
