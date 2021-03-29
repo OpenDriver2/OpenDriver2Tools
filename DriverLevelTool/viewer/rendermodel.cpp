@@ -1,10 +1,49 @@
 #include "driver_routines/models.h"
 #include "rendermodel.h"
-
 #include "gl_renderer.h"
 #include "core/cmdlib.h"
+#include "debug_overlay.h"
 
 #include <assert.h>
+
+#define MODEL_VERTEX_SHADER \
+	"	attribute vec4 a_position_tu;\n"\
+	"	attribute vec4 a_normal_tv;\n"\
+	"	uniform mat4 u_View;\n"\
+	"	uniform mat4 u_Projection;\n"\
+	"	uniform mat4 u_World;\n"\
+	"	uniform mat4 u_WorldViewProj;\n"\
+	"	void main() {\n"\
+	"		v_texcoord = vec2(a_position_tu.w, 1.0-a_normal_tv.w);\n"\
+	"		v_normal = mat3(u_World) * a_normal_tv.xyz;\n"\
+	"		gl_Position = u_WorldViewProj * vec4(a_position_tu.xyz, 1.0);\n"\
+	"	}\n"
+
+#define MODEL_FRAGMENT_SHADER \
+	"	uniform sampler2D s_texture;\n"\
+	"	uniform vec3 u_lightDir;\n"\
+	"	uniform vec4 u_ambientColor;\n"\
+	"	uniform vec4 u_lightColor;\n"\
+	"	void main() {\n"\
+	"		vec4 lighting;\n"\
+	"		vec4 color = texture2D(s_texture, v_texcoord.xy);\n"\
+	"		if(color.a <= 0.5f) discard;\n"\
+	"		lighting = vec4(color.rgb * u_ambientColor.rgb * u_ambientColor.a, color.a);\n"\
+	"		lighting.rgb += u_lightColor.rgb * u_lightColor.a * color.rgb * max(1.0 - dot(v_normal, u_lightDir), 0);\n"\
+	"		fragColor = lighting;\n"\
+	"	}\n"
+
+const char* model_shader =
+	"varying vec2 v_texcoord;\n"
+	"varying vec3 v_normal;\n"
+	"varying vec4 v_color;\n"
+	"#ifdef VERTEX\n"
+	MODEL_VERTEX_SHADER
+	"#else\n"
+	MODEL_FRAGMENT_SHADER
+	"#endif\n";
+
+//-------------------------------------------------------------------
 
 void AddExtentVertex(Vector3D& minPoint, Vector3D& maxPoint, const Vector3D& v)
 {
@@ -350,8 +389,7 @@ void CRenderModel::GenerateBuffers()
 void CRenderModel::Draw()
 {
 	extern TextureID GetHWTexture(int tpage, int pal);
-	extern void SetupModelShader();
-	
+
 	SetupModelShader();
 	GR_SetVAO(m_vao);
 	
@@ -368,4 +406,119 @@ void CRenderModel::GetExtents(Vector3D& outMin, Vector3D& outMax) const
 {
 	outMin = m_extMin;
 	outMax = m_extMax;
+}
+
+//--------------------------------------------------------------------------------------------------------------
+
+//-------------------------------------------------------
+// Render model viewer
+//-------------------------------------------------------
+void CRenderModel::DrawModelCollisionBox(ModelRef_t* ref, const VECTOR_NOPAD& position, int rotation)
+{
+	if (ref->baseInstance)
+		ref = ref->baseInstance;
+
+	float objRotationRad = -rotation / 64.0f * PI_F * 2.0f;
+	Vector3D offset(position.vx / ONE_F, -position.vy / ONE_F, position.vz / ONE_F);
+
+	Matrix4x4 world = translate(offset) * rotateY4(objRotationRad);
+
+	// add collision box drawing
+	int numcb = ref->model->GetCollisionBoxCount();
+	COLLISION_PACKET* box = ref->model->pCollisionBox(0);
+
+	for (int i = 0; i < numcb; i++)
+	{
+		float boxRotationRad = -box->yang / 64.0f * PI_F * 2.0f;
+
+		//if(box->type == 0)
+		{
+			Vector3D pos(box->xpos, -box->ypos, box->zpos);
+			Vector3D size(box->xsize / 2, box->ysize / 2, box->zsize / 2);
+
+			DebugOverlay_SetTransform(world * translate(pos / ONE_F) * rotateY4(boxRotationRad));
+			DebugOverlay_Box(-size / ONE_F, size / ONE_F, ColorRGBA(1, 1, 0, 0.5f));
+		}
+
+		box++;
+	}
+
+	DebugOverlay_SetTransform(identity4());
+}
+
+struct ModelShaderInfo
+{
+	ShaderID	shader{ 0 };
+
+	int			ambientColorConstantId{ -1 };
+	int			lightColorConstantId{ -1 };
+
+	int			lightDirConstantId{ -1 };
+} g_modelShader;
+
+struct WorldRenderProperties
+{
+	Vector4D ambientColor;
+	Vector4D lightColor;
+	Vector3D lightDir;
+
+} g_worldRenderProperties;
+
+// compiles model shader
+void CRenderModel::InitModelShader()
+{
+	// create shader
+	g_modelShader.shader = GR_CompileShader(model_shader);
+
+	g_modelShader.ambientColorConstantId = GR_GetShaderConstantIndex(g_modelShader.shader, "u_ambientColor");
+	g_modelShader.lightColorConstantId = GR_GetShaderConstantIndex(g_modelShader.shader, "u_lightColor");
+
+	g_modelShader.lightDirConstantId = GR_GetShaderConstantIndex(g_modelShader.shader, "u_lightDir");
+}
+
+// prepares shader for rendering
+// used for Models
+void CRenderModel::SetupModelShader()
+{
+	GR_SetShader(g_modelShader.shader);
+	GR_SetShaderConstantVector3D(g_modelShader.lightDirConstantId, g_worldRenderProperties.lightDir);
+
+	GR_SetShaderConstantVector4D(g_modelShader.ambientColorConstantId, g_worldRenderProperties.ambientColor);
+	GR_SetShaderConstantVector4D(g_modelShader.lightColorConstantId, g_worldRenderProperties.lightColor);
+}
+
+// sets up lighting properties
+void CRenderModel::SetupLightingProperties(float ambientScale /*= 1.0f*/, float lightScale /*= 1.0f*/)
+{
+	g_worldRenderProperties.ambientColor = ColorRGBA(0.95f, 0.9f, 1.0f, 0.45f * ambientScale);
+	g_worldRenderProperties.lightColor = ColorRGBA(1.0f, 1.0f, 1.0f, 0.4f * lightScale);
+	g_worldRenderProperties.lightDir = normalize(Vector3D(1, -0.5, 0));
+}
+
+//----------------------------------------
+// callbacks for model lump loader
+
+// called when model loaded in CDriverLevelModels
+void CRenderModel::OnModelLoaded(ModelRef_t* ref)
+{
+	if (!ref->model)
+		return;
+
+	CRenderModel* renderModel = new CRenderModel();
+
+	if (renderModel->Initialize(ref))
+		ref->userData = renderModel;
+	else
+		delete renderModel;
+}
+
+// called when model freed in CDriverLevelModels
+void CRenderModel::OnModelFreed(ModelRef_t* ref)
+{
+	CRenderModel* model = (CRenderModel*)ref->userData;
+
+	if (model)
+		model->Destroy();
+
+	delete model;
 }

@@ -28,6 +28,15 @@ public:
 
 	void				GetExtents(Vector3D& outMin, Vector3D& outMax) const;
 
+	static void			DrawModelCollisionBox(ModelRef_t* ref, const VECTOR_NOPAD& position, int rotation);
+	static void			SetupModelShader();
+	static void			SetupLightingProperties(float ambientScale = 1.0f, float lightScale = 1.0f);
+	static void			InitModelShader();
+
+	// callbacks for creating/destroying renderer objects
+	static void			OnModelLoaded(ModelRef_t* ref);
+	static void			OnModelFreed(ModelRef_t* ref);
+	
 protected:
 	void				GenerateBuffers();
 
@@ -38,7 +47,6 @@ protected:
 	GrVAO*				m_vao { nullptr };
 	Array<modelBatch_t>	m_batches;
 	int					m_numVerts;
-	 
 };
 
 #endif

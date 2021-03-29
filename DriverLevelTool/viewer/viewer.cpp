@@ -6,17 +6,17 @@
 #include <nstd/String.hpp>
 #include <nstd/Time.hpp>
 
-
+#include "camera.h"
 #include "debug_overlay.h"
 #include "driver_level.h"
 #include "gl_renderer.h"
+#include "renderlevel.h"
 #include "rendermodel.h"
 
 #include "core/cmdlib.h"
 #include "core/VirtualStream.h"
 
 #include "math/Volume.h"
-#include "math/isin.h"
 
 #include "driver_routines/d2_types.h"
 #include "driver_routines/level.h"
@@ -28,51 +28,15 @@
 #include "backends/imgui_impl_opengl3.h"
 #include "backends/imgui_impl_sdl.h"
 
-
-#define MODEL_VERTEX_SHADER \
-	"	attribute vec4 a_position_tu;\n"\
-	"	attribute vec4 a_normal_tv;\n"\
-	"	uniform mat4 u_View;\n"\
-	"	uniform mat4 u_Projection;\n"\
-	"	uniform mat4 u_World;\n"\
-	"	uniform mat4 u_WorldViewProj;\n"\
-	"	void main() {\n"\
-	"		v_texcoord = vec2(a_position_tu.w, 1.0-a_normal_tv.w);\n"\
-	"		v_normal = mat3(u_World) * a_normal_tv.xyz;\n"\
-	"		gl_Position = u_WorldViewProj * vec4(a_position_tu.xyz, 1.0);\n"\
-	"	}\n"
-
-#define MODEL_FRAGMENT_SHADER \
-	"	uniform sampler2D s_texture;\n"\
-	"	uniform vec3 u_lightDir;\n"\
-	"	uniform vec4 u_ambientColor;\n"\
-	"	uniform vec4 u_lightColor;\n"\
-	"	void main() {\n"\
-	"		vec4 lighting;\n"\
-	"		vec4 color = texture2D(s_texture, v_texcoord.xy);\n"\
-	"		if(color.a <= 0.5f) discard;\n"\
-	"		lighting = vec4(color.rgb * u_ambientColor.rgb * u_ambientColor.a, color.a);\n"\
-	"		lighting.rgb += u_lightColor.rgb * u_lightColor.a * color.rgb * max(1.0 - dot(v_normal, u_lightDir), 0);\n"\
-	"		fragColor = lighting;\n"\
-	"	}\n"
-
-const char* model_shader =
-	"varying vec2 v_texcoord;\n"
-	"varying vec3 v_normal;\n"
-	"varying vec4 v_color;\n"
-	"#ifdef VERTEX\n"
-	MODEL_VERTEX_SHADER
-	"#else\n"
-	MODEL_FRAGMENT_SHADER
-	"#endif\n";
-
 bool g_quit = false;
+
 bool g_nightMode = false;
 bool g_displayCollisionBoxes = false;
 bool g_displayHeightMap = false;
 bool g_noLod = false;
 
 int g_cellsDrawDistance = 441;
+
 int g_currentModel = 0;
 
 int g_viewerMode = 0;
@@ -81,71 +45,9 @@ bool g_holdLeft = false;
 bool g_holdRight = false;
 bool g_holdShift = false;
 
-Vector3D g_cameraPosition(0);
-Vector3D g_cameraAngles(25.0f, 45.0f, 0);
-
-Vector3D g_cameraMoveDir(0);
-
-float g_cameraDistance = 0.5f;
-float g_cameraFOV = 75.0f;
-
 //-----------------------------------------------------------------
 
-struct WorldRenderProperties
-{
-	Vector4D ambientColor;
-	Vector4D lightColor;
-	Vector3D lightDir;
-	
-} g_worldRenderProperties;
-
-// sets up lighting properties
-void SetupLightingProperties(float ambientScale = 1.0f, float lightScale = 1.0f)
-{
-	g_worldRenderProperties.ambientColor = ColorRGBA(0.95f, 0.9f, 1.0f, 0.45f * ambientScale) ;
-	g_worldRenderProperties.lightColor = ColorRGBA(1.0f, 1.0f, 1.0f, 0.4f * lightScale);
-	g_worldRenderProperties.lightDir = normalize(Vector3D(1, -0.5, 0));
-}
-
-//-----------------------------------------------------------------
-
-
-struct ModelShaderInfo
-{
-	ShaderID	shader{ 0 };
-
-	int			ambientColorConstantId{ -1 };
-	int			lightColorConstantId{ -1 };
-
-	int			lightDirConstantId{ -1 };
-} g_modelShader;
-
-// compiles model shader
-void InitModelShader()
-{
-	// create shader
-	g_modelShader.shader = GR_CompileShader(model_shader);
-
-	g_modelShader.ambientColorConstantId = GR_GetShaderConstantIndex(g_modelShader.shader, "u_ambientColor");
-	g_modelShader.lightColorConstantId = GR_GetShaderConstantIndex(g_modelShader.shader, "u_lightColor");
-
-	g_modelShader.lightDirConstantId = GR_GetShaderConstantIndex(g_modelShader.shader, "u_lightDir");
-}
-
-// prepares shader for rendering
-// used for Models
-void SetupModelShader()
-{
-	GR_SetShader(g_modelShader.shader);
-	GR_SetShaderConstantVector3D(g_modelShader.lightDirConstantId, g_worldRenderProperties.lightDir);
-
-	GR_SetShaderConstantVector4D(g_modelShader.ambientColorConstantId, g_worldRenderProperties.ambientColor);
-	GR_SetShaderConstantVector4D(g_modelShader.lightColorConstantId, g_worldRenderProperties.lightColor);
-}
-
-//-----------------------------------------------------------------
-
-TextureID g_hwTexturePages[128][16];
+TextureID g_hwTexturePages[128][32];
 
 // Creates hardware texture
 void InitHWTexturePage(CTexturePage* tpage)
@@ -242,31 +144,6 @@ void InitHWTextures()
 
 //-----------------------------------------------------------------
 
-// called when model loaded in CDriverLevelModels
-void OnModelLoaded(ModelRef_t* ref)
-{
-	if (!ref->model)
-		return;
-
-	CRenderModel* renderModel = new CRenderModel();
-
-	if (renderModel->Initialize(ref))
-		ref->userData = renderModel;
-	else
-		delete renderModel;
-}
-
-// called when model freed in CDriverLevelModels
-void OnModelFreed(ModelRef_t* ref)
-{
-	CRenderModel* model = (CRenderModel*)ref->userData;
-
-	if (model)
-		model->Destroy();
-
-	delete model;
-}
-
 // extern some vars
 extern String					g_levname;
 extern String					g_levname_moddir;
@@ -294,7 +171,7 @@ bool LoadLevelFile()
 
 	// set loading callbacks
 	g_levTextures.SetLoadingCallbacks(InitHWTexturePage, nullptr);
-	g_levModels.SetModelLoadingCallbacks(OnModelLoaded, OnModelFreed);
+	g_levModels.SetModelLoadingCallbacks(CRenderModel::OnModelLoaded, CRenderModel::OnModelFreed);
 
 	ELevelFormat levFormat = CDriverLevelLoader::DetectLevelFormat(&stream);
 
@@ -326,681 +203,45 @@ void FreeLevelData()
 	fclose(g_levFile);
 }
 
-//-----------------------------------------------------------------
-
-extern int g_windowWidth;
-extern int g_windowHeight;
-
-const float MODEL_LOD_HIGH_MIN_DISTANCE = 5.0f;
-const float MODEL_LOD_LOW_MIN_DISTANCE  = 40.0f;
-
-//-------------------------------------------------------
-// returns specific model or LOD model
-// based on the distance from camera
-//-------------------------------------------------------
-ModelRef_t* GetModelCheckLods(int index, float distSqr)
-{
-	ModelRef_t* baseRef = g_levModels.GetModelByIndex(index);
-
-	if (g_noLod)
-		return baseRef;
-
-	ModelRef_t* retRef = baseRef;
-	if (baseRef->highDetailId != 0xFFFF)
-	{
-		if(distSqr < MODEL_LOD_HIGH_MIN_DISTANCE)
-			return g_levModels.GetModelByIndex(baseRef->highDetailId);
-	}
-
-	if (baseRef->lowDetailId != 0xFFFF)
-	{
-		if (distSqr > MODEL_LOD_HIGH_MIN_DISTANCE)
-			return g_levModels.GetModelByIndex(baseRef->lowDetailId);
-	}
-
-	return retRef;
-}
-
-// stats counters
-int g_drawnCells;
-int g_drawnModels;
-int g_drawnPolygons;
-
-void DrawModelCollisionBox(ModelRef_t* ref, const VECTOR_NOPAD& position, int rotation);
-
-struct PCO_PAIR_D2
-{
-	PACKED_CELL_OBJECT* pco;
-	XZPAIR nearCell;
-};
-
-//-------------------------------------------------------
-// Draws Driver 2 level region cells
-// and spools the world if needed
-//-------------------------------------------------------
-void DrawLevelDriver2(const Vector3D& cameraPos, const Volume& frustrumVolume)
-{
-	int i = g_cellsDrawDistance;
-	int vloop = 0;
-	int hloop = 0;
-	int dir = 0;
-	XZPAIR cell;
-	XZPAIR icell;
-
-	g_drawnCells = 0;
-	g_drawnModels = 0;
-	g_drawnPolygons = 0;
-
-	VECTOR_NOPAD cameraPosition;
-	cameraPosition.vx = cameraPos.x * ONE_F;
-	cameraPosition.vy = cameraPos.y * ONE_F;
-	cameraPosition.vz = cameraPos.z * ONE_F;
-
-	CDriver2LevelMap* levMapDriver2 = (CDriver2LevelMap*)g_levMap;
-	CFileStream spoolStream(g_levFile);
-
-	SPOOL_CONTEXT spoolContext;
-	spoolContext.dataStream = &spoolStream;
-	spoolContext.lumpInfo = &g_levInfo;
-	spoolContext.models = &g_levModels;
-	spoolContext.textures = &g_levTextures;
-
-	levMapDriver2->WorldPositionToCellXZ(cell, cameraPosition);
-
-	/*
-	int cameraAngleY = g_cameraAngles.y * (4096.0f / 360.0f);
-	int FrAng = 512;
-
-	// setup planes
-	int backPlane = 6144;
-	int rightPlane = -6144;
-	int leftPlane = 6144;
-
-	int farClipLimit = 280000;
-	
-	int rightAng = cameraAngleY - FrAng & 0xfff;
-	int leftAng = cameraAngleY + FrAng & 0xfff;
-	int backAng = cameraAngleY + 1024 & 0xfff;
-
-	int rightcos = icos(rightAng);
-	int rightsin = isin(rightAng);
-
-	int leftcos = icos(leftAng);
-	int leftsin = isin(leftAng);
-	int backcos = icos(backAng);
-	int backsin = isin(backAng);
-	*/
-
-	static Array<PCO_PAIR_D2> drawObjects;
-	drawObjects.reserve(g_cellsDrawDistance * 2);
-	drawObjects.clear();
-
-	// walk through all cells
-	while (i >= 0)
-	{
-		if (abs(hloop) + abs(vloop) < 256)
-		{
-			// clamped vis values
-			int vis_h = MIN(MAX(hloop, -9), 10);
-			int vis_v = MIN(MAX(vloop, -9), 10);
-
-			icell.x = cell.x + hloop;
-			icell.z = cell.z + vloop;
-
-			if( //rightPlane < 0 &&
-				//leftPlane > 0 &&
-				//backPlane < farClipLimit &&  // check planes
-				icell.x > -1 && icell.x < levMapDriver2->GetCellsAcross() &&
-			    icell.z > -1 && icell.z < levMapDriver2->GetCellsDown())
-			{
-				CELL_ITERATOR ci;
-				PACKED_CELL_OBJECT* ppco;
-				
-				levMapDriver2->SpoolRegion(spoolContext, icell);
-				
-				ppco = levMapDriver2->GetFirstPackedCop(&ci, icell.x, icell.z);
-
-				g_drawnCells++;
-				
-				// walk each cell object in cell
-				while (ppco)
-				{
-					PCO_PAIR_D2 pair;
-					pair.nearCell = ci.nearCell;
-					pair.pco = ppco;
-
-					drawObjects.append(pair);
-					
-					ppco = levMapDriver2->GetNextPackedCop(&ci);
-				}
-			}
-		}
-
-		if (dir == 0)
-		{
-			//leftPlane += leftcos;
-			//backPlane += backcos;
-			//rightPlane += rightcos;
-
-			hloop++;
-
-			if (hloop + vloop == 1)
-				dir = 1;
-		}
-		else if (dir == 1)
-		{
-			//leftPlane += leftsin;
-			//backPlane += backsin;
-			//rightPlane += rightsin;
-			
-			vloop++;
-
-			if (hloop == vloop)
-				dir = 2;
-		}
-		else if (dir == 2)
-		{
-			//leftPlane -= leftcos;
-			//backPlane -= backcos;
-			//rightPlane -= rightcos;
-			
-			hloop--;
-
-			if (hloop + vloop == 0)
-				dir = 3;
-		}
-		else
-		{
-			//leftPlane -= leftsin;
-			//backPlane -= backsin;
-			//rightPlane -= rightsin;
-			
-			vloop--;
-
-			if (hloop == vloop)
-				dir = 0;
-		}
-
-		i--;
-	}
-
-	// perform early depth test
-	
-
-	// at least once we should do that
-	SetupModelShader();
-	
-	// draw object list
-	for(uint i = 0; i < drawObjects.size(); i++)
-	{
-		CELL_OBJECT co;
-		CDriver2LevelMap::UnpackCellObject(co, drawObjects[i].pco, drawObjects[i].nearCell);
-
-		if (co.type >= MAX_MODELS)
-		{
-			// WHAT THE FUCK?
-			continue;
-		}
-		
-		Vector3D absCellPosition(co.pos.vx * RENDER_SCALING, co.pos.vy * -RENDER_SCALING, co.pos.vz * RENDER_SCALING);
-
-		float distanceFromCamera = lengthSqr(absCellPosition - cameraPos);
-
-		ModelRef_t* ref = GetModelCheckLods(co.type, distanceFromCamera);
-
-		MODEL* model = ref->model;
-
-		float cellRotationRad = -co.yang / 64.0f * PI_F * 2.0f;
-
-		bool isGround = false;
-
-		if (model)
-		{
-			if (model->shape_flags & SHAPE_FLAG_SMASH_SPRITE)
-			{
-				cellRotationRad = DEG2RAD(g_cameraAngles.y);
-			}
-
-			if ((model->shape_flags & (SHAPE_FLAG_SUBSURFACE | SHAPE_FLAG_ALLEYWAY)) ||
-				(model->flags2 & (MODEL_FLAG_SIDEWALK | MODEL_FLAG_GRASS)))
-			{
-				isGround = true;
-			}
-		}
-
-		Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
-		GR_SetMatrix(MATRIX_WORLD, objectMatrix);
-		GR_UpdateMatrixUniforms();
-
-		if (isGround && g_nightMode)
-			SetupLightingProperties(0.35f, 0.0f);
-		else
-			SetupLightingProperties(1.0f, 1.0f);
-
-		CRenderModel* renderModel = (CRenderModel*)ref->userData;
-
-		if (renderModel)
-		{
-			const float boundSphere = ref->model->bounding_sphere * RENDER_SCALING * 2.0f;
-			if (frustrumVolume.IsSphereInside(absCellPosition, boundSphere))
-			{
-				renderModel->Draw();
-				g_drawnModels++;
-				g_drawnPolygons += ref->model->num_polys;
-
-				if (g_displayCollisionBoxes)
-					DrawModelCollisionBox(ref, co.pos, co.yang);
-			}
-		}
-	}
-}
-
-//-------------------------------------------------------
-// Draws Driver 2 level region cells
-// and spools the world if needed
-//-------------------------------------------------------
-void DrawLevelDriver1(const Vector3D& cameraPos, const Volume& frustrumVolume)
-{
-	CELL_ITERATOR_D1 ci;
-	CELL_OBJECT* pco;
-
-	int i = g_cellsDrawDistance;
-	int vloop = 0;
-	int hloop = 0;
-	int dir = 0;
-	XZPAIR cell;
-	XZPAIR icell;
-
-	g_drawnCells = 0;
-	g_drawnModels = 0;
-	g_drawnPolygons = 0;
-
-	VECTOR_NOPAD cameraPosition;
-	cameraPosition.vx = cameraPos.x * ONE_F;
-	cameraPosition.vy = cameraPos.y * ONE_F;
-	cameraPosition.vz = cameraPos.z * ONE_F;
-
-	CDriver1LevelMap* levMapDriver1 = (CDriver1LevelMap*)g_levMap;
-	CFileStream spoolStream(g_levFile);
-
-	SPOOL_CONTEXT spoolContext;
-	spoolContext.dataStream = &spoolStream;
-	spoolContext.lumpInfo = &g_levInfo;
-	spoolContext.models = &g_levModels;
-	spoolContext.textures = &g_levTextures;
-
-	levMapDriver1->WorldPositionToCellXZ(cell, cameraPosition);
-
-	static Array<CELL_OBJECT*> drawObjects;
-	drawObjects.reserve(g_cellsDrawDistance * 2);
-	drawObjects.clear();
-	
-	// walk through all cells
-	while (i >= 0)
-	{
-		if (abs(hloop) + abs(vloop) < 256)
-		{
-			// clamped vis values
-			int vis_h = MIN(MAX(hloop, -9), 10);
-			int vis_v = MIN(MAX(vloop, -9), 10);
-
-			icell.x = cell.x + hloop;
-			icell.z = cell.z + vloop;
-
-
-			if (icell.x > -1 && icell.x < levMapDriver1->GetCellsAcross() &&
-				icell.z > -1 && icell.z < levMapDriver1->GetCellsDown())
-			{
-				levMapDriver1->SpoolRegion(spoolContext, icell);
-
-				pco = levMapDriver1->GetFirstCop(&ci, icell.x, icell.z);
-
-				g_drawnCells++;
-
-				// walk each cell object in cell
-				while (pco)
-				{
-					drawObjects.append(pco);
-
-					pco = levMapDriver1->GetNextCop(&ci);
-				}
-			}
-		}
-
-		if (dir == 0)
-		{
-			hloop++;
-
-			if (hloop + vloop == 1)
-				dir = 1;
-		}
-		else if (dir == 1)
-		{
-			vloop++;
-			if (hloop == vloop)
-				dir = 2;
-		}
-		else if (dir == 2)
-		{
-			hloop--;
-
-			if (hloop + vloop == 0)
-				dir = 3;
-		}
-		else
-		{
-			vloop--;
-			if (hloop == vloop)
-				dir = 0;
-		}
-
-		i--;
-	}
-
-	// at least once we should do that
-	SetupModelShader();
-	
-	for(uint i = 0; i < drawObjects.size(); i++)
-	{
-		pco = drawObjects[i];
-	
-		if (pco->type >= MAX_MODELS)
-		{
-			// WHAT THE FUCK?
-			continue;
-		}
-
-		Vector3D absCellPosition(pco->pos.vx * RENDER_SCALING, pco->pos.vy * -RENDER_SCALING, pco->pos.vz * RENDER_SCALING);
-		float distanceFromCamera = lengthSqr(absCellPosition - cameraPos);
-
-		ModelRef_t* ref = GetModelCheckLods(pco->type, distanceFromCamera);
-		MODEL* model = ref->model;
-
-		float cellRotationRad = -pco->yang / 64.0f * PI_F * 2.0f;
-
-		bool isGround = false;
-
-		if (model)
-		{
-			if (model->shape_flags & SHAPE_FLAG_SMASH_SPRITE)
-			{
-				cellRotationRad = DEG2RAD(g_cameraAngles.y);
-			}
-
-			if ((model->shape_flags & (SHAPE_FLAG_SUBSURFACE | SHAPE_FLAG_ALLEYWAY)) ||
-				(model->flags2 & (MODEL_FLAG_SIDEWALK | MODEL_FLAG_GRASS)))
-			{
-				isGround = true;
-			}
-		}
-
-		Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
-		GR_SetMatrix(MATRIX_WORLD, objectMatrix);
-		GR_UpdateMatrixUniforms();
-
-		if (g_nightMode)
-			SetupLightingProperties(0.45f, 0.0f);
-		else
-			SetupLightingProperties(1.0f, 1.0f);
-
-		CRenderModel* renderModel = (CRenderModel*)ref->userData;
-
-		if (renderModel)
-		{
-			const float boundSphere = ref->model->bounding_sphere * RENDER_SCALING * 2.0f;
-			if (frustrumVolume.IsSphereInside(absCellPosition, boundSphere))
-			{
-				renderModel->Draw();
-				g_drawnModels++;
-				g_drawnPolygons += ref->model->num_polys;
-
-				if (g_displayCollisionBoxes)
-					DrawModelCollisionBox(ref, pco->pos, pco->yang);
-			}
-		}
-	}
-}
-
-const float CAMERA_MOVEMENT_SPEED_FACTOR = 140 * RENDER_SCALING;
-const float CAMERA_MOVEMENT_ACCELERATION = 15 * RENDER_SCALING;
-const float CAMERA_MOVEMENT_DECELERATION = 450 * RENDER_SCALING;
-
-Vector3D g_cameraVelocity(0);
-
-VECTOR_NOPAD g_debugCellPos;
-
-void DebugDrawSdNode(sdNode* node)
-{
-	Vector3D cpos(g_debugCellPos.vx - 512, g_debugCellPos.vy, g_debugCellPos.vz - 512);
-	cpos /= ONE_F;
-
-	Vector3D dir(icos(node->angle), 0.0f, isin(node->angle));
-	dir /= ONE_F;
-
-	Vector3D tangent = cross(dir, vec3_up);
-
-	ColorRGBA color(0, 1, 0, 1);
-	DebugOverlay_Line(cpos - dir + tangent * float(node->dist / ONE_F), cpos + dir + tangent * float(node->dist / ONE_F), color);
-}
-
-// recursively walks heightmap nodes
-short* DebugDriver2SdCell_r(sdNode* node, XZPAIR* pos)
-{
-	if (node->node)
-	{
-		DebugDrawSdNode(node);
-
-		DebugDriver2SdCell_r(node + 1, pos);
-		DebugDriver2SdCell_r(node + node->offset, pos);
-	}
-
-	return SdGetBSP(node, pos);
-}
-
-// display heightmap cell
-void DebugDrawDriver2HeightmapCell(const VECTOR_NOPAD& cellPos, const ColorRGBA& color)
-{
-	// cell bounds
-	int cellMinX = (((cellPos.vx - 512) >> 10) << 10) + 512;
-	int cellMinZ = (((cellPos.vz - 512) >> 10) << 10) + 512;
-
-	Vector3D cMin, cMax;
-	cMin.y = cMax.y = cellPos.vy / ONE_F;
-
-	cMin.x = cellMinX / ONE_F;
-	cMin.z = cellMinZ / ONE_F;
-
-	cMax.x = (cellMinX + 1024) / ONE_F;
-	cMax.z = (cellMinZ + 1024) / ONE_F;
-
-	XZPAIR cell;
-	g_levMap->WorldPositionToCellXZ(cell, cellPos);
-	CDriver2LevelRegion* region = (CDriver2LevelRegion*)g_levMap->GetRegion(cell);
-
-	VECTOR_NOPAD cpos = cellPos;
-	cpos.vx -= 512;
-	cpos.vz -= 512;
-	
-	DebugOverlay_Line(Vector3D(cMax.x, cMin.y, cMin.z),
-		Vector3D(cMax.x, cMin.y, cMax.z), color);
-
-	DebugOverlay_Line(Vector3D(cMin.x, cMin.y, cMax.z),
-		Vector3D(cMin.x, cMin.y, cMin.z), color);
-
-	DebugOverlay_Line(Vector3D(cMin.x, cMin.y, cMin.z),
-		Vector3D(cMax.x, cMin.y, cMin.z), color);
-
-	DebugOverlay_Line(Vector3D(cMin.x, cMin.y, cMax.z),
-		Vector3D(cMax.x, cMin.y, cMax.z), color);
-
-	g_debugCellPos.vx = cellMinX + 512;
-	g_debugCellPos.vy = cellPos.vy;
-	g_debugCellPos.vz = cellMinZ + 512;
-	
-	int level = 0;
-	region->SdGetCell(cpos, level, DebugDriver2SdCell_r);
-}
-
-//-------------------------------------------------------
-// Updates camera movement for level viewer
-//-------------------------------------------------------
-void UpdateCameraMovement(float deltaTime)
-{
-	Vector3D forward, right;
-	AngleVectors(g_cameraAngles, &forward, &right);
-	
-	float cameraSpeedModifier = 1.0f;
-
-	if (g_holdShift)
-		cameraSpeedModifier = 4.0f;
-
-	const float maxSpeed = CAMERA_MOVEMENT_SPEED_FACTOR * cameraSpeedModifier;
-	
-	if (lengthSqr(g_cameraMoveDir) > 0.1f && 
-		length(g_cameraVelocity) < maxSpeed)
-	{
-		g_cameraVelocity += g_cameraMoveDir.x * right * deltaTime * CAMERA_MOVEMENT_ACCELERATION * cameraSpeedModifier;
-		g_cameraVelocity += g_cameraMoveDir.z * forward * deltaTime * CAMERA_MOVEMENT_ACCELERATION * cameraSpeedModifier;
-	}
-	else
-	{
-		float speed = length(g_cameraVelocity);
-		if (speed < 1.0f)
-			speed = 1.0f;
-	
-		g_cameraVelocity -= (g_cameraVelocity / speed) * CAMERA_MOVEMENT_DECELERATION * deltaTime;
-	}
-
-	g_cameraPosition += g_cameraVelocity * deltaTime;
-
-	VECTOR_NOPAD cameraPosition;
-	cameraPosition.vx = g_cameraPosition.x * ONE_F;
-	cameraPosition.vy = g_cameraPosition.y * ONE_F;
-	cameraPosition.vz = g_cameraPosition.z * ONE_F;
-
-	int height = g_levMap->MapHeight(cameraPosition);
-
-	if(g_displayHeightMap)
-	{
-		// draw the cell
-		VECTOR_NOPAD cameraCell = cameraPosition;
-		cameraCell.vy = height;
-		DebugDrawDriver2HeightmapCell(cameraCell, ColorRGBA(1, 1, 0.25, 1.0f));
-	}
-	
-	if (cameraPosition.vy < height)
-	{
-		cameraPosition.vy = height;
-		g_cameraPosition.y = float(height) / ONE_F;
-	}
-}
-
-const float Z_NEAR = 0.01f;
-const float Z_FAR = 100.0f;
-
-bool g_reverseDepthBuffer = false;
-
 //-------------------------------------------------------
 // Render level viewer
 //-------------------------------------------------------
-void RenderLevelView(float deltaTime)
+void RenderLevelView()
 {
-	Vector3D cameraPos = g_cameraPosition;
-	Vector3D cameraAngles = VDEG2RAD(g_cameraAngles);
-
-	// calculate view matrices
-	Matrix4x4 view, proj;
 	Volume frustumVolume;
 
-	proj = perspectiveMatrixY(DEG2RAD(g_cameraFOV), g_windowWidth, g_windowHeight, Z_NEAR, Z_FAR);
-	view = rotateZXY4(-cameraAngles.x, -cameraAngles.y, -cameraAngles.z);
-	view.translate(-cameraPos);
+	// setup standard camera
+	SetupCameraViewAndMatrices(g_cameraPosition, g_cameraAngles, frustumVolume);
 
-	// calculate frustum volume
-	frustumVolume.LoadAsFrustum(proj * view);
-
-	GR_SetMatrix(MATRIX_VIEW, view);
-	GR_SetMatrix(MATRIX_PROJECTION, proj);
-
-	GR_SetMatrix(MATRIX_WORLD, identity4());
-
-	GR_UpdateMatrixUniforms();
-	
 	GR_SetDepth(1);
 	GR_SetCullMode(CULL_FRONT);
 
 	// reset lighting
-	SetupLightingProperties();
+	CRenderModel::SetupLightingProperties();
 	
 	if(g_levMap->GetFormat() >= LEV_FORMAT_DRIVER2_ALPHA16)
-		DrawLevelDriver2(cameraPos, frustumVolume);
+		DrawLevelDriver2(g_cameraPosition, g_cameraAngles.y, frustumVolume);
 	else
-		DrawLevelDriver1(cameraPos, frustumVolume);
+		DrawLevelDriver1(g_cameraPosition, g_cameraAngles.y, frustumVolume);
 }
 
-//-------------------------------------------------------
-// Render model viewer
-//-------------------------------------------------------
-void DrawModelCollisionBox(ModelRef_t* ref, const VECTOR_NOPAD& position, int rotation)
-{
-	if (ref->baseInstance)
-		ref = ref->baseInstance;
-	
-	float objRotationRad = -rotation / 64.0f * PI_F * 2.0f;
-	Vector3D offset(position.vx / ONE_F, -position.vy / ONE_F, position.vz / ONE_F);
-
-	Matrix4x4 world = translate(offset) * rotateY4(objRotationRad);
-	
-	// add collision box drawing
-	int numcb = ref->model->GetCollisionBoxCount();
-	COLLISION_PACKET* box = ref->model->pCollisionBox(0);
-
-	for (int i = 0; i < numcb; i++)
-	{
-		float boxRotationRad = -box->yang / 64.0f * PI_F * 2.0f;
-
-		//if(box->type == 0)
-		{
-			Vector3D pos(box->xpos, -box->ypos, box->zpos);
-			Vector3D size(box->xsize / 2, box->ysize / 2, box->zsize / 2);
-
-			DebugOverlay_SetTransform(world * translate(pos / ONE_F) * rotateY4(boxRotationRad));
-			DebugOverlay_Box(-size / ONE_F, size / ONE_F, ColorRGBA(1, 1, 0, 0.5f));
-		}
-		
-		box++;
-	}
-
-	DebugOverlay_SetTransform(identity4());
-}
+float g_cameraDistance = 4.0f;
 
 //-------------------------------------------------------
 // Render model viewer
 //-------------------------------------------------------
 void RenderModelView()
 {
+	Volume frustumVolume;
 	Vector3D forward, right;
 	AngleVectors(g_cameraAngles, &forward, &right);
 
-	Vector3D cameraPos = vec3_zero - forward * g_cameraDistance;
-	Vector3D cameraAngles = VDEG2RAD(g_cameraAngles);
+	// setup orbital camera
+	SetupCameraViewAndMatrices(-forward * g_cameraDistance, g_cameraAngles, frustumVolume);
 
-	Matrix4x4 view, proj;
+	CRenderModel::SetupModelShader();
+	CRenderModel::SetupLightingProperties(0.5f, 0.5f);
 
-	proj = perspectiveMatrixY(DEG2RAD(g_cameraFOV), g_windowWidth, g_windowHeight, 0.01f, 1000.0f);
-	view = rotateZXY4(-cameraAngles.x, -cameraAngles.y, -cameraAngles.z);
-
-	view.translate(-cameraPos);
-
-	SetupModelShader();
-	SetupLightingProperties(0.5f, 0.5f);
-	
-	GR_SetMatrix(MATRIX_VIEW, view);
-	GR_SetMatrix(MATRIX_PROJECTION, proj);
-
-	GR_SetMatrix(MATRIX_WORLD, identity4());
-
-	GR_UpdateMatrixUniforms();
 	GR_SetDepth(1);
 	GR_SetCullMode(CULL_FRONT);
 
@@ -1013,10 +254,13 @@ void RenderModelView()
 		renderModel->Draw();
 
 		if (g_displayCollisionBoxes)
-			DrawModelCollisionBox(ref, {0,0,0}, 0.0f);
+			CRenderModel::DrawModelCollisionBox(ref, {0,0,0}, 0.0f);
 	}
 }
 
+//-------------------------------------------------------------
+// Forcefully spools entire level regions and area datas
+//-------------------------------------------------------------
 void SpoolAllAreaDatas()
 {
 	Msg("Spooling regions...\n");
@@ -1045,8 +289,9 @@ void SpoolAllAreaDatas()
 		MsgError("Unable to spool area datas!\n");
 }
 
-char g_modelSearchNameBuffer[64];
+//-------------------------------------------------------------
 
+char g_modelSearchNameBuffer[64];
 void PopulateUIModelNames()
 {
 	memset(g_modelSearchNameBuffer, 0, sizeof(g_modelSearchNameBuffer));
@@ -1055,6 +300,9 @@ void PopulateUIModelNames()
 bool g_exportWidget = false;
 int g_exportMode = 0;
 
+//-------------------------------------------------------------
+// Displays export settings UI
+//-------------------------------------------------------------
 void DisplayExportUI()
 {
 	extern bool g_extract_dmodels;
@@ -1150,6 +398,14 @@ void DisplayExportUI()
 	}
 }
 
+// stats counters
+extern int g_drawnCells;
+extern int g_drawnModels;
+extern int g_drawnPolygons;
+
+//-------------------------------------------------------------
+// Displays Main menu bar, stats and child windows
+//-------------------------------------------------------------
 void DisplayUI()
 {
 	if(ImGui::BeginMainMenuBar())
@@ -1524,8 +780,10 @@ void ViewerMainLoop()
 		// Render stuff
 		if (g_viewerMode == 0)
 		{
-			UpdateCameraMovement(deltaTime);
-			RenderLevelView(deltaTime);
+			float cameraSpeedModifier = g_holdShift ? 4.0f : 1.0f;
+			
+			UpdateCameraMovement(deltaTime, cameraSpeedModifier);
+			RenderLevelView();
 		}
 		else
 		{
@@ -1570,7 +828,8 @@ int ViewerMain()
 	ImGui_ImplSDL2_InitForOpenGL(g_window, nullptr);
 	ImGui_ImplOpenGL3_Init();
 
-	InitModelShader();
+	CRenderModel::InitModelShader();
+
 	DebugOverlay_Init();
 	InitHWTextures();
 
