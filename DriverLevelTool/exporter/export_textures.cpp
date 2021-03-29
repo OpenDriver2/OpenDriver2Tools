@@ -21,8 +21,8 @@ extern bool g_export_overmap;
 extern int g_overlaymap_width;
 extern bool g_explode_tpages;
 extern bool g_export_world;
-extern bool g_originalTransparencyKey;
 extern char* g_overlayMapData;
+extern bool	g_export_worldUnityScript;
 
 void GetTPageDetailPalettes(Array<TEXCLUT*>& out, CTexturePage* tpage, TexDetailInfo_t* detail)
 {
@@ -215,7 +215,7 @@ void ExportTexturePage(CTexturePage* tpage)
 
 	for (int i = 0; i < numDetails; i++)
 	{
-		tpage->ConvertIndexedTextureToRGBA(color_data, i, nullptr, true, true);
+		tpage->ConvertIndexedTextureToRGBA(color_data, i, nullptr, true, !g_export_worldUnityScript);
 	}
 
 	MsgInfo("Writing texture '%s/PAGE_%d.tga'\n", (char*)g_levname_texdir, tpage->GetId());
@@ -232,7 +232,7 @@ void ExportTexturePage(CTexturePage* tpage)
 			
 			if(detail->extraCLUTs[pal])
 			{
-				tpage->ConvertIndexedTextureToRGBA(color_data, j, detail->extraCLUTs[pal], true, true);
+				tpage->ConvertIndexedTextureToRGBA(color_data, j, detail->extraCLUTs[pal], true, !g_export_worldUnityScript);
 				anyMatched = true;
 			}
 		}

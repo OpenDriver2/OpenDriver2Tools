@@ -1076,15 +1076,18 @@ void DisplayExportUI()
 				Directory::create(g_levname_moddir);
 				SaveModelPagesMTL();
 
+				// idk why, but some regions are bugged while exporting
+				SpoolAllAreaDatas();
+				
 				// export model files as well
 				if (g_export_worldUnityScript)
 				{
 					g_extract_dmodels = false;
+					g_explode_tpages = false;
+					
 					ExportAllModels();
+					ExportAllTextures();
 				}
-
-				// idk why, but some regions are bugged while exporting
-				SpoolAllAreaDatas();
 				
 				ExportRegions();
 				MsgInfo("Job done!\n");
@@ -1096,6 +1099,7 @@ void DisplayExportUI()
 
 			if (ImGui::Button("Export models"))
 			{
+				g_export_worldUnityScript = false;
 				Directory::create(g_levname_moddir);
 				SaveModelPagesMTL();
 				ExportAllModels();
@@ -1108,6 +1112,7 @@ void DisplayExportUI()
 
 			if (ImGui::Button("Export models"))
 			{
+				g_export_worldUnityScript = false;
 				Directory::create(g_levname_moddir);
 				SaveModelPagesMTL();
 				ExportAllCarModels();
@@ -1120,6 +1125,7 @@ void DisplayExportUI()
 
 			if (ImGui::Button("Export textures"))
 			{
+				g_export_worldUnityScript = false;
 				Directory::create(g_levname_texdir);
 				ExportAllTextures();
 				MsgInfo("Job done!\n");
@@ -1131,6 +1137,7 @@ void DisplayExportUI()
 
 			if (ImGui::Button("Export textures"))
 			{
+				g_export_worldUnityScript = false;
 				Directory::create(g_levname_texdir);
 				ExportOverlayMap();
 				MsgInfo("Job done!\n");
