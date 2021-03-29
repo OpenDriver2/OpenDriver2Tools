@@ -48,6 +48,7 @@ bool g_holdShift = false;
 //-----------------------------------------------------------------
 
 TextureID g_hwTexturePages[128][32];
+extern TextureID g_whiteTexture;
 
 // Creates hardware texture
 void InitHWTexturePage(CTexturePage* tpage)
@@ -120,7 +121,17 @@ void InitHWTexturePage(CTexturePage* tpage)
 	free(color_data);
 }
 
-extern TextureID g_whiteTexture;
+void FreeHWTexturePage(CTexturePage* tpage)
+{
+	int tpageId = tpage->GetId();
+	GR_DestroyTexture(g_hwTexturePages[tpageId][0]);
+
+	for (int pal = 0; pal < 16; pal++)
+	{
+		if(g_hwTexturePages[tpageId][pal + 1] != g_whiteTexture)
+			GR_DestroyTexture(g_hwTexturePages[tpageId][pal + 1]);
+	}
+}
 
 // returns hardware texture
 TextureID GetHWTexture(int tpage, int pal)
@@ -135,6 +146,9 @@ TextureID GetHWTexture(int tpage, int pal)
 // Dummy texture initilization
 void InitHWTextures()
 {
+	// set loading callbacks
+	g_levTextures.SetLoadingCallbacks(InitHWTexturePage, FreeHWTexturePage);
+	
 	for (int i = 0; i < 128; i++)
 	{
 		for (int j = 0; j < 32; j++)
@@ -168,12 +182,9 @@ bool LoadLevelFile()
 	}
 
 	CFileStream stream(g_levFile);
-
-	// set loading callbacks
-	g_levTextures.SetLoadingCallbacks(InitHWTexturePage, nullptr);
-	g_levModels.SetModelLoadingCallbacks(CRenderModel::OnModelLoaded, CRenderModel::OnModelFreed);
-
 	ELevelFormat levFormat = CDriverLevelLoader::DetectLevelFormat(&stream);
+
+	g_levModels.SetModelLoadingCallbacks(CRenderModel::OnModelLoaded, CRenderModel::OnModelFreed);
 
 	// create map accordingly
 	if (levFormat >= LEV_FORMAT_DRIVER2_ALPHA16 || levFormat == LEV_FORMAT_AUTODETECT)
