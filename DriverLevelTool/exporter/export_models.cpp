@@ -58,9 +58,13 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 
 	// export scaling
 	Vector3D export_scale(-EXPORT_SCALING, -EXPORT_SCALING, EXPORT_SCALING);
+	bool flipFaces = true;
 
 	if(g_export_worldUnityScript)
+	{
 		export_scale = Vector3D(-EXPORT_SCALING, -EXPORT_SCALING, -EXPORT_SCALING);
+		flipFaces = false;
+	}
 	
 	// store vertices
 	for (int i = 0; i < vertex_ref->num_vertices; i++)
@@ -199,8 +203,11 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 			char temp[64] = {0};
 			char vertex_value[64] = {0};
 
-			// NOTE: Vertex indexes is reversed here
-#define VERT_IDX numPolyVerts - 1 - v
+			int VERT_IDX;
+			if(flipFaces)
+				VERT_IDX = numPolyVerts - 1 - v;
+			else
+				VERT_IDX = v;
 
 			// starting with vertex index
 			sprintf(temp, "%d", dec_face.vindices[VERT_IDX] + 1 + numVerts);

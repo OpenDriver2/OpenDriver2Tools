@@ -82,10 +82,10 @@ int ExportRegionDriver1(CDriver1LevelRegion* region, IVirtualStream* levelFileSt
 				{
 					String cellModelName = ref->name ? String::fromCString(ref->name) : String::fromPrintf("MOD_%d", ref->index);
 
-					float cellRotationDeg = RAD2DEG(cellRotationRad);// +180;
+					float cellRotationDeg = RAD2DEG(cellRotationRad) + 180;
 					
 					levelFileStream->Print("var reg%d_o%d = Instantiate(%s, new Vector3(%gf,%gf,%gf), Quaternion.Euler(0.0f,%gf,0.0f)) as GameObject;\n",
-						region->GetNumber(), numRegionObjects, (char*)cellModelName, absCellPosition.x, absCellPosition.y, absCellPosition.z, cellRotationDeg);
+						region->GetNumber(), numRegionObjects, (char*)cellModelName, absCellPosition.x, absCellPosition.y, absCellPosition.z, -cellRotationDeg);
 				}
 				else
 				{
@@ -152,7 +152,7 @@ int ExportRegionDriver2(CDriver2LevelRegion* region, IVirtualStream* levelFileSt
 					float cellRotationDeg = RAD2DEG(cellRotationRad) + 180;
 
 					levelFileStream->Print("var reg%d_o%d = Instantiate(%s, new Vector3(%gf,%gf,%gf), Quaternion.Euler(0.0f,%gf,0.0f)) as GameObject;\n",
-						region->GetNumber(), numRegionObjects, (char*)modelName, absCellPosition.x, absCellPosition.y, absCellPosition.z, cellRotationDeg);
+						region->GetNumber(), numRegionObjects, (char*)modelName, absCellPosition.x, absCellPosition.y, absCellPosition.z, -cellRotationDeg);
 				}
 				else
 				{
