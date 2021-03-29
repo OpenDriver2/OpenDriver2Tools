@@ -8,8 +8,11 @@
 #include "math/Matrix.h"
 
 #include <string.h>
+#include <nstd/File.hpp>
 
 extern bool		g_extract_dmodels;
+extern bool		g_export_worldUnityScript;
+
 extern String	g_levname_moddir;
 extern String	g_levname_texdir;
 
@@ -32,14 +35,15 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 	if (debugInfo)
 		pStream->Print("#vert count %d\r\n", model->num_vertices);
 
-	pStream->Print("g %s_%d\r\n", name_prefix, model_index);
-	pStream->Print("o %s_%d\r\n", name_prefix, model_index);
+	pStream->Print("g %s\r\n", name_prefix);
+	pStream->Print("o %s\r\n", name_prefix);
 
 	MODEL* vertex_ref = model;
 
 	if (model->instance_number > 0) // car models have vertex_ref=0
 	{
-		pStream->Print("#vertex data ref model: %d (count = %d)\r\n", model->instance_number, model->num_vertices);
+		if(debugInfo)
+			pStream->Print("#vertex data ref model: %d (count = %d)\r\n", model->instance_number, model->num_vertices);
 
 		ModelRef_t* ref = g_levModels.GetModelByIndex(model->instance_number);//, regModels);
 
@@ -52,11 +56,17 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 		vertex_ref = ref->model;
 	}
 
+	// export scaling
+	Vector3D export_scale(-EXPORT_SCALING, -EXPORT_SCALING, EXPORT_SCALING);
+
+	if(g_export_worldUnityScript)
+		export_scale = Vector3D(-EXPORT_SCALING, -EXPORT_SCALING, -EXPORT_SCALING);
+	
 	// store vertices
 	for (int i = 0; i < vertex_ref->num_vertices; i++)
 	{
 		SVECTOR* vert = vertex_ref->pVertex(i);
-		Vector3D sfVert = Vector3D(vert->x * -EXPORT_SCALING, vert->y * -EXPORT_SCALING, vert->z * EXPORT_SCALING);
+		Vector3D sfVert = Vector3D(vert->x, vert->y, vert->z) * export_scale;
 
 		sfVert = (translation * Vector4D(sfVert, 1.0f)).xyz();
 
@@ -70,7 +80,7 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 	for (int i = 0; i < vertex_ref->num_point_normals; i++)
 	{
 		SVECTOR* norm = vertex_ref->pPointNormal(i);
-		Vector3D sfNorm = Vector3D(norm->x * -EXPORT_SCALING, norm->y * -EXPORT_SCALING, norm->z * EXPORT_SCALING);
+		Vector3D sfNorm = Vector3D(norm->x, norm->y, norm->z) * export_scale;
 
 		pStream->Print("vn %g %g %g\r\n", 
 			sfNorm.x,
@@ -295,7 +305,13 @@ void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, in
 
 		fstr.Print("mtllib MODELPAGES.mtl\r\n");
 
-		WriteMODELToObjStream(&fstr, model, modelSize, model_index, model_name, true);
+#ifdef _DEBUG
+		bool debugInfo = true;
+#else
+		bool debugInfo = false;
+#endif
+		
+		WriteMODELToObjStream(&fstr, model, modelSize, model_index, File::basename(String::fromCString(model_name)), debugInfo);
 
 		// success
 		fclose(mdlFile);
@@ -342,26 +358,16 @@ void ExportAllModels()
 
 	for (int i = 0; i < MAX_MODELS; i++)
 	{
-		ModelRef_t* modelRef = g_levModels.GetModelByIndex(i);
+		ModelRef_t* ref = g_levModels.GetModelByIndex(i);
 
-		if (!modelRef->model)
+		if (!ref || !ref->model)
 			continue;
 
-		String modelFileName(String::fromPrintf("%s/ZMOD_%d", (char*)g_levname_moddir, i));
-
-		if (modelRef->name && modelRef->name[0] != 0)
-			modelFileName = String::fromPrintf("%s/%d_%s", (char*)g_levname_moddir, i, modelRef->name);
+		String modelName = strlen(ref->name) > 0 ? String::fromCString(ref->name) : String::fromPrintf("MOD_%d", ref->index);
+		String modelPath = String::fromPrintf("%s/%s", (char*)g_levname_moddir, (char*)modelName);
 
 		// export model
-		ExportDMODELToOBJ(modelRef->model, modelFileName, i, modelRef->size);
-
-		// save original dmodel2
-		FILE* dFile = fopen(String::fromPrintf("%s.dmodel", modelFileName), "wb");
-		if (dFile)
-		{
-			fwrite(modelRef->model, modelRef->size, 1, dFile);
-			fclose(dFile);
-		}
+		ExportDMODELToOBJ(ref->model, modelPath, i, ref->size);
 	}
 }
 

@@ -21,6 +21,7 @@ bool g_export_models = false;
 bool g_extract_dmodels = false;
 
 bool g_export_world = false;
+bool g_export_worldUnityScript = false;
 
 bool g_export_textures = false;
 bool g_explode_tpages = false;
@@ -175,6 +176,7 @@ void PrintCommandLineArguments()
 		"  -models <1/0> \t: Export models (OBJ\n\n"
 		"  -carmodels <1/0> \t: Export car models (OBJ)\n\n"
 		"  -world <1/0> \t\t: Export whole world regions (OBJ)\n\n"
+		"  -unity \t: Creates JavaScript file for Unity Engine\n\n"
 		"  -extractmodels \t: Extracts DMODEL files instead of exporting to OBJ\n\n"
 		"  -overmap <width> \t: Extract overlay map with specified width\n\n"
 		"  -explodetpages \t: Extracts textures as separate TIM files instead of whole texture page exporting as TGA\n\n"
@@ -214,6 +216,10 @@ int main(int argc, char* argv[])
 			g_export_world = atoi(argv[i + 1]) > 0;
 			main_routine = 1;
 			i++;
+		}
+		else if(!stricmp(argv[i], "-unity"))
+		{
+			g_export_worldUnityScript = true;
 		}
 		else if (!stricmp(argv[i], "-models"))
 		{

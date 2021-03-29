@@ -1058,6 +1058,7 @@ int g_exportMode = 0;
 void DisplayExportUI()
 {
 	extern bool g_extract_dmodels;
+	extern bool g_export_worldUnityScript;
 	extern bool g_explode_tpages;
 	extern int g_overlaymap_width;
 	
@@ -1068,11 +1069,19 @@ void DisplayExportUI()
 		if(g_exportMode == 0)
 		{
 			// TODO: Unity export option
+			ImGui::Checkbox("Export for Unity Engine", &g_export_worldUnityScript);
 			
 			if(ImGui::Button("Export world"))
 			{
 				Directory::create(g_levname_moddir);
 				SaveModelPagesMTL();
+
+				// export model files as well
+				if (g_export_worldUnityScript)
+				{
+					g_extract_dmodels = false;
+					ExportAllModels();
+				}
 
 				// idk why, but some regions are bugged while exporting
 				SpoolAllAreaDatas();
@@ -1351,6 +1360,8 @@ void SDLPollEvent()
 	{
 		ImGui_ImplSDL2_ProcessEvent(&event);
 
+		bool anyWindowFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_AnyWindow);
+		
 		switch (event.type)
 		{
 		case SDL_QUIT:
@@ -1374,8 +1385,9 @@ void SDLPollEvent()
 		}
 		case SDL_MOUSEMOTION:
 		{
-			//Emulator_DoDebugMouseMotion(event.motion.x, event.motion.y);
-
+			if (anyWindowFocused)
+				break;
+			
 			if (g_holdLeft)
 			{
 				g_cameraAngles.x += event.motion.yrel * 0.25f;
@@ -1392,6 +1404,9 @@ void SDLPollEvent()
 		case SDL_MOUSEBUTTONUP:
 		{
 			bool down = (event.type == SDL_MOUSEBUTTONDOWN);
+			
+			if (anyWindowFocused)
+				down = false;
 
 			if (event.button.button == 1)
 				g_holdLeft = down;
