@@ -343,25 +343,24 @@ PACKED_CELL_OBJECT* CDriver2LevelRegion::StartIterator(CELL_ITERATOR_D2* iterato
 	// get the packed cell data start and near cell
 	CELL_DATA* cell = &m_cells[cell_ptr];
 
-	int drawValue = iterator->drawValue;
+	int cellLevel = iterator->cellLevel;
 
-	if(drawValue != -1)
+	if (cellLevel == 0)
 	{
-		if (drawValue == 0)
+		if (cell->num & 0x4000)
+			return nullptr;
+	}
+	else
+	{
+		ushort num = cell->num;
+		cell++;
+		while (num != (cellLevel | 0x4000))
 		{
-			if (cell->num & 0x4000)
+			if (cell->num & 0x8000)
 				return nullptr;
-		}
-		else
-		{
+
+			num = cell->num;
 			cell++;
-			while (cell->num != (drawValue | 0x4000))
-			{
-				if (cell->num & 0x8000)
-					return nullptr;
-				
-				cell++;
-			}
 		}
 	}
 
@@ -580,25 +579,24 @@ PACKED_CELL_OBJECT* CDriver2LevelMap::GetFirstPackedCop(CELL_ITERATOR_D2* iterat
 	// get the packed cell data start and near cell
 	CELL_DATA* cell = &region.m_cells[cell_ptr];
 
-	int drawValue = iterator->drawValue;
+	int cellLevel = iterator->cellLevel;
 
-	if (drawValue != -1)
+	if (cellLevel == 0)
 	{
-		if (drawValue == 0)
+		if (cell->num & 0x4000)
+			return nullptr;
+	}
+	else
+	{
+		ushort num = cell->num;
+		cell++;
+		while (num != (cellLevel | 0x4000))
 		{
-			if (cell->num & 0x4000)
+			if (cell->num & 0x8000)
 				return nullptr;
-		}
-		else
-		{
-			cell++;
-			while (cell->num != (drawValue | 0x4000))
-			{
-				if (cell->num & 0x8000)
-					return nullptr;
 
-				cell++;
-			}
+			num = cell->num;
+			cell++;
 		}
 	}
 
@@ -622,6 +620,8 @@ PACKED_CELL_OBJECT* CDriver2LevelMap::GetNextPackedCop(CELL_ITERATOR_D2* iterato
 	ushort num;
 	PACKED_CELL_OBJECT* ppco;
 
+	int cellLevel = iterator->cellLevel;
+	
 	do {
 		if (iterator->pcd->num & 0x8000)
 			return nullptr;
@@ -629,12 +629,11 @@ PACKED_CELL_OBJECT* CDriver2LevelMap::GetNextPackedCop(CELL_ITERATOR_D2* iterato
 		iterator->pcd++;
 		num = iterator->pcd->num;
 
-		if (iterator->drawValue != -1 && num & 0x4000)
+		if(num & 0x4000)	// start of new list
 			return nullptr;
 
 		ppco = iterator->region->GetCellObject(num & 0x3fff);
-		if (!ppco)
-			return nullptr;
+
 	} while (ppco->value == 0xffff && (ppco->pos.vy & 1));
 
 	iterator->ppco = ppco;

@@ -151,22 +151,30 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 				CELL_ITERATOR_D2 ci;
 				PACKED_CELL_OBJECT* ppco;
 
-				levMapDriver2->SpoolRegion(spoolContext, icell);
-
-				ppco = levMapDriver2->GetFirstPackedCop(&ci, icell.x, icell.z);
-
-				g_drawnCells++;
-
-				// walk each cell object in cell
-				while (ppco)
+				for (int i = 0; i < 20; i++)
 				{
-					PCO_PAIR_D2 pair;
-					pair.nearCell = ci.nearCell;
-					pair.pco = ppco;
+					if (i == 19)
+						ci.cellLevel = 100;	// 100 is the special slot for event object placement
+					else
+						ci.cellLevel = i;
+					
+					levMapDriver2->SpoolRegion(spoolContext, icell);
 
-					drawObjects.append(pair);
+					ppco = levMapDriver2->GetFirstPackedCop(&ci, icell.x, icell.z);
 
-					ppco = levMapDriver2->GetNextPackedCop(&ci);
+					g_drawnCells++;
+
+					// walk each cell object in cell
+					while (ppco)
+					{
+						PCO_PAIR_D2 pair;
+						pair.nearCell = ci.nearCell;
+						pair.pco = ppco;
+
+						drawObjects.append(pair);
+
+						ppco = levMapDriver2->GetNextPackedCop(&ci);
+					}
 				}
 			}
 		}

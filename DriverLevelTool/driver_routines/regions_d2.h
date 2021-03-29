@@ -14,14 +14,14 @@ struct CELL_ITERATOR_D2
 {
 	CELL_ITERATOR_D2()
 	{
-		drawValue = -1;
+		cellLevel = 0;
 	}
 	
 	CDriver2LevelRegion*	region;
 	CELL_DATA*				pcd;
 	PACKED_CELL_OBJECT*		ppco;
 	XZPAIR					nearCell;
-	int						drawValue;
+	int						cellLevel;
 };
 
 typedef short* (*sdBspCallback)(sdNode* node, XZPAIR* pos);
