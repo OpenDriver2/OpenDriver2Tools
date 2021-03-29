@@ -242,6 +242,9 @@ void ExportRegions()
 	IVirtualStream* levelStream;
 
 	CMemoryStream memStream;
+
+	String justLevFilename = File::basename(g_levname, File::extension(g_levname));
+	String levFileNameWithoutExt = File::dirname(g_levname) + "/" + justLevFilename;
 	
 	if(g_export_worldUnityScript)
 	{
@@ -250,7 +253,7 @@ void ExportRegions()
 	}
 	else
 	{
-		levelFile = fopen(String::fromPrintf("%s_LEVELMODEL.obj", (char*)g_levname), "wb");
+		levelFile = fopen(String::fromPrintf("%s_LEVELMODEL.obj", (char*)levFileNameWithoutExt), "wb");
 	}
 
 	CFileStream fileStream(levelFile);
@@ -262,14 +265,12 @@ void ExportRegions()
 	}
 	else
 	{
-		String justLevFilename = File::basename(g_levname, File::extension(g_levname));
-		
 		// use file stream directly
 		levelStream = &fileStream;
 		levelStream->Print("mtllib %s_LEVELMODEL.mtl\r\n", (char*)justLevFilename);
 
 		// create material file
-		FILE* pMtlFile = fopen(String::fromPrintf("%s_LEVELMODEL.mtl", (char*)justLevFilename), "wb");
+		FILE* pMtlFile = fopen(String::fromPrintf("%s_LEVELMODEL.mtl", (char*)levFileNameWithoutExt), "wb");
 
 		if (pMtlFile)
 		{
@@ -288,7 +289,7 @@ void ExportRegions()
 
 	String levNameOnly = File::basename(g_levname, File::extension(g_levname));
 
-	// Open file stream
+	// Open file stream for spooling
 	FILE* fp = fopen(g_levname, "rb");
 	if (fp)
 	{

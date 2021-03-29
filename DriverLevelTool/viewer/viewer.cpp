@@ -1073,9 +1073,6 @@ void DisplayExportUI()
 			
 			if(ImGui::Button("Export world"))
 			{
-				Directory::create(g_levname_moddir);
-				SaveModelPagesMTL();
-
 				// idk why, but some regions are bugged while exporting
 				SpoolAllAreaDatas();
 				
@@ -1084,6 +1081,11 @@ void DisplayExportUI()
 				{
 					g_extract_dmodels = false;
 					g_explode_tpages = false;
+					
+					Directory::create(g_levname_moddir);
+					Directory::create(g_levname_texdir);
+
+					SaveModelPagesMTL();
 					
 					ExportAllModels();
 					ExportAllTextures();

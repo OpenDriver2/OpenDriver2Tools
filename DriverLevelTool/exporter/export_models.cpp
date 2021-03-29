@@ -351,7 +351,7 @@ void SaveModelPagesMTL()
 		for (int i = 0; i < g_levTextures.GetTPageCount(); i++)
 		{
 			fprintf(pMtlFile, "newmtl page_%d\r\n", i);
-			fprintf(pMtlFile, "map_Kd ../../%s/PAGE_%d.tga\r\n", (char*)justLevFilename, i);
+			fprintf(pMtlFile, "map_Kd ../%s/PAGE_%d.tga\r\n", (char*)justLevFilename, i);
 		}
 
 		fclose(pMtlFile);
