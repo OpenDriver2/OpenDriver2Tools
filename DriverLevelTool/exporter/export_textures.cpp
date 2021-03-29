@@ -288,22 +288,6 @@ void ExportAllTextures()
 	{
 		ExportTexturePage(g_levTextures.GetTPage(i));
 	}
-
-	// create material file
-	FILE* pMtlFile = fopen(String::fromPrintf("%s_LEVELMODEL.mtl", (char*)g_levname), "wb");
-
-	String justLevFilename = File::basename(g_levname);
-
-	if (pMtlFile)
-	{
-		for (int i = 0; i < g_levTextures.GetTPageCount(); i++)
-		{
-			fprintf(pMtlFile, "newmtl page_%d\r\n", i);
-			fprintf(pMtlFile, "map_Kd %s_textures/PAGE_%d.tga\r\n", (char*)justLevFilename, i);
-		}
-
-		fclose(pMtlFile);
-	}
 }
 
 //-------------------------------------------------------------

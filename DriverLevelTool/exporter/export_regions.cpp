@@ -262,9 +262,25 @@ void ExportRegions()
 	}
 	else
 	{
+		String justLevFilename = File::basename(g_levname, File::extension(g_levname));
+		
 		// use file stream directly
 		levelStream = &fileStream;
-		levelStream->Print("mtllib %s_LEVELMODEL.mtl\r\n", (char*)g_levname);
+		levelStream->Print("mtllib %s_LEVELMODEL.mtl\r\n", (char*)justLevFilename);
+
+		// create material file
+		FILE* pMtlFile = fopen(String::fromPrintf("%s_LEVELMODEL.mtl", (char*)justLevFilename), "wb");
+
+		if (pMtlFile)
+		{
+			for (int i = 0; i < g_levTextures.GetTPageCount(); i++)
+			{
+				fprintf(pMtlFile, "newmtl page_%d\r\n", i);
+				fprintf(pMtlFile, "map_Kd %s_textures/PAGE_%d.tga\r\n", (char*)justLevFilename, i);
+			}
+
+			fclose(pMtlFile);
+		}
 	}
 
 	int lobj_first_v = 0;
