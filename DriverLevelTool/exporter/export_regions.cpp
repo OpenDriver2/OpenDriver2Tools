@@ -129,56 +129,47 @@ int ExportRegionDriver2(CDriver2LevelRegion* region, IVirtualStream* levelFileSt
 	{
 		CELL_ITERATOR_D2 ci;
 
-		for (int i = 0; i < 20; i++)
+		PACKED_CELL_OBJECT* pco = region->StartIterator(&ci, i);
+
+		if (!pco)
+			continue;
+
+		while (pco)
 		{
-			int cellLevel;
-			if (i == 19)
-				cellLevel = 100;	// 100 is the special slot for event object placement
-			else
-				cellLevel = i;
+			CELL_OBJECT co;
+			CDriver2LevelMap::UnpackCellObject(co, pco, ci.nearCell);
 
-			PACKED_CELL_OBJECT* pco = region->StartIterator(&ci, i);
+			Vector3D absCellPosition(co.pos.vx * -EXPORT_SCALING, co.pos.vy * EXPORT_SCALING, co.pos.vz * EXPORT_SCALING);
+			float cellRotationRad = co.yang / 64.0f * PI_F * 2.0f;
 
-			if (!pco)
-				continue;
+			ModelRef_t* ref = g_levModels.GetModelByIndex(co.type);
 
-			while (pco)
+			if (ref)
 			{
-				CELL_OBJECT co;
-				CDriver2LevelMap::UnpackCellObject(co, pco, ci.nearCell);
-
-				Vector3D absCellPosition(co.pos.vx * -EXPORT_SCALING, co.pos.vy * EXPORT_SCALING, co.pos.vz * EXPORT_SCALING);
-				float cellRotationRad = co.yang / 64.0f * PI_F * 2.0f;
-
-				ModelRef_t* ref = g_levModels.GetModelByIndex(co.type);
-
-				if (ref)
+				if (g_export_worldUnityScript)
 				{
-					if (g_export_worldUnityScript)
-					{
-						String modelName = strlen(ref->name) > 0 ? String::fromCString(ref->name) : String::fromPrintf("MOD_%d", ref->index);
+					String modelName = strlen(ref->name) > 0 ? String::fromCString(ref->name) : String::fromPrintf("MOD_%d", ref->index);
 
-						float cellRotationDeg = RAD2DEG(cellRotationRad) + 180;
+					float cellRotationDeg = RAD2DEG(cellRotationRad) + 180;
 
-						levelFileStream->Print("var reg%d_o%d = Instantiate(%s, new Vector3(%gf,%gf,%gf), Quaternion.Euler(0.0f,%gf,0.0f)) as GameObject;\n",
-							region->GetNumber(), numRegionObjects, (char*)modelName, absCellPosition.x, absCellPosition.y, absCellPosition.z, -cellRotationDeg);
-					}
-					else
-					{
-						// transform objects and save
-						Matrix4x4 transform = translate(absCellPosition);
-						transform = transform * rotateY4(cellRotationRad) * scale4(1.0f, 1.0f, 1.0f);
-
-						WriteMODELToObjStream(levelFileStream, ref->model, ref->size, co.type,
-							String::fromPrintf("reg%d", region->GetNumber()),
-							false, transform, &lobj_first_v, &lobj_first_t);
-					}
+					levelFileStream->Print("var reg%d_o%d = Instantiate(%s, new Vector3(%gf,%gf,%gf), Quaternion.Euler(0.0f,%gf,0.0f)) as GameObject;\n",
+						region->GetNumber(), numRegionObjects, (char*)modelName, absCellPosition.x, absCellPosition.y, absCellPosition.z, -cellRotationDeg);
 				}
+				else
+				{
+					// transform objects and save
+					Matrix4x4 transform = translate(absCellPosition);
+					transform = transform * rotateY4(cellRotationRad) * scale4(1.0f, 1.0f, 1.0f);
 
-				numRegionObjects++;
-
-				pco = levMapDriver2->GetNextPackedCop(&ci);
+					WriteMODELToObjStream(levelFileStream, ref->model, ref->size, co.type,
+						String::fromPrintf("reg%d", region->GetNumber()),
+						false, transform, &lobj_first_v, &lobj_first_t);
+				}
 			}
+
+			numRegionObjects++;
+
+			pco = levMapDriver2->GetNextPackedCop(&ci);
 		}
 	}
 
