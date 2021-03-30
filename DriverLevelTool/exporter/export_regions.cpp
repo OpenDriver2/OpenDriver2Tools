@@ -137,7 +137,7 @@ int ExportRegionDriver2(CDriver2LevelRegion* region, IVirtualStream* levelFileSt
 			else
 				cellLevel = i;
 
-			PACKED_CELL_OBJECT* pco = region->StartIterator(&ci, i, cellLevel);
+			PACKED_CELL_OBJECT* pco = region->StartIterator(&ci, i);
 
 			if (!pco)
 				continue;

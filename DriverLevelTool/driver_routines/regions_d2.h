@@ -16,6 +16,7 @@ struct CELL_ITERATOR_D2
 	CELL_DATA*				pcd;
 	PACKED_CELL_OBJECT*		ppco;
 	XZPAIR					nearCell;
+	int						listType;
 };
 
 typedef short* (*sdBspCallback)(sdNode* node, XZPAIR* pos);
@@ -35,7 +36,7 @@ public:
 	CELL_DATA*				GetCellData(int num) const;
 
 	// cell iterator
-	PACKED_CELL_OBJECT*		StartIterator(CELL_ITERATOR_D2* iterator, int cellNumber, int cellLevel) const;
+	PACKED_CELL_OBJECT*		StartIterator(CELL_ITERATOR_D2* iterator, int cellNumber) const;
 
 	sdPlane*				SdGetCell(const VECTOR_NOPAD& position, int& sdLevel, sdBspCallback bspWalker) const;
 
@@ -82,7 +83,7 @@ public:
 	
 	//----------------------------------------
 	// cell iterator
-	PACKED_CELL_OBJECT*		GetFirstPackedCop(CELL_ITERATOR_D2* iterator, const XZPAIR& cell, int cellLevel) const;
+	PACKED_CELL_OBJECT*		GetFirstPackedCop(CELL_ITERATOR_D2* iterator, const XZPAIR& cell) const;
 	PACKED_CELL_OBJECT*		GetNextPackedCop(CELL_ITERATOR_D2* iterator) const;
 	static bool				UnpackCellObject(CELL_OBJECT& co, PACKED_CELL_OBJECT* pco, const XZPAIR& nearCell);
 

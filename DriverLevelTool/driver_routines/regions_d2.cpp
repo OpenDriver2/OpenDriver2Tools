@@ -314,7 +314,7 @@ CELL_DATA* CDriver2LevelRegion::GetCellData(int num) const
 }
 
 // cell iterator
-PACKED_CELL_OBJECT* CDriver2LevelRegion::StartIterator(CELL_ITERATOR_D2* iterator, int cellNumber, int cellLevel) const
+PACKED_CELL_OBJECT* CDriver2LevelRegion::StartIterator(CELL_ITERATOR_D2* iterator, int cellNumber) const
 {
 	ushort cell_ptr = m_cellPointers[cellNumber];
 
@@ -341,29 +341,18 @@ PACKED_CELL_OBJECT* CDriver2LevelRegion::StartIterator(CELL_ITERATOR_D2* iterato
 	iterator->nearCell.z = (cellz - (mapInfo.cells_down / 2))* mapInfo.cell_size;
 
 	// get the packed cell data start and near cell
-	CELL_DATA* cell = &m_cells[cell_ptr];
+	CELL_DATA* celld = &m_cells[cell_ptr];
 
-	if (cellLevel == 0)
-	{
-		if (cell->num & 0x4000)
-			return nullptr;
-	}
-	else
-	{
-		ushort num = cell->num;
-		cell++;
-		while (num != (cellLevel | 0x4000))
-		{
-			if (cell->num & 0x8000)
-				return nullptr;
+	iterator->listType = 0;
 
-			num = cell->num;
-			cell++;
-		}
+	if (celld->num & 0x4000) // if we immediately got to the typed list
+	{
+		iterator->listType = celld->num;
+		celld++; // get to the start
 	}
 
-	PACKED_CELL_OBJECT* ppco = GetCellObject(cell->num & 0x3fff);
-	iterator->pcd = cell;
+	PACKED_CELL_OBJECT* ppco = GetCellObject(celld->num & 0x3fff);
+	iterator->pcd = celld;
 
 	if (ppco->value == 0xffff && (ppco->pos.vy & 1))
 		ppco = ((CDriver2LevelMap*)m_owner)->GetNextPackedCop(iterator);
@@ -542,7 +531,7 @@ int CDriver2LevelMap::MapHeight(const VECTOR_NOPAD& position) const
 //-------------------------------------------------------------
 // returns first cell object of cell
 //-------------------------------------------------------------
-PACKED_CELL_OBJECT* CDriver2LevelMap::GetFirstPackedCop(CELL_ITERATOR_D2* iterator, const XZPAIR& cell, int cellLevel) const
+PACKED_CELL_OBJECT* CDriver2LevelMap::GetFirstPackedCop(CELL_ITERATOR_D2* iterator, const XZPAIR& cell) const
 {
 	// lookup region
 	const int region_x = cell.x / m_mapInfo.region_size;
@@ -577,23 +566,23 @@ PACKED_CELL_OBJECT* CDriver2LevelMap::GetFirstPackedCop(CELL_ITERATOR_D2* iterat
 	// get the packed cell data start and near cell
 	CELL_DATA* celld = &region.m_cells[cell_ptr];
 
-	if (cellLevel == 0)
-	{
-		if (celld->num & 0x4000)
-			return nullptr;
-	}
-	else
-	{
-		ushort num = celld->num;
-		celld++;
-		while (num != (cellLevel | 0x4000))
-		{
-			if (celld->num & 0x8000)
-				return nullptr;
+	/*
+		Data looks like this:
 
-			num = celld->num;
-			celld++;
-		}
+		45,34,773,456    - default list of cell objects
+		0x4000 | 100     - list 1 header - type 100
+		70,378,4557      - objects of list 1
+		0x4000 | 14      - list 2 header - type 14
+		8767,555,445,223 - objects of list 2
+		0x8000           - end of cell objects
+	*/
+
+	iterator->listType = 0;
+
+	if (celld->num & 0x4000) // if we immediately got to the typed list
+	{
+		iterator->listType = celld->num;
+		celld++; // get to the start
 	}
 
 	PACKED_CELL_OBJECT* ppco = region.GetCellObject(celld->num & 0x3fff);
@@ -617,16 +606,35 @@ PACKED_CELL_OBJECT* CDriver2LevelMap::GetNextPackedCop(CELL_ITERATOR_D2* iterato
 	PACKED_CELL_OBJECT* ppco;
 
 	do {
-		if (iterator->pcd->num & 0x8000)
+		CELL_DATA* celld = iterator->pcd;
+
+		if (celld->num & 0x8000)	// end of the cell objects?
 			return nullptr;
 
-		iterator->pcd++;
-		num = iterator->pcd->num;
+		celld++;
 
-		if(num & 0x4000)	// start of new list
+		if (celld->num & 0x4000) // if we got new list
+		{
+			iterator->listType = celld->num;
+			celld++; // get to the start
+		}
+
+		iterator->pcd = celld;
+
+		/*
+		celld++;
+		num = celld->num;
+
+		if (celld->num & 0x4000) // if we immediately got to the typed list
+		{
+			iterator->listType = celld->num;
+			celld++; // get to the start
+		}
+		
+		if(num & 0x4000)	// start of new sub list?
 			return nullptr;
-
-		ppco = iterator->region->GetCellObject(num & 0x3fff);
+		*/
+		ppco = iterator->region->GetCellObject(celld->num & 0x3fff);
 
 	} while (ppco->value == 0xffff && (ppco->pos.vy & 1));
 
