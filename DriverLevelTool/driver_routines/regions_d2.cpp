@@ -314,7 +314,7 @@ CELL_DATA* CDriver2LevelRegion::GetCellData(int num) const
 }
 
 // cell iterator
-PACKED_CELL_OBJECT* CDriver2LevelRegion::StartIterator(CELL_ITERATOR_D2* iterator, int cellNumber) const
+PACKED_CELL_OBJECT* CDriver2LevelRegion::StartIterator(CELL_ITERATOR_D2* iterator, int cellNumber, int cellLevel) const
 {
 	ushort cell_ptr = m_cellPointers[cellNumber];
 
@@ -342,8 +342,6 @@ PACKED_CELL_OBJECT* CDriver2LevelRegion::StartIterator(CELL_ITERATOR_D2* iterato
 
 	// get the packed cell data start and near cell
 	CELL_DATA* cell = &m_cells[cell_ptr];
-
-	int cellLevel = iterator->cellLevel;
 
 	if (cellLevel == 0)
 	{
@@ -544,11 +542,11 @@ int CDriver2LevelMap::MapHeight(const VECTOR_NOPAD& position) const
 //-------------------------------------------------------------
 // returns first cell object of cell
 //-------------------------------------------------------------
-PACKED_CELL_OBJECT* CDriver2LevelMap::GetFirstPackedCop(CELL_ITERATOR_D2* iterator, int cellx, int cellz) const
+PACKED_CELL_OBJECT* CDriver2LevelMap::GetFirstPackedCop(CELL_ITERATOR_D2* iterator, const XZPAIR& cell, int cellLevel) const
 {
 	// lookup region
-	const int region_x = cellx / m_mapInfo.region_size;
-	const int region_z = cellz / m_mapInfo.region_size;
+	const int region_x = cell.x / m_mapInfo.region_size;
+	const int region_z = cell.z / m_mapInfo.region_size;
 
 	int regionIdx = region_x + region_z * m_regions_across;
 
@@ -561,8 +559,8 @@ PACKED_CELL_OBJECT* CDriver2LevelMap::GetFirstPackedCop(CELL_ITERATOR_D2* iterat
 		return nullptr;
 
 	// get cell index on the region
-	const int region_cell_x = cellx % m_mapInfo.region_size;
-	const int region_cell_z = cellz % m_mapInfo.region_size;
+	const int region_cell_x = cell.x % m_mapInfo.region_size;
+	const int region_cell_z = cell.z % m_mapInfo.region_size;
 
 	// FIXME: might be incorrect
 	int cell_index = region_cell_x + region_cell_z * m_mapInfo.region_size;
@@ -573,36 +571,34 @@ PACKED_CELL_OBJECT* CDriver2LevelMap::GetFirstPackedCop(CELL_ITERATOR_D2* iterat
 		return nullptr;
 
 	// get the near cell cPosition in the world
-	iterator->nearCell.x = (cellx - (m_mapInfo.cells_across / 2)) * m_mapInfo.cell_size;
-	iterator->nearCell.z = (cellz - (m_mapInfo.cells_down / 2)) * m_mapInfo.cell_size;
+	iterator->nearCell.x = (cell.x - (m_mapInfo.cells_across / 2)) * m_mapInfo.cell_size;
+	iterator->nearCell.z = (cell.z - (m_mapInfo.cells_down / 2)) * m_mapInfo.cell_size;
 
 	// get the packed cell data start and near cell
-	CELL_DATA* cell = &region.m_cells[cell_ptr];
-
-	int cellLevel = iterator->cellLevel;
+	CELL_DATA* celld = &region.m_cells[cell_ptr];
 
 	if (cellLevel == 0)
 	{
-		if (cell->num & 0x4000)
+		if (celld->num & 0x4000)
 			return nullptr;
 	}
 	else
 	{
-		ushort num = cell->num;
-		cell++;
+		ushort num = celld->num;
+		celld++;
 		while (num != (cellLevel | 0x4000))
 		{
-			if (cell->num & 0x8000)
+			if (celld->num & 0x8000)
 				return nullptr;
 
-			num = cell->num;
-			cell++;
+			num = celld->num;
+			celld++;
 		}
 	}
 
-	PACKED_CELL_OBJECT* ppco = region.GetCellObject(cell->num & 0x3fff);
+	PACKED_CELL_OBJECT* ppco = region.GetCellObject(celld->num & 0x3fff);
 
-	iterator->pcd = cell;
+	iterator->pcd = celld;
 
 	if (ppco->value == 0xffff && (ppco->pos.vy & 1))
 		ppco = GetNextPackedCop(iterator);
@@ -620,8 +616,6 @@ PACKED_CELL_OBJECT* CDriver2LevelMap::GetNextPackedCop(CELL_ITERATOR_D2* iterato
 	ushort num;
 	PACKED_CELL_OBJECT* ppco;
 
-	int cellLevel = iterator->cellLevel;
-	
 	do {
 		if (iterator->pcd->num & 0x8000)
 			return nullptr;
@@ -652,7 +646,9 @@ bool CDriver2LevelMap::UnpackCellObject(CELL_OBJECT& co, PACKED_CELL_OBJECT* pco
 	co.pos.vx = nearCell.x + (((pco->pos.vx - nearCell.x) << 0x10) >> 0x10);
 	co.pos.vz = nearCell.z + (((pco->pos.vz - nearCell.z) << 0x10) >> 0x10);
 
-	co.pos.vy = (pco->pos.vy << 0x10) >> 0x11;
+	// cell height should be negated
+	co.pos.vy = -((pco->pos.vy << 0x10) >> 0x11);
+
 	co.yang = pco->value & 0x3f;
 	co.type = (pco->value >> 6) | ((pco->pos.vy & 1) << 10);
 

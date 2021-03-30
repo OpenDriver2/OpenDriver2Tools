@@ -1,10 +1,13 @@
 
+
 #include "driver_level.h"
 #include "gl_renderer.h"
 #include "renderheightmap.h"
 #include "rendermodel.h"
-#include "math/psx_math_types.h"
+
 #include "math/Volume.h"
+
+#include "convert.h"
 
 extern bool g_displayHeightMap;
 
@@ -49,10 +52,7 @@ void UpdateCameraMovement(float deltaTime, float speedModifier)
 
 	g_cameraPosition += g_cameraVelocity * deltaTime;
 
-	VECTOR_NOPAD cameraPosition;
-	cameraPosition.vx = g_cameraPosition.x * ONE_F;
-	cameraPosition.vy = g_cameraPosition.y * ONE_F;
-	cameraPosition.vz = g_cameraPosition.z * ONE_F;
+	VECTOR_NOPAD cameraPosition = ToFixedVector(g_cameraPosition);
 
 	int height = g_levMap->MapHeight(cameraPosition);
 

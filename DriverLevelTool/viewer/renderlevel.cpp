@@ -1,3 +1,4 @@
+#include "debug_overlay.h"
 #include "gl_renderer.h"
 
 #include "core/VirtualStream.h"
@@ -8,6 +9,8 @@
 #include "math/Volume.h"
 
 #include "rendermodel.h"
+
+#include "convert.h"
 
 // extern some vars
 extern String					g_levname;
@@ -23,6 +26,7 @@ extern FILE* g_levFile;
 extern bool g_nightMode;
 extern bool g_displayCollisionBoxes;
 extern bool g_displayHeightMap;
+extern bool g_displayAllCellLevels;
 extern bool g_noLod;
 extern int g_cellsDrawDistance;
 
@@ -67,6 +71,7 @@ struct PCO_PAIR_D2
 {
 	PACKED_CELL_OBJECT* pco;
 	XZPAIR nearCell;
+	bool editorEvent;
 };
 
 //-------------------------------------------------------
@@ -86,10 +91,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 	g_drawnModels = 0;
 	g_drawnPolygons = 0;
 
-	VECTOR_NOPAD cameraPosition;
-	cameraPosition.vx = cameraPos.x * ONE_F;
-	cameraPosition.vy = cameraPos.y * ONE_F;
-	cameraPosition.vz = cameraPos.z * ONE_F;
+	VECTOR_NOPAD cameraPosition = ToFixedVector(cameraPos);
 
 	CDriver2LevelMap* levMapDriver2 = (CDriver2LevelMap*)g_levMap;
 	CFileStream spoolStream(g_levFile);
@@ -151,18 +153,18 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 				CELL_ITERATOR_D2 ci;
 				PACKED_CELL_OBJECT* ppco;
 
-				for (int i = 0; i < 20; i++)
+				levMapDriver2->SpoolRegion(spoolContext, icell);
+
+				for (int i = 0; i < (g_displayAllCellLevels ? 20 : 1); i++)
 				{
-					if (i == 19)
-						ci.cellLevel = 100;	// 100 is the special slot for event object placement
-					else
-						ci.cellLevel = i;
+					int cellLevel;
 					
-					levMapDriver2->SpoolRegion(spoolContext, icell);
+					if (i == 19)
+						cellLevel = 100;	// 100 is the special slot for event object placement
+					else
+						cellLevel = i;
 
-					ppco = levMapDriver2->GetFirstPackedCop(&ci, icell.x, icell.z);
-
-					g_drawnCells++;
+					ppco = levMapDriver2->GetFirstPackedCop(&ci, icell, cellLevel);
 
 					// walk each cell object in cell
 					while (ppco)
@@ -170,11 +172,15 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 						PCO_PAIR_D2 pair;
 						pair.nearCell = ci.nearCell;
 						pair.pco = ppco;
+						pair.editorEvent = cellLevel == 100;
 
 						drawObjects.append(pair);
 
 						ppco = levMapDriver2->GetNextPackedCop(&ci);
 					}
+
+					if(ppco)
+						g_drawnCells++;
 				}
 			}
 		}
@@ -242,7 +248,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 			continue;
 		}
 
-		Vector3D absCellPosition(co.pos.vx * RENDER_SCALING, co.pos.vy * -RENDER_SCALING, co.pos.vz * RENDER_SCALING);
+		Vector3D absCellPosition = FromFixedVector(co.pos);
 
 		float distanceFromCamera = lengthSqr(absCellPosition - cameraPos);
 
@@ -315,10 +321,7 @@ void DrawLevelDriver1(const Vector3D& cameraPos, float cameraAngleY, const Volum
 	g_drawnModels = 0;
 	g_drawnPolygons = 0;
 
-	VECTOR_NOPAD cameraPosition;
-	cameraPosition.vx = cameraPos.x * ONE_F;
-	cameraPosition.vy = cameraPos.y * ONE_F;
-	cameraPosition.vz = cameraPos.z * ONE_F;
+	VECTOR_NOPAD cameraPosition = ToFixedVector(cameraPos);
 
 	CDriver1LevelMap* levMapDriver1 = (CDriver1LevelMap*)g_levMap;
 	CFileStream spoolStream(g_levFile);
@@ -410,7 +413,7 @@ void DrawLevelDriver1(const Vector3D& cameraPos, float cameraAngleY, const Volum
 			continue;
 		}
 
-		Vector3D absCellPosition(pco->pos.vx * RENDER_SCALING, pco->pos.vy * -RENDER_SCALING, pco->pos.vz * RENDER_SCALING);
+		Vector3D absCellPosition = FromFixedVector(pco->pos);
 		float distanceFromCamera = lengthSqr(absCellPosition - cameraPos);
 
 		ModelRef_t* ref = GetModelCheckLods(pco->type, distanceFromCamera);

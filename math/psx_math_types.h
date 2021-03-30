@@ -4,13 +4,15 @@
 #define ONE			4096
 #define ONE_F		float(ONE)
 
-struct VECTOR_NOPAD {
+struct VECTOR_NOPAD
+{
 	int vx;
 	int vy;
 	int vz;
 };
 
-struct USVECTOR_NOPAD {
+struct USVECTOR_NOPAD
+{
 	ushort vx;
 	ushort vy;
 	ushort vz;

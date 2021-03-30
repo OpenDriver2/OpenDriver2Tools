@@ -128,24 +128,26 @@ int ExportRegionDriver2(CDriver2LevelRegion* region, IVirtualStream* levelFileSt
 	for (int i = 0; i < mapInfo.region_size * mapInfo.region_size; i++)
 	{
 		CELL_ITERATOR_D2 ci;
-		PACKED_CELL_OBJECT* pco = region->StartIterator(&ci, i);
 
-		if (!pco)
-			continue;
-
-		while (pco)
+		for (int i = 0; i < 20; i++)
 		{
-			for (int i = 0; i < 20; i++)
-			{
-				if (i == 19)
-					ci.cellLevel = 100;	// 100 is the special slot for event object placement
-				else
-					ci.cellLevel = i;
+			int cellLevel;
+			if (i == 19)
+				cellLevel = 100;	// 100 is the special slot for event object placement
+			else
+				cellLevel = i;
 
+			PACKED_CELL_OBJECT* pco = region->StartIterator(&ci, i, cellLevel);
+
+			if (!pco)
+				continue;
+
+			while (pco)
+			{
 				CELL_OBJECT co;
 				CDriver2LevelMap::UnpackCellObject(co, pco, ci.nearCell);
 
-				Vector3D absCellPosition(co.pos.vx * -EXPORT_SCALING, co.pos.vy * -EXPORT_SCALING, co.pos.vz * EXPORT_SCALING);
+				Vector3D absCellPosition(co.pos.vx * -EXPORT_SCALING, co.pos.vy * EXPORT_SCALING, co.pos.vz * EXPORT_SCALING);
 				float cellRotationRad = co.yang / 64.0f * PI_F * 2.0f;
 
 				ModelRef_t* ref = g_levModels.GetModelByIndex(co.type);

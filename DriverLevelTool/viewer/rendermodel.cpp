@@ -6,6 +6,8 @@
 
 #include <assert.h>
 
+#include "convert.h"
+
 #define MODEL_VERTEX_SHADER \
 	"	attribute vec4 a_position_tu;\n"\
 	"	attribute vec4 a_normal_tv;\n"\
@@ -419,8 +421,8 @@ void CRenderModel::DrawModelCollisionBox(ModelRef_t* ref, const VECTOR_NOPAD& po
 		ref = ref->baseInstance;
 
 	float objRotationRad = -rotation / 64.0f * PI_F * 2.0f;
-	Vector3D offset(position.vx / ONE_F, -position.vy / ONE_F, position.vz / ONE_F);
 
+	Vector3D offset = FromFixedVector(position);
 	Matrix4x4 world = translate(offset) * rotateY4(objRotationRad);
 
 	// add collision box drawing
