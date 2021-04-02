@@ -302,6 +302,29 @@ void SpoolAllAreaDatas()
 }
 
 //-------------------------------------------------------------
+// Updates frames per second counter and returns a number
+//-------------------------------------------------------------
+int UpdateFPSCounter(float deltaTime)
+{
+	// Engine frames status
+	static float accumTime = 0.1f;
+	static int framesPerSecond = 0;
+	static int numFrames = 0;
+
+	if (accumTime > 0.1f)
+	{
+		framesPerSecond = (int)((float)numFrames / accumTime + 0.5f);
+		numFrames = 0;
+		accumTime = 0;
+	}
+
+	accumTime += deltaTime;
+	numFrames++;
+
+	return framesPerSecond;
+}
+
+//-------------------------------------------------------------
 
 char g_modelSearchNameBuffer[64];
 void PopulateUIModelNames()
@@ -418,7 +441,7 @@ extern int g_drawnPolygons;
 //-------------------------------------------------------------
 // Displays Main menu bar, stats and child windows
 //-------------------------------------------------------------
-void DisplayUI()
+void DisplayUI(float deltaTime)
 {
 	if(ImGui::BeginMainMenuBar())
 	{
@@ -515,6 +538,8 @@ void DisplayUI()
 	{
 		ImGui::SetWindowPos(ImVec2(0, 24));
 
+		ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "FPS: %d", UpdateFPSCounter(deltaTime));
+
 		if(g_viewerMode == 0)
 		{
 			ImGui::SetWindowSize(ImVec2(400, 120));
@@ -535,7 +560,7 @@ void DisplayUI()
 			MODEL* model = ref->model;
 
 			ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.5f), "Use arrows to change models");
-			
+
 			if(model)
 			{
 				ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Polygons: %d", model->num_polys);
@@ -767,11 +792,11 @@ void ViewerMainLoop()
 	do
 	{
 		// compute time
-		const float ticks_to_ms = 1.0f / 10000.0f;
+		const double ticks_to_ms = 1.0 / 1000000.0;
 		int64 curTicks = Time::microTicks();
 		
 		float deltaTime = double(curTicks - oldTicks) * ticks_to_ms;
-		
+
 		oldTicks = curTicks;
 
 		ImGui_ImplOpenGL3_NewFrame();
@@ -808,7 +833,7 @@ void ViewerMainLoop()
 		DebugOverlay_Draw();
 
 		// Do ImGUI interface
-		DisplayUI();
+		DisplayUI(deltaTime);
 
 		// draw stuff
 		ImGui::Render();

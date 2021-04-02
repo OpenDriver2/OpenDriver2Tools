@@ -15,9 +15,9 @@ const float Z_NEAR = 0.01f;
 const float Z_FAR = 100.0f;
 const float CAMERA_FOV = 75.0f;
 
-const float CAMERA_MOVEMENT_SPEED_FACTOR = 140 * RENDER_SCALING;
-const float CAMERA_MOVEMENT_ACCELERATION = 15 * RENDER_SCALING;
-const float CAMERA_MOVEMENT_DECELERATION = 450 * RENDER_SCALING;
+const float CAMERA_MOVEMENT_SPEED_FACTOR = 8.0f;	// in-game units per second (one unit is 4096)
+const float CAMERA_MOVEMENT_ACCELERATION = 10;
+const float CAMERA_MOVEMENT_DECELERATION = 40;
 
 Vector3D g_cameraVelocity(0);
 Vector3D g_cameraPosition(0);

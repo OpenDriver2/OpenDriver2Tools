@@ -157,6 +157,9 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 
 				ppco = levMapDriver2->GetFirstPackedCop(&ci, icell);
 
+				if (ppco)
+					g_drawnCells++;
+
 				// walk each cell object in cell
 				while (ppco)
 				{
@@ -172,9 +175,6 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 
 					ppco = levMapDriver2->GetNextPackedCop(&ci);
 				}
-
-				if(ppco)
-					g_drawnCells++;
 			}
 		}
 
@@ -351,7 +351,8 @@ void DrawLevelDriver1(const Vector3D& cameraPos, float cameraAngleY, const Volum
 
 				pco = levMapDriver1->GetFirstCop(&ci, icell.x, icell.z);
 
-				g_drawnCells++;
+				if(pco)
+					g_drawnCells++;
 
 				// walk each cell object in cell
 				while (pco)
