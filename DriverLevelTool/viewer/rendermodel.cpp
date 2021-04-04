@@ -1,4 +1,5 @@
 #include "driver_routines/models.h"
+#include "driver_routines/regions.h"
 #include "rendermodel.h"
 #include "gl_renderer.h"
 #include "core/cmdlib.h"
@@ -425,9 +426,11 @@ void CRenderModel::DrawModelCollisionBox(ModelRef_t* ref, const VECTOR_NOPAD& po
 	Vector3D offset = FromFixedVector(position);
 	Matrix4x4 world = translate(offset) * rotateY4(objRotationRad);
 
+	MODEL* model = ref->model;
+
 	// add collision box drawing
-	int numcb = ref->model->GetCollisionBoxCount();
-	COLLISION_PACKET* box = ref->model->pCollisionBox(0);
+	int numcb = model->GetCollisionBoxCount();
+	COLLISION_PACKET* box = model->pCollisionBox(0);
 
 	for (int i = 0; i < numcb; i++)
 	{
@@ -489,12 +492,17 @@ void CRenderModel::SetupModelShader()
 	GR_SetShaderConstantVector4D(g_modelShader.lightColorConstantId, g_worldRenderProperties.lightColor);
 }
 
+extern CBaseLevelMap* g_levMap;
+
 // sets up lighting properties
 void CRenderModel::SetupLightingProperties(float ambientScale /*= 1.0f*/, float lightScale /*= 1.0f*/)
 {
-	g_worldRenderProperties.ambientColor = ColorRGBA(0.95f, 0.9f, 1.0f, 0.45f * ambientScale);
-	g_worldRenderProperties.lightColor = ColorRGBA(1.0f, 1.0f, 1.0f, 0.4f * lightScale);
-	g_worldRenderProperties.lightDir = normalize(Vector3D(1, -0.5, 0));
+	Vector3D lightVector = normalize(FromFixedVector(g_levMap->GetMapInfo().light_source));
+;	float lightLevel = g_levMap->GetMapInfo().ambient_light_level / ONE_F;
+	
+	g_worldRenderProperties.ambientColor = ColorRGBA(0.95f, 0.9f, 1.0f, 0.8f * ambientScale * lightLevel);
+	g_worldRenderProperties.lightColor = ColorRGBA(1.0f, 1.0f, 1.0f, 0.8f * lightScale * lightLevel);
+	g_worldRenderProperties.lightDir = lightVector * Vector3D(1,-1,1);
 }
 
 //----------------------------------------
