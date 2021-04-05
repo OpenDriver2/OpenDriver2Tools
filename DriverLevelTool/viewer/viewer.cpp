@@ -7,6 +7,7 @@
 #include <nstd/Time.hpp>
 
 #include "camera.h"
+#include "convert.h"
 #include "debug_overlay.h"
 #include "driver_level.h"
 #include "gl_renderer.h"
@@ -524,6 +525,9 @@ void DisplayUI(float deltaTime)
 			{
 				g_cameraPosition = 0;
 				g_cameraAngles = Vector3D(25.0f, 45.0f, 0);
+
+				//g_cameraPosition = FromFixedVector({ 230347, 372, 704038 });
+				//g_cameraAngles = FromFixedVector({ 0, 3840 - 1024, 0 }) * 360.0f;
 			}
 			
 			ImGui::EndMenu();

@@ -497,8 +497,10 @@ extern CBaseLevelMap* g_levMap;
 // sets up lighting properties
 void CRenderModel::SetupLightingProperties(float ambientScale /*= 1.0f*/, float lightScale /*= 1.0f*/)
 {
-	Vector3D lightVector = normalize(FromFixedVector(g_levMap->GetMapInfo().light_source));
-;	float lightLevel = g_levMap->GetMapInfo().ambient_light_level / ONE_F;
+	const OUT_CELL_FILE_HEADER& cellHeader = g_levMap->GetMapInfo();
+	
+	Vector3D lightVector = normalize(FromFixedVector(cellHeader.light_source));
+	float lightLevel = cellHeader.ambient_light_level / ONE_F;
 	
 	g_worldRenderProperties.ambientColor = ColorRGBA(0.95f, 0.9f, 1.0f, 0.8f * ambientScale * lightLevel);
 	g_worldRenderProperties.lightColor = ColorRGBA(1.0f, 1.0f, 1.0f, 0.8f * lightScale * lightLevel);
