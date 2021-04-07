@@ -32,8 +32,8 @@ extern int g_cellsDrawDistance;
 
 //-----------------------------------------------------------------
 
-const float MODEL_LOD_HIGH_MIN_DISTANCE = 5.0f;
-const float MODEL_LOD_LOW_MIN_DISTANCE = 40.0f;
+const float MODEL_LOD_HIGH_MIN_DISTANCE = 1.0f;
+const float MODEL_LOD_LOW_MIN_DISTANCE = 5.0f;
 
 //-------------------------------------------------------
 // returns specific model or LOD model
@@ -49,13 +49,13 @@ ModelRef_t* GetModelCheckLods(int index, float distSqr)
 	ModelRef_t* retRef = baseRef;
 	if (baseRef->highDetailId != 0xFFFF)
 	{
-		if (distSqr < MODEL_LOD_HIGH_MIN_DISTANCE)
+		if (distSqr < MODEL_LOD_HIGH_MIN_DISTANCE * MODEL_LOD_HIGH_MIN_DISTANCE)
 			return g_levModels.GetModelByIndex(baseRef->highDetailId);
 	}
 
 	if (baseRef->lowDetailId != 0xFFFF)
 	{
-		if (distSqr > MODEL_LOD_HIGH_MIN_DISTANCE)
+		if (distSqr > MODEL_LOD_LOW_MIN_DISTANCE * MODEL_LOD_LOW_MIN_DISTANCE)
 			return g_levModels.GetModelByIndex(baseRef->lowDetailId);
 	}
 
@@ -242,6 +242,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 		}
 
 		Vector3D absCellPosition = FromFixedVector(co.pos);
+		absCellPosition.y *= -1.0f;
 
 		float distanceFromCamera = lengthSqr(absCellPosition - cameraPos);
 
@@ -408,6 +409,8 @@ void DrawLevelDriver1(const Vector3D& cameraPos, float cameraAngleY, const Volum
 		}
 
 		Vector3D absCellPosition = FromFixedVector(pco->pos);
+		absCellPosition.y *= -1.0f;
+		
 		float distanceFromCamera = lengthSqr(absCellPosition - cameraPos);
 
 		ModelRef_t* ref = GetModelCheckLods(pco->type, distanceFromCamera);
@@ -436,9 +439,9 @@ void DrawLevelDriver1(const Vector3D& cameraPos, float cameraAngleY, const Volum
 		GR_UpdateMatrixUniforms();
 
 		if (g_nightMode)
-			CRenderModel::SetupLightingProperties(0.45f, 0.0f);
+			CRenderModel::SetupLightingProperties(0.25f, 0.0f);
 		else
-			CRenderModel::SetupLightingProperties(1.0f, 1.0f);
+			CRenderModel::SetupLightingProperties(0.55f, 0.55f);
 
 		CRenderModel* renderModel = (CRenderModel*)ref->userData;
 

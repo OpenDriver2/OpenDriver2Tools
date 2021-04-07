@@ -424,6 +424,7 @@ void CRenderModel::DrawModelCollisionBox(ModelRef_t* ref, const VECTOR_NOPAD& po
 	float objRotationRad = -rotation / 64.0f * PI_F * 2.0f;
 
 	Vector3D offset = FromFixedVector(position);
+	offset.y *= -1.0f;
 	Matrix4x4 world = translate(offset) * rotateY4(objRotationRad);
 
 	MODEL* model = ref->model;

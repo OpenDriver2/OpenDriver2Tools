@@ -71,7 +71,7 @@ int ExportRegionDriver1(CDriver1LevelRegion* region, IVirtualStream* levelFileSt
 
 		while(co)
 		{
-			Vector3D absCellPosition(co->pos.vx * -EXPORT_SCALING, co->pos.vy * -EXPORT_SCALING, co->pos.vz * EXPORT_SCALING);
+			Vector3D absCellPosition(co->pos.vx * -EXPORT_SCALING, -co->pos.vy * -EXPORT_SCALING, co->pos.vz * EXPORT_SCALING);
 			float cellRotationRad = co->yang / 64.0f * PI_F * 2.0f;
 
 			ModelRef_t* ref = g_levModels.GetModelByIndex(co->type);
@@ -139,7 +139,7 @@ int ExportRegionDriver2(CDriver2LevelRegion* region, IVirtualStream* levelFileSt
 			CELL_OBJECT co;
 			CDriver2LevelMap::UnpackCellObject(co, pco, ci.nearCell);
 
-			Vector3D absCellPosition(co.pos.vx * -EXPORT_SCALING, co.pos.vy * EXPORT_SCALING, co.pos.vz * EXPORT_SCALING);
+			Vector3D absCellPosition(co.pos.vx * -EXPORT_SCALING, -co.pos.vy * EXPORT_SCALING, co.pos.vz * EXPORT_SCALING);
 			float cellRotationRad = co.yang / 64.0f * PI_F * 2.0f;
 
 			ModelRef_t* ref = g_levModels.GetModelByIndex(co.type);

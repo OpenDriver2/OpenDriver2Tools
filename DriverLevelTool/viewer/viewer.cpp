@@ -224,6 +224,7 @@ void RenderLevelView()
 	Volume frustumVolume;
 
 	// setup standard camera
+	CRenderModel::SetupModelShader();
 	SetupCameraViewAndMatrices(g_cameraPosition, g_cameraAngles, frustumVolume);
 
 	GR_SetDepth(1);
@@ -250,9 +251,9 @@ void RenderModelView()
 	AngleVectors(g_cameraAngles, &forward, &right);
 
 	// setup orbital camera
+	CRenderModel::SetupModelShader();
 	SetupCameraViewAndMatrices(-forward * g_cameraDistance, g_cameraAngles, frustumVolume);
 
-	CRenderModel::SetupModelShader();
 	CRenderModel::SetupLightingProperties(0.5f, 0.5f);
 
 	GR_SetDepth(1);
