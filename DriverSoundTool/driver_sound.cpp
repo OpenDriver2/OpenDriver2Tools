@@ -392,13 +392,11 @@ int LoadSoundBank(SAMPLE_DATA* out_sample_info, PCMSample* out_samples, FILE* fp
 	int numBankSamples = 0;
 	fread(&numBankSamples, sizeof(int), 1, fp);
 
-	MsgWarning("bank sounds: %d\n", numBankSamples);
-
 	fread(out_sample_info, sizeof(SAMPLE_DATA), numBankSamples, fp);
 
 	int bankSamplesOffset = ftell(fp);
 
-	MsgWarning("bank sounds: %d\n", numBankSamples);
+	MsgWarning("Bank sounds: %d\n", numBankSamples);
 
 	for (int j = 0; j < numBankSamples; j++)
 	{
@@ -505,12 +503,16 @@ int DoConvertBLK(const char* blkFileName)
 	Directory::create(directory);
 
 	// read count
+	// FIXME: is that even correct?
 	int numSoundBanks = 0;
 	fread(&numSoundBanks, 1, sizeof(int), blkFp);
 
 	// really it's a collection of offsets
 	numSoundBanks >>= 2;
 	numSoundBanks -= 1;
+
+	// re-start reading
+	fseek(blkFp, 0, SEEK_SET);
 
 	// read offsets
 	int blockLimit[128];
@@ -520,6 +522,8 @@ int DoConvertBLK(const char* blkFileName)
 
 	for (int i = 0; i < numSoundBanks; i++)
 	{
+		MsgInfo("----- Bank %d -----\n", i);
+		
 		fseek(blkFp, blockLimit[i], SEEK_SET);
 
 		String bankName = String::fromPrintf("%s/Bank_%d", (char*)directory, i);
