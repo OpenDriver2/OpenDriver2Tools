@@ -111,11 +111,11 @@ struct carmodelentry_t
 // FIXME: it's guessed
 struct POLYF3
 {
-	unsigned char id;
-	unsigned char v0;
-	unsigned char v1;
-	unsigned char v2;
-	unsigned char pad;
+	uchar id;
+	uchar v0;
+	uchar v1;
+	uchar v2;
+	uchar pad;
 	CVECTOR_NOPAD color;
 	char pad2[4];
 };
@@ -123,174 +123,110 @@ struct POLYF3
 // FIXME: it's guessed
 struct POLYF4
 {
-	unsigned char id; // 0
-	unsigned char pad1;
-	unsigned char pad2;
-	unsigned char spare;
-	unsigned char v0; //4
-	unsigned char v1;
-	unsigned char v2;
-	unsigned char v3;
+	uchar id; // 0
+	uchar pad1;
+	uchar pad2;
+	uchar spare;
+	uchar v0; //4
+	uchar v1;
+	uchar v2;
+	uchar v3;
 	CVECTOR_NOPAD color;
 	char pad[5];
 };
 
-struct POLYFT3
-{
-	unsigned char id;
-	unsigned char texture_set;
-	unsigned char texture_id;
-	unsigned char spare;
-	unsigned char v0;
-	unsigned char v1;
-	unsigned char v2;
-	unsigned char pad;
-	UV_INFO uv0;
-	UV_INFO uv1;
-	UV_INFO uv2;
-	UV_INFO pad2;
-	CVECTOR color;
-};
-
-struct POLYGT3
-{
-	unsigned char id;
-	unsigned char texture_set;
-	unsigned char texture_id;
-	unsigned char spare;
-	unsigned char v0;
-	unsigned char v1;
-	unsigned char v2;
-	unsigned char pad;
-	unsigned char n0;
-	unsigned char n1;
-	unsigned char n2;
-	unsigned char pad2;
-	UV_INFO uv0;
-	UV_INFO uv1;
-	UV_INFO uv2;
-	UV_INFO pad3;
-	CVECTOR color;
-};
-
 struct POLYFT4
 {
-	unsigned char id;
-	unsigned char texture_set;
-	unsigned char texture_id;
-	unsigned char spare;
-	unsigned char v0;
-	unsigned char v1;
-	unsigned char v2;
-	unsigned char v3;
-	UV_INFO uv0;
-	UV_INFO uv1;
-	UV_INFO uv2;
-	UV_INFO uv3;
+	uchar id;
+	uchar texture_set;
+	uchar texture_id;
+	uchar spare;
+	uchar v0, v1, v2, v3;
+	UV_INFO uv0, uv1, uv2, uv3;
 	CVECTOR color;
 };
 
 struct POLYGT4
 {
-	unsigned char id;
-	unsigned char texture_set;
-	unsigned char texture_id;
-	unsigned char spare;
-	unsigned char v0;
-	unsigned char v1;
-	unsigned char v2;
-	unsigned char v3;
-	unsigned char n0;
-	unsigned char n1;
-	unsigned char n2;
-	unsigned char n3;
-	UV_INFO uv0;
-	UV_INFO uv1;
-	UV_INFO uv2;
-	UV_INFO uv3;
+	uchar id;
+	uchar texture_set;
+	uchar texture_id;
+	uchar spare;
+	uchar v0, v1, v2, v3;
+	uchar n0, n1, n2, n3;
+	UV_INFO uv0, uv1, uv2, uv3;
 	CVECTOR color;
 };
+
+struct POLYFT3
+{
+	uchar id;
+	uchar texture_set;
+	uchar texture_id;
+	uchar spare;
+	uchar v0, v1, v2, pad;
+	UV_INFO uv0, uv1, uv2, pad2;
+	CVECTOR color;
+};
+
+struct POLYGT3
+{
+	uchar id;
+	uchar texture_set;
+	uchar texture_id;
+	uchar spare;
+	uchar v0, v1, v2, pad;
+	uchar n0, n1, n2, pad2;
+	UV_INFO uv0, uv1, uv2, pad3;
+	CVECTOR color;
+};
+
+#define COLLISION_BOX		0
+#define COLLISION_CYLINDER	1
+#define COLLISION_CONE		2
+#define COLLISION_SPHERE	3
+#define	COLLISION_INDOORS	4
 
 struct COLLISION_PACKET
 {
 	short type;
-	short xpos;
-	short ypos;
-	short zpos;
+	short xpos, ypos, zpos;
 	short flags;
 	short yang;
 	short empty;
-	short xsize;
-	short ysize;
-	short zsize;
+	short xsize, ysize, zsize;
 };
-
-#if 0
-enum ModelFlags1	// collision flags?
-{
-	everything = 1,
-	dontKnow0 = 2,
-	walls = 4,
-	dontKnow1 = 8,
-	dontKnow2 = 16,
-	planarGround = 32,
-	dontKnow3 = 64,
-	dontKnow4 = 128,
-	dontKnow5 = 256,
-	dontKnow6 = 512,
-	ground = 1024,
-	dontKnow7 = 2048,
-	dontKnow8 = 4096,
-	street = 8192,
-	tree = 16384,
-	anythingToHit = 32768 // walls, poles, fences; but not trees or buildings
-};
-
-enum ModelFlags2	// effect flags?
-{
-	dontKnow9 = 1,     // empty in Chicago
-	sandy = 2,     // ??? lots of sandy stuff, but not everything
-	dontKnow10 = 4,     // ??? (just one roof in Chicago)
-	dontKnow11 = 8,     // ??? (empty in Chicago)
-	dontKnow12 = 16,    // many sidewalks, some grass
-	medianStrips = 32,
-	crossings = 64,
-	dirt = 128,   // lots but not everything
-	dontKnow13 = 256,   // parking lot in Chicago
-	chair = 512,
-	walls2 = 1024,  // don't know the difference to 'walls'
-	destructable = 2048,
-	dontKnow14 = 4096,  // ??? (empty in Chicago)
-	greenTree = 8192,  // don't know the difference to 'tree'
-	dontKnow15 = 16384, // ??? again: many sidewalks, some grass
-	sidewalk = 32768
-};
-#else
 
 enum ModelShapeFlags
 {
-	SHAPE_FLAG_SMASH_QUIET = 0x8,
-	SHAPE_FLAG_NOCOLLIDE = 0x10,
-	SHAPE_FLAG_SUBSURFACE = 0x80,		// grass, dirt, water
-	SHAPE_FLAG_ALLEYWAY = 0x400,	// alleyway
-	SHAPE_FLAG_SMASH_SPRITE = 0x4000,
+	SHAPE_FLAG_LITPOLY			= 0x1,
+	SHAPE_FLAG_BSPDATA			= 0x2,
+	SHAPE_FLAG_TRANS			= 0x8,
+	SHAPE_FLAG_NOCOLLIDE		= 0x10,
+	SHAPE_FLAG_WATER			= 0x80,		// model is water
+	SHAPE_FLAG_AMBIENT2			= 0x100,	// Ambient sound 2 associated - maybe used in D1
+	SHAPE_FLAG_AMBIENT1			= 0x200,	// Ambient sound 1 associated - maybe used in D1
+	SHAPE_FLAG_TILE				= 0x400,	// treat as road
+	SHAPE_FLAG_SHADOW			= 0x800,	// D1 leftover flag
+	SHAPE_FLAG_ALPHA			= 0x1000,	// alpha tested object
+	SHAPE_FLAG_ROAD				= 0x2000,	// section of road
+	SHAPE_FLAG_SPRITE			= 0x4000,
 };
 
 enum ModelFlags2
 {
-	MODEL_FLAG_ANIMOBJ = 0x1,
-	MODEL_FLAG_MEDIAN = 0x20,
-	MODEL_FLAG_ALLEY = 0x80,
-	MODEL_FLAG_HASROOF = 0x100,
-	MODEL_FLAG_NOCOL_200 = 0x200,
+	MODEL_FLAG_MEDIAN = 0x20,		// Hmmmm...
+	MODEL_FLAG_JUNC = 0x40,
+	MODEL_FLAG_ALLEY = 0x80,		// alley tile
+	MODEL_FLAG_INDOORS = 0x100,
+	MODEL_FLAG_CHAIR = 0x200,
 	MODEL_FLAG_BARRIER = 0x400,
 	MODEL_FLAG_SMASHABLE = 0x800,
 	MODEL_FLAG_LAMP = 0x1000,
 	MODEL_FLAG_TREE = 0x2000,
 	MODEL_FLAG_GRASS = 0x4000,
-	MODEL_FLAG_SIDEWALK = 0x8000,
+	MODEL_FLAG_PATH = 0x8000,
 };
-#endif
 
 struct MODEL
 {

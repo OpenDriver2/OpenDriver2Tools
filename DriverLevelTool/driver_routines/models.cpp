@@ -350,7 +350,7 @@ void SwapValues(T& a, T& b)
 // TODO: rework, few variants of faces still looks bad
 int decode_poly(const char* polyList, dpoly_t* out)
 {
-	int ptype = *polyList & 31;
+	int ptype = *polyList & 0x1f;
 
 	out->page = 0xFF;
 	out->detail = 0xFF;

@@ -599,6 +599,36 @@ void DisplayUI(float deltaTime)
 				{
 					ImGui::Text("");
 				}
+
+				int shape_flags = model->shape_flags;
+
+				// shape flags
+				ImGui::CheckboxFlags("Lit", &shape_flags, SHAPE_FLAG_LITPOLY); ImGui::SameLine();
+				ImGui::CheckboxFlags("BSP", &shape_flags, SHAPE_FLAG_BSPDATA); ImGui::SameLine();
+				ImGui::CheckboxFlags("Quiet", &shape_flags, SHAPE_FLAG_TRANS); ImGui::SameLine();
+
+				ImGui::CheckboxFlags("Water", &shape_flags, SHAPE_FLAG_WATER); ImGui::SameLine();
+				ImGui::CheckboxFlags("Amb2", &shape_flags, SHAPE_FLAG_AMBIENT2);
+				ImGui::CheckboxFlags("Amb1", &shape_flags, SHAPE_FLAG_AMBIENT1); ImGui::SameLine();
+				
+				ImGui::CheckboxFlags("Tile", &shape_flags, SHAPE_FLAG_TILE); ImGui::SameLine();
+				ImGui::CheckboxFlags("Shad", &shape_flags, SHAPE_FLAG_SHADOW); ImGui::SameLine();
+				ImGui::CheckboxFlags("Alpha", &shape_flags, SHAPE_FLAG_ALPHA); ImGui::SameLine();
+				ImGui::CheckboxFlags("Road", &shape_flags, SHAPE_FLAG_ROAD); ImGui::SameLine();
+				ImGui::CheckboxFlags("Spr", &shape_flags, SHAPE_FLAG_SPRITE);
+
+				int flags2 = model->flags2;
+				ImGui::Spacing();
+				ImGui::CheckboxFlags("Junc", &flags2, MODEL_FLAG_JUNC); ImGui::SameLine();
+				ImGui::CheckboxFlags("Alley", &flags2, MODEL_FLAG_ALLEY); ImGui::SameLine();
+				ImGui::CheckboxFlags("Indrs", &flags2, MODEL_FLAG_INDOORS); ImGui::SameLine();
+				ImGui::CheckboxFlags("Chair", &flags2, MODEL_FLAG_CHAIR); ImGui::SameLine();
+				ImGui::CheckboxFlags("Barr", &flags2, MODEL_FLAG_BARRIER);
+				ImGui::CheckboxFlags("Smsh", &flags2, MODEL_FLAG_SMASHABLE); ImGui::SameLine();
+				ImGui::CheckboxFlags("Lamp", &flags2, MODEL_FLAG_LAMP); ImGui::SameLine();
+				ImGui::CheckboxFlags("Tree", &flags2, MODEL_FLAG_TREE); ImGui::SameLine();
+				ImGui::CheckboxFlags("Grass", &flags2, MODEL_FLAG_GRASS); ImGui::SameLine();
+				ImGui::CheckboxFlags("Path", &flags2, MODEL_FLAG_PATH);
 			}
 			else
 			{

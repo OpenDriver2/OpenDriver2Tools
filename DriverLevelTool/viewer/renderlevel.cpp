@@ -256,13 +256,13 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 
 		if (model)
 		{
-			if (model->shape_flags & SHAPE_FLAG_SMASH_SPRITE)
+			if (model->shape_flags & SHAPE_FLAG_SPRITE)
 			{
 				cellRotationRad = DEG2RAD(cameraAngleY);
 			}
 
-			if ((model->shape_flags & (SHAPE_FLAG_SUBSURFACE | SHAPE_FLAG_ALLEYWAY)) ||
-				(model->flags2 & (MODEL_FLAG_SIDEWALK | MODEL_FLAG_GRASS)))
+			if ((model->shape_flags & (SHAPE_FLAG_WATER | SHAPE_FLAG_TILE)) ||
+				(model->flags2 & (MODEL_FLAG_PATH | MODEL_FLAG_GRASS)))
 			{
 				isGround = true;
 			}
@@ -422,13 +422,13 @@ void DrawLevelDriver1(const Vector3D& cameraPos, float cameraAngleY, const Volum
 
 		if (model)
 		{
-			if (model->shape_flags & SHAPE_FLAG_SMASH_SPRITE)
+			if (model->shape_flags & SHAPE_FLAG_SPRITE)
 			{
 				cellRotationRad = DEG2RAD(cameraAngleY);
 			}
 
-			if ((model->shape_flags & (SHAPE_FLAG_SUBSURFACE | SHAPE_FLAG_ALLEYWAY)) ||
-				(model->flags2 & (MODEL_FLAG_SIDEWALK | MODEL_FLAG_GRASS)))
+			if ((model->shape_flags & (SHAPE_FLAG_WATER | SHAPE_FLAG_TILE)) ||
+				(model->flags2 & (MODEL_FLAG_PATH | MODEL_FLAG_GRASS)))
 			{
 				isGround = true;
 			}
