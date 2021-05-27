@@ -10,27 +10,28 @@
 #define TEXPAGE_4BIT_SIZE	(TEXPAGE_SIZE_X*TEXPAGE_SIZE_Y)
 #define TEXPAGE_SIZE		(TEXPAGE_SIZE_Y*TEXPAGE_SIZE_Y)
 
-enum EPageStorage
+enum ETextureSetFlags
 {
-	TPAGE_PERMANENT = (1 << 0),		// permanently loaded into VRAM
-	TPAGE_AREADATA = (1 << 1),		// spooled and uncompressed
-	TPAGE_SPECPAGES = (1 << 2),		// special car texture page
+	TEX_PERMANENT		= 0x1,		// permanently loaded into VRAM
+	TEX_SWAPABLE		= 0x2,		// spooled and uncompressed
+	TEX_SPECIAL			= 0x4,		// special car texture page in D2
+	TEX_DAMAGED			= 0x8,
+	TEX_8BIT			= 0x10,		// two 8bit TSets make up a single bitmap
+	TEX_PALNUM			= 0x20,		// mask out for palette number (0-1)
+	TEX_PARENT			= 0x40,
 };
 
 struct TEXINF
 {
 	uint16		id;
 	uint16		nameoffset;
-	uint8		x;
-	uint8		y;
-	uint8		width;
-	uint8		height;
+	uint8		x, y, width, height;
 };
 
 struct TEXPAGE_POS	// og name: TP
 {
-	uint flags; // size=0, offset=0
-	uint offset; // size=0, offset=4
+	uint flags;
+	uint offset;
 };
 
 struct TEXCLUT

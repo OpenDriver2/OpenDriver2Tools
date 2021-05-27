@@ -605,7 +605,7 @@ void DisplayUI(float deltaTime)
 				// shape flags
 				ImGui::CheckboxFlags("Lit", &shape_flags, SHAPE_FLAG_LITPOLY); ImGui::SameLine();
 				ImGui::CheckboxFlags("BSP", &shape_flags, SHAPE_FLAG_BSPDATA); ImGui::SameLine();
-				ImGui::CheckboxFlags("Quiet", &shape_flags, SHAPE_FLAG_TRANS); ImGui::SameLine();
+				ImGui::CheckboxFlags("Trans", &shape_flags, SHAPE_FLAG_TRANS); ImGui::SameLine();
 
 				ImGui::CheckboxFlags("Water", &shape_flags, SHAPE_FLAG_WATER); ImGui::SameLine();
 				ImGui::CheckboxFlags("Amb2", &shape_flags, SHAPE_FLAG_AMBIENT2);

@@ -71,7 +71,6 @@ struct PCO_PAIR_D2
 {
 	PACKED_CELL_OBJECT* pco;
 	XZPAIR nearCell;
-	bool editorEvent;
 };
 
 //-------------------------------------------------------
@@ -169,7 +168,6 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 					PCO_PAIR_D2 pair;
 					pair.nearCell = ci.nearCell;
 					pair.pco = ppco;
-					pair.editorEvent = (ci.listType) == (100 | 0x4000);
 
 					drawObjects.append(pair);
 
