@@ -8,12 +8,9 @@
 #include "util/util.h"
 
 #include <string.h>
-#include "math/Vector.h"
+#include <nstd/String.hpp>
 
-struct RECT16
-{
-	short x, y, w, h;
-};
+#include "math/Vector.h"
 
 const int SKY_CLUT_START_Y = 252;
 const int SKY_SIZE_W = 256 / 4;
@@ -166,7 +163,7 @@ void ConvertSky(const char* skyFileName, bool saveTGA)
 		free(color_data);
 	}
 
-	MsgInfo("Done!");
+	MsgInfo("Done!\n");
 }
 
 //-----------------------------------------------------
@@ -196,7 +193,7 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 		return;
 	}
 
-	MsgInfo("Converting background '%s' to separate TIM files...", filename);
+	MsgInfo("Converting background '%s' to separate TIM files...\n", filename);
 
 	// read background file
 	fseek(bgFp, 0, SEEK_END);
@@ -207,6 +204,38 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 	fread(bgData, bgSize, 1, bgFp);
 
 	fclose(bgFp);
+
+	ubyte* imageClut = bgData + 11 * 0x8000;
+	
+	// convert background image and store
+	{
+		ubyte timData[64*6 * 2 * 512];
+		
+		int rect_w;
+		int rect_h;
+		rect_w = 64;
+		rect_h = 256;
+
+		for (int i = 0; i < 6; i++)
+		{
+			ubyte* bgImagePiece = bgData + i * 0x8000;
+
+			int rect_y = i / 3;
+			int rect_x = (i - (rect_y & 1) * 3) * 128;
+			rect_y *= 256;
+			
+			for (int y = 0; y < rect_h; y++)
+			{
+				for (int x = 0; x < rect_w * 2; x++)
+				{
+					timData[(rect_y + y) * 64 * 6 + rect_x + x] = bgImagePiece[y * 128 + x];
+				}
+			}
+		}
+
+		SaveTIM_4bit(varargs("%s.TIM", filename),
+			timData, 64 * 6 * 512, 0, 0, 384*2, 512, (ubyte*)imageClut, 1);
+	}
 
 	// load extra file if specified
 	if(extraFilename)
@@ -219,7 +248,7 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 			return;
 		}
 
-		MsgInfo("Converting '%s' to separate TIM files...", extraFilename);
+		MsgInfo("Converting '%s' to separate TIM files...\n", extraFilename);
 
 		fseek(fp, 0, SEEK_END);
 		int size = ftell(fp);
@@ -230,13 +259,12 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 		fread(data, size, 1, fp);
 		fclose(fp);
 
-		const int OFFSET_STEP = 0x8000;
-
-		for (int i = 0; i < 10; i++)
+		for (int i = 0; i < 16; i++)
 		{
-			ubyte* imageAddr = data + i * OFFSET_STEP;
+			ubyte* imageAddr = data + i * 0x8000;
 
-			ExportExtraImage(extraFilename, imageAddr, bgData + 11*0x8000, i);
+			if ((i * 0x8000) < size)
+				ExportExtraImage(extraFilename, imageAddr, imageClut, i);
 		}
 
 		free(data);
@@ -244,7 +272,7 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 
 	free(bgData);
 
-	MsgInfo("Done!");
+	MsgInfo("Done!\n");
 }
 
 //-----------------------------------------------------
