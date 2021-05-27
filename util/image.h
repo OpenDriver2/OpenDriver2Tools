@@ -2,6 +2,7 @@
 #define IMAGE_H
 
 #include "core/dktypes.h"
+#include "math/Vector.h"
 
 // Define targa header.
 #pragma pack( push, 1 )
@@ -38,6 +39,17 @@ struct TIMIMAGEHDR
 };
 
 //-------------------------------------------------------------------
+
+// 16 bit color to BGRA
+// originalTransparencyKey makes it pink
+TVec4D<ubyte> rgb5a1_ToBGRA8(ushort color, bool originalTransparencyKey /*= true*/);
+
+// 16 bit color to RGBA
+// originalTransparencyKey makes it pink
+TVec4D<ubyte> rgb5a1_ToRGBA8(ushort color, bool originalTransparencyKey /*= true*/);
+
+//-------------------------------------------------------------------
+
 
 void SaveTGA(const char* filename, ubyte* data, int w, int h, int c);
 

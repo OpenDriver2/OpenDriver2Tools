@@ -317,6 +317,20 @@ void PackCutsceneFile(const char* foldername)
 				char* bufptr = (char*)sheader;
 				char* pingBufferPtr = bufptr + sizeof(PLAYBACKCAMERA) * MAX_REPLAY_CAMERAS;
 
+				// copy all pings to new position and remove deleted car pings too
+				/*for (int j = 0; j < MAX_REPLAY_PINGS; j++)
+				{
+					PING_PACKET packet = *(PING_PACKET*)pingBufferPtr;
+
+					if(packet.carId != -1 && packet.frame != 0xffff)
+					{
+						*(PING_PACKET*)bufptr = packet;
+						bufptr += sizeof(PING_PACKET);
+					}
+					
+					pingBufferPtr += sizeof(PING_PACKET);
+				}*/
+
 				memmove(bufptr, pingBufferPtr, sizeof(PING_PACKET) * MAX_REPLAY_PINGS);
 				
 				// shrink size
