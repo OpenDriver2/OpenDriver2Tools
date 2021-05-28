@@ -209,12 +209,10 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 	
 	// convert background image and store
 	{
-		ubyte timData[64*6 * 2 * 512];
+		ubyte timData[64*6 * 512];
 		
-		int rect_w;
-		int rect_h;
-		rect_w = 64;
-		rect_h = 256;
+		int rect_w = 64;
+		int rect_h = 256;
 
 		for (int i = 0; i < 6; i++)
 		{
@@ -234,7 +232,51 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 		}
 
 		SaveTIM_4bit(varargs("%s.TIM", filename),
-			timData, 64 * 6 * 512, 0, 0, 384*2, 512, (ubyte*)imageClut, 1);
+			timData, 64 * 6 * 512, 0, 0, 384*2, 512, imageClut, 1);
+
+		// String str = String::fromCString(filename).toLowerCase();
+
+		// check if it's GFX.RAW
+		// if(str.find("gfx"))
+		{
+			imageClut = bgData + 0x30000 + 5 * 0x8000 + 128;
+
+			// extract font
+			ubyte* bgImagePiece = bgData + 0x30000;
+
+			SaveTIM_4bit(varargs("%s_FONT.TIM", filename),
+				bgImagePiece, 64*2*256, 0, 0, 256, 256, imageClut, 1);
+			
+			imageClut += 128;
+			bgImagePiece += 0x8000;
+
+			// extract selection texture
+			SaveTIM_4bit(varargs("%s_SEL.TIM", filename),
+				bgImagePiece, 64 * 2 * 36, 0, 0, 256, 36, imageClut, 1);
+		}
+		/*else // pointless to have font and selection texture as tpage, but i'll leave it here as reference code
+		{
+			// try extract the rest
+			for (int i = 0; i < 6; i++)
+			{
+				ubyte* bgImagePiece = bgData + 0x30000 + i * 0x8000;
+
+				int rect_y = i / 3;
+				int rect_x = (i - (rect_y & 1) * 3) * 128;
+				rect_y *= 256;
+
+				for (int y = 0; y < rect_h; y++)
+				{
+					for (int x = 0; x < rect_w * 2; x++)
+					{
+						timData[(rect_y + y) * 64 * 6 + rect_x + x] = bgImagePiece[y * 128 + x];
+					}
+				}
+			}
+
+			SaveTIM_4bit(varargs("%s_REST.TIM", filename),
+				timData, 64 * 6 * 512, 0, 0, 384 * 2, 512, (ubyte*)imageClut, 1);
+		}*/
 	}
 
 	// load extra file if specified
