@@ -128,3 +128,86 @@ void SaveTIM_4bit(char* filename,
 	// dun
 	fclose(pFile);
 }
+
+void SaveTIM_8bit(char* filename,
+	ubyte* image_data, int image_size,
+	int x, int y, int w, int h,
+	ubyte* clut_data, int clut_h)
+{
+	// compose TIMs
+	//
+	// prep headers
+	TIMHDR hdr;
+	hdr.magic = 0x10;
+	hdr.flags = 0x09; // for 8bpp
+
+	TIMIMAGEHDR cluthdr;
+	TIMIMAGEHDR datahdr;
+
+	cluthdr.origin_x = 0;
+	cluthdr.origin_y = 0;
+
+	cluthdr.width = 256;					// CLUTs always 16 bit color
+	cluthdr.height = clut_h;
+	cluthdr.len = (cluthdr.width * cluthdr.height * sizeof(ushort)) + sizeof(TIMIMAGEHDR);
+
+	datahdr.origin_x = x;
+	datahdr.origin_y = y;
+
+	datahdr.width = (w >> 1);
+	datahdr.height = h;
+	datahdr.len = image_size + sizeof(TIMIMAGEHDR);
+
+	FILE* pFile = fopen(filename, "wb");
+	if (!pFile)
+		return;
+
+	// write header
+	fwrite(&hdr, 1, sizeof(hdr), pFile);
+
+	// write clut
+	fwrite(&cluthdr, 1, sizeof(cluthdr), pFile);
+	fwrite(clut_data, 1, cluthdr.len - sizeof(TIMIMAGEHDR), pFile);
+
+	// write data
+	fwrite(&datahdr, 1, sizeof(datahdr), pFile);
+	fwrite(image_data, 1, datahdr.len - sizeof(TIMIMAGEHDR), pFile);
+
+	// dun
+	fclose(pFile);
+}
+
+void SaveTIM_16bit(char* filename,
+	ubyte* image_data, int image_size,
+	int x, int y, int w, int h)
+{
+	// compose TIMs
+	//
+	// prep headers
+	TIMHDR hdr;
+	hdr.magic = 0x10;
+	hdr.flags = 0x02; // for 16bpp
+
+	TIMIMAGEHDR datahdr;
+
+	datahdr.origin_x = x;
+	datahdr.origin_y = y;
+
+	datahdr.width = w;
+	datahdr.height = h;
+	datahdr.len = image_size + sizeof(TIMIMAGEHDR);
+
+	FILE* pFile = fopen(filename, "wb");
+	if (!pFile)
+		return;
+
+	// write header
+	fwrite(&hdr, 1, sizeof(hdr), pFile);
+
+	// write data
+	fwrite(&datahdr, 1, sizeof(datahdr), pFile);
+	fwrite(image_data, 1, datahdr.len - sizeof(TIMIMAGEHDR), pFile);
+
+	// dun
+	fclose(pFile);
+}

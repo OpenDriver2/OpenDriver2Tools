@@ -58,4 +58,13 @@ void SaveTIM_4bit(char* filename,
 	int x, int y, int w, int h,
 	ubyte* clut_data, int clut_h);
 
+void SaveTIM_8bit(char* filename,
+	ubyte* image_data, int image_size,
+	int x, int y, int w, int h,
+	ubyte* clut_data, int clut_h);
+
+void SaveTIM_16bit(char* filename,
+	ubyte* image_data, int image_size,
+	int x, int y, int w, int h);
+
 #endif // IMAGE_H
