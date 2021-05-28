@@ -209,8 +209,17 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 	
 	// convert background image and store
 	{
-		ubyte timData[64*6 * 512];
+		String str = String::fromCString(filename).toLowerCase();
 		
+		// MCBACK.RAW case
+		if (str.find("mcback"))
+		{
+			SaveTIM_16bit(varargs("%s.TIM", filename),
+				bgData, 512 * 256 * 2, 0, 0, 512, 256);// , bgData, 1);
+			return;
+		}
+
+		ubyte timData[64 * 6 * 512];
 		int rect_w = 64;
 		int rect_h = 256;
 
@@ -234,7 +243,6 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 		SaveTIM_4bit(varargs("%s.TIM", filename),
 			timData, 64 * 6 * 512, 0, 0, 384*2, 512, imageClut, 1);
 
-		// String str = String::fromCString(filename).toLowerCase();
 
 		// check if it's GFX.RAW
 		// if(str.find("gfx"))
