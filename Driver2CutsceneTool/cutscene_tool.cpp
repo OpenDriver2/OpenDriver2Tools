@@ -1,13 +1,14 @@
-﻿#include <math.h>
-
+﻿#include <stdlib.h>
+#include <stdio.h>
 #include <malloc.h>
-#include "core/VirtualStream.h"
 #include "core/cmdlib.h"
-#include "math/dktypes.h"
-#include "util/image.h"
-#include "util/util.h"
-#include <string>
-#include <DriverLevelTool/driver_routines/d2_types.h>
+#include "core/dktypes.h"
+#include <string.h>
+#include <nstd/Directory.hpp>
+#include <nstd/File.hpp>
+#include <nstd/String.hpp>
+
+#include "math/psx_math_types.h"
 
 #define MAX_FILE_CUTSCENES			15
 #define REPLAY_BUFFER_MINSIZE		2280
@@ -165,13 +166,10 @@ struct REPLAY_STREAM_HEADER
 void UnpackCutsceneFile(const char* filename)
 {
 	// replace extension with .den
-	std::string cut_name = filename;
-
-	size_t str_idx = cut_name.find_last_of(".");
-	cut_name = cut_name.substr(0, str_idx);
+	String cut_name = String::fromCString(filename);
+	cut_name = File::basename(cut_name, File::extension(cut_name));
 
 	char* buffer;
-	char folderPath[512];
 
 	CUTSCENE_HEADER header;
 	FILE* fp = fopen(filename, "rb");
@@ -188,8 +186,8 @@ void UnpackCutsceneFile(const char* filename)
 	Msg("Max replay buffer size: %d\n", header.maxsize);
 
 	// make the folder
-	sprintf(folderPath, "%s", cut_name.c_str());
-	mkdirRecursive(folderPath, true);
+	String folderPath = cut_name;
+	Directory::create(folderPath);
 
 	buffer = (char*)malloc(0x200000);
 
@@ -235,9 +233,7 @@ void UnpackCutsceneFile(const char* filename)
 		}
 
 		// save separate file
-		sprintf(folderPath, "%s/%s_%d.D2RP", cut_name.c_str(), cut_name.c_str(), i);
-
-		FILE* wp = fopen(folderPath, "wb");
+		FILE* wp = fopen(String::fromPrintf("%s/%s_%d.D2RP", (char*)cut_name, (char*)cut_name, i), "wb");
 		if (wp)
 		{
 			MsgWarning("\tSaving '%s', at %d, %d bytes\n", folderPath, header.data[i].offset, header.data[i].size);
@@ -255,7 +251,6 @@ void PackCutsceneFile(const char* foldername)
 {
 	int offset;
 	char* buffer;
-	char folderPath[512];
 	CUTSCENE_HEADER header;
 	header.maxsize = REPLAY_BUFFER_MINSIZE;
 
@@ -268,8 +263,8 @@ void PackCutsceneFile(const char* foldername)
 
 	for (int i = 0; i < MAX_FILE_CUTSCENES; i++)
 	{
-		sprintf(folderPath, "%s/%s_%d.D2RP", foldername, foldername, i);
-		FILE* fp = fopen(folderPath, "rb");
+		String folderPath = String::fromPrintf("%s/%s_%d.D2RP", foldername, foldername, i);
+		FILE* fp = fopen(String::fromPrintf("%s/%s_%d.D2RP", foldername, foldername, i), "rb");
 		if (fp)
 		{
 			if (i == 0)
@@ -293,7 +288,7 @@ void PackCutsceneFile(const char* foldername)
 			replays[i] = (char*)malloc(size);
 			repsizes[i] = size;
 
-			MsgWarning("\tLoaded '%s', %d bytes\n", folderPath, size);
+			MsgWarning("\tLoaded '%s', %d bytes\n", (char*)folderPath, size);
 			fread(replays[i], 1, size, fp);
 			fclose(fp);
 
@@ -322,11 +317,25 @@ void PackCutsceneFile(const char* foldername)
 				char* bufptr = (char*)sheader;
 				char* pingBufferPtr = bufptr + sizeof(PLAYBACKCAMERA) * MAX_REPLAY_CAMERAS;
 
+				// copy all pings to new position and remove deleted car pings too
+				/*for (int j = 0; j < MAX_REPLAY_PINGS; j++)
+				{
+					PING_PACKET packet = *(PING_PACKET*)pingBufferPtr;
+
+					if(packet.carId != -1 && packet.frame != 0xffff)
+					{
+						*(PING_PACKET*)bufptr = packet;
+						bufptr += sizeof(PING_PACKET);
+					}
+					
+					pingBufferPtr += sizeof(PING_PACKET);
+				}*/
+
 				memmove(bufptr, pingBufferPtr, sizeof(PING_PACKET) * MAX_REPLAY_PINGS);
 				
 				// shrink size
 				repsizes[i] -= sizeof(PLAYBACKCAMERA) * MAX_REPLAY_CAMERAS;
-				MsgAccept("\tShrinking '%s', now %d bytes\n", folderPath, repsizes[i]);
+				MsgAccept("\tShrinking '%s', now %d bytes\n", (char*)folderPath, repsizes[i]);
 			}
 		}
 		else
@@ -358,7 +367,8 @@ void PackCutsceneFile(const char* foldername)
 		MsgWarning("No chase replays\n");
 	}
 
-	sprintf(folderPath, "%s_N.R", foldername);
+	String folderPath = String::fromPrintf("%s_N.R", foldername);
+
 	FILE* wp = fopen(folderPath, "wb");
 
 	if (!wp)
@@ -366,7 +376,7 @@ void PackCutsceneFile(const char* foldername)
 		for (int i = 0; i < MAX_FILE_CUTSCENES; i++)
 			free(replays[i]);
 
-		MsgError("Unable to save '%s'\n", folderPath);
+		MsgError("Unable to save '%s'\n", (char*)folderPath);
 		return;
 	}
 

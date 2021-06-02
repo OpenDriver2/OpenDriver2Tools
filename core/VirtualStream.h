@@ -2,7 +2,6 @@
 #define VIRTUALSTREAM_H
 
 #include "IVirtualStream.h"
-#include "cmdlib.h"
 #include <stdio.h>
 
 //--------------------------
@@ -69,8 +68,6 @@ private:
 
 class CFileStream : public IVirtualStream
 {
-	friend class CFileSystem;
-
 public:
 						CFileStream(FILE* pFile) : m_pFilePtr(pFile)
 						{
@@ -82,6 +79,7 @@ public:
     size_t				Write( const void *src, size_t count, size_t size);
     int					Error();
     int					Flush();
+	void				Print(const char* pFmt, ...);
 
 	long				GetSize();
 

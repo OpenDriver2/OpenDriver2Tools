@@ -1,17 +1,20 @@
 #include <stdio.h>
 
 #include "driver_routines/models.h"
-#include "util/util.h"
-#include "util/DkList.h"
 #include "core/VirtualStream.h"
-#include <string>
 
 #include "driver_level.h"
+#include "core/cmdlib.h"
 #include "math/Matrix.h"
 
-extern bool						g_extract_dmodels;
-extern std::string				g_levname_moddir;
-extern std::string				g_levname_texdir;
+#include <string.h>
+#include <nstd/File.hpp>
+
+extern bool		g_extract_dmodels;
+extern bool		g_export_worldUnityScript;
+
+extern String	g_levname_moddir;
+extern String	g_levname_texdir;
 
 //-------------------------------------------------------------
 // writes Wavefront OBJ into stream
@@ -20,8 +23,7 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 	bool debugInfo,
 	const Matrix4x4& translation,
 	int* first_v,
-	int* first_t,
-	RegionModels_t* regModels)
+	int* first_t)
 {
 	if (!model)
 	{
@@ -33,14 +35,15 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 	if (debugInfo)
 		pStream->Print("#vert count %d\r\n", model->num_vertices);
 
-	pStream->Print("g %s_%d\r\n", name_prefix, model_index);
-	pStream->Print("o %s_%d\r\n", name_prefix, model_index);
+	pStream->Print("g %s\r\n", name_prefix);
+	pStream->Print("o %s\r\n", name_prefix);
 
 	MODEL* vertex_ref = model;
 
 	if (model->instance_number > 0) // car models have vertex_ref=0
 	{
-		pStream->Print("#vertex data ref model: %d (count = %d)\r\n", model->instance_number, model->num_vertices);
+		if(debugInfo)
+			pStream->Print("#vertex data ref model: %d (count = %d)\r\n", model->instance_number, model->num_vertices);
 
 		ModelRef_t* ref = g_levModels.GetModelByIndex(model->instance_number);//, regModels);
 
@@ -53,11 +56,21 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 		vertex_ref = ref->model;
 	}
 
+	// export scaling
+	Vector3D export_scale(-EXPORT_SCALING, -EXPORT_SCALING, EXPORT_SCALING);
+	bool flipFaces = true;
+
+	if(g_export_worldUnityScript)
+	{
+		export_scale = Vector3D(-EXPORT_SCALING, -EXPORT_SCALING, -EXPORT_SCALING);
+		flipFaces = false;
+	}
+	
 	// store vertices
 	for (int i = 0; i < vertex_ref->num_vertices; i++)
 	{
 		SVECTOR* vert = vertex_ref->pVertex(i);
-		Vector3D sfVert = Vector3D(vert->x * -EXPORT_SCALING, vert->y * -EXPORT_SCALING, vert->z * EXPORT_SCALING);
+		Vector3D sfVert = Vector3D(vert->x, vert->y, vert->z) * export_scale;
 
 		sfVert = (translation * Vector4D(sfVert, 1.0f)).xyz();
 
@@ -71,7 +84,7 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 	for (int i = 0; i < vertex_ref->num_point_normals; i++)
 	{
 		SVECTOR* norm = vertex_ref->pPointNormal(i);
-		Vector3D sfNorm = Vector3D(norm->x * -EXPORT_SCALING, norm->y * -EXPORT_SCALING, norm->z * EXPORT_SCALING);
+		Vector3D sfNorm = Vector3D(norm->x, norm->y, norm->z) * export_scale;
 
 		pStream->Print("vn %g %g %g\r\n", 
 			sfNorm.x,
@@ -190,8 +203,11 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 			char temp[64] = {0};
 			char vertex_value[64] = {0};
 
-			// NOTE: Vertex indexes is reversed here
-#define VERT_IDX numPolyVerts - 1 - v
+			int VERT_IDX;
+			if(flipFaces)
+				VERT_IDX = numPolyVerts - 1 - v;
+			else
+				VERT_IDX = v;
 
 			// starting with vertex index
 			sprintf(temp, "%d", dec_face.vindices[VERT_IDX] + 1 + numVerts);
@@ -252,7 +268,7 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 //-------------------------------------------------------------
 void ExtractDMODEL(MODEL* model, const char* model_name, int modelSize)
 {
-	FILE* mdlFile = fopen(varargs("%s.dmodel", model_name), "wb");
+	FILE* mdlFile = fopen(String::fromPrintf("%s.dmodel", model_name), "wb");
 
 	if (mdlFile)
 	{
@@ -281,11 +297,11 @@ void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, in
 		return;
 	}
 
-	const char* selFilename = model_name;
+	String selFilename(model_name, strlen(model_name));
 
-	if (strchr(model_name, '.') == nullptr)
-		selFilename = varargs("%s.obj", model_name);
-	
+	if(!selFilename.findOneOf("."))
+		selFilename += ".obj";
+
 	FILE* mdlFile = fopen(selFilename, "wb");
 
 	if (mdlFile)
@@ -296,7 +312,13 @@ void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, in
 
 		fstr.Print("mtllib MODELPAGES.mtl\r\n");
 
-		WriteMODELToObjStream(&fstr, model, modelSize, model_index, model_name, true);
+#ifdef _DEBUG
+		bool debugInfo = true;
+#else
+		bool debugInfo = false;
+#endif
+		
+		WriteMODELToObjStream(&fstr, model, modelSize, model_index, File::basename(String::fromCString(model_name)), debugInfo);
 
 		// success
 		fclose(mdlFile);
@@ -308,10 +330,10 @@ void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, in
 //-------------------------------------------------------------
 void ExportCarModel(MODEL* model, int size, int index, const char* name_suffix)
 {
-	std::string model_name(varargs("%s/CARMODEL_%d_%s", g_levname_moddir.c_str(), index, name_suffix));
+	String model_name(String::fromPrintf("%s/CARMODEL_%d_%s", (char*)g_levname_moddir, index, name_suffix));
 
 	// export model
-	ExportDMODELToOBJ(model, model_name.c_str(), index, size);
+	ExportDMODELToOBJ(model, model_name, index, size);
 }
 
 //-------------------------------------------------------------
@@ -320,14 +342,16 @@ void ExportCarModel(MODEL* model, int size, int index, const char* name_suffix)
 void SaveModelPagesMTL()
 {
 	// create material file
-	FILE* pMtlFile = fopen(varargs("%s/MODELPAGES.mtl", g_levname_moddir.c_str()), "wb");
+	FILE* pMtlFile = fopen(String::fromPrintf("%s/MODELPAGES.mtl", (char*)g_levname_moddir), "wb");
 
 	if (pMtlFile)
 	{
+		String justLevFilename = File::basename(g_levname_texdir, File::extension(g_levname_texdir));
+		
 		for (int i = 0; i < g_levTextures.GetTPageCount(); i++)
 		{
 			fprintf(pMtlFile, "newmtl page_%d\r\n", i);
-			fprintf(pMtlFile, "map_Kd ../../%s/PAGE_%d.tga\r\n", g_levname_texdir.c_str(), i);
+			fprintf(pMtlFile, "map_Kd ../%s/PAGE_%d.tga\r\n", (char*)justLevFilename, i);
 		}
 
 		fclose(pMtlFile);
@@ -343,27 +367,16 @@ void ExportAllModels()
 
 	for (int i = 0; i < MAX_MODELS; i++)
 	{
-		ModelRef_t* modelRef = g_levModels.GetModelByIndex(i);
-		const char* modelName = g_levModels.GetModelName(modelRef);
-		
-		if (!modelRef->model)
+		ModelRef_t* ref = g_levModels.GetModelByIndex(i);
+
+		if (!ref || !ref->model)
 			continue;
 
-		std::string modelFileName(varargs("%s/ZMOD_%d", g_levname_moddir.c_str(), i));
-
-		if (modelName && modelName[0] != 0)
-			modelFileName = varargs("%s/%d_%s", g_levname_moddir.c_str(), i, modelName);
+		String modelName = strlen(ref->name) > 0 ? String::fromCString(ref->name) : String::fromPrintf("MOD_%d", ref->index);
+		String modelPath = String::fromPrintf("%s/%s", (char*)g_levname_moddir, (char*)modelName);
 
 		// export model
-		ExportDMODELToOBJ(modelRef->model, modelFileName.c_str(), i, modelRef->size);
-
-		// save original dmodel2
-		FILE* dFile = fopen(varargs("%s.dmodel", modelFileName.c_str()), "wb");
-		if (dFile)
-		{
-			fwrite(modelRef->model, modelRef->size, 1, dFile);
-			fclose(dFile);
-		}
+		ExportDMODELToOBJ(ref->model, modelPath, i, ref->size);
 	}
 }
 

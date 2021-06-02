@@ -1,9 +1,9 @@
 #ifndef REGIONS_H
 #define REGIONS_H
 
-#include "math/dktypes.h"
+#include "core/dktypes.h"
 #include "models.h"
-#include "util/DkList.h"
+#include "level.h"
 
 //------------------------------------------------------------------------------------------------------------
 
@@ -13,16 +13,19 @@ class IVirtualStream;
 class CBaseLevelRegion;
 class CBaseLevelMap;
 
-// OBSOLETE
-struct RegionModels_t
-{
-	DkList<ModelRef_t> modelRefs;
-};
-
 typedef void (*OnRegionLoaded_t)(CBaseLevelRegion* region);
 typedef void (*OnRegionFreed_t)(CBaseLevelRegion* region);
 
 //----------------------------------------------------------------------------------
+
+struct SPOOL_CONTEXT
+{
+	IVirtualStream*			dataStream;
+
+	OUT_CITYLUMP_INFO*		lumpInfo;
+	CDriverLevelTextures*	textures;
+	CDriverLevelModels*		models;
+};
 
 class CBaseLevelRegion
 {
@@ -34,8 +37,8 @@ public:
 	virtual ~CBaseLevelRegion();
 
 	virtual void			FreeAll();
-	virtual void			LoadRegionData(IVirtualStream* pFile) = 0;
-	void					LoadAreaData(IVirtualStream* pFile);
+	virtual void			LoadRegionData(const SPOOL_CONTEXT& ctx) = 0;
+	void					LoadAreaData(const SPOOL_CONTEXT& ctx);
 
 	bool					IsEmpty() const;
 	int						GetNumber() const;
@@ -75,6 +78,9 @@ public:
 	//----------------------------------------
 
 	void						SetLoadingCallbacks(OnRegionLoaded_t onLoaded, OnRegionFreed_t onFreed);
+
+	void						SetFormat(ELevelFormat format);
+	ELevelFormat				GetFormat() const;
 	
 	//----------------------------------------
 
@@ -82,14 +88,16 @@ public:
 	virtual void				LoadSpoolInfoLump(IVirtualStream* pFile);
 
 	virtual int					GetAreaDataCount() const;
-	virtual void				LoadInAreaTPages(IVirtualStream* pFile, int areaDataNum) const;
-	virtual void				LoadInAreaModels(IVirtualStream* pFile, int areaDataNum) const;
+	virtual void				LoadInAreaTPages(const SPOOL_CONTEXT& ctx, int areaDataNum) const;
+	virtual void				LoadInAreaModels(const SPOOL_CONTEXT& ctx, int areaDataNum) const;
 
-	virtual void				SpoolRegion(const XZPAIR& cell) = 0;
-	virtual void				SpoolRegion(int regionIdx) = 0;
+	virtual void				SpoolRegion(const SPOOL_CONTEXT& ctx, const XZPAIR& cell) = 0;
+	virtual void				SpoolRegion(const SPOOL_CONTEXT& ctx, int regionIdx) = 0;
 
 	virtual CBaseLevelRegion*	GetRegion(const XZPAIR& cell) const = 0;
 	virtual CBaseLevelRegion*	GetRegion(int regionIdx) const = 0;
+
+	virtual int					MapHeight(const VECTOR_NOPAD& position) const = 0;
 
 	// converters
 	void						WorldPositionToCellXZ(XZPAIR& cell, const VECTOR_NOPAD& position) const;
@@ -111,12 +119,14 @@ protected:
 
 	// shared
 	OUT_CELL_FILE_HEADER		m_mapInfo;
+
+	ELevelFormat				m_format;
 	
 	Spool*						m_regionSpoolInfo{ nullptr };			// region data info
 	ushort*						m_regionSpoolInfoOffsets{ nullptr };	// region offset table
 	
 	AreaDataStr*				m_areaData{ nullptr };					// region model/texture data descriptors
-	AreaTPage_t*				m_areaTPages{ nullptr };				// region texpage usage table
+	AreaTpageList*				m_areaTPages{ nullptr };				// region texpage usage table
 	bool*						m_areaDataStates{ nullptr };			// area data loading states
 
 	int							m_numStraddlers{ 0 };
@@ -135,10 +145,6 @@ protected:
 	OnRegionLoaded_t			m_onRegionLoaded{ nullptr };
 	OnRegionFreed_t				m_onRegionFreed{ nullptr };
 };
-
-//-----------------------------------------------------------------------------------------
-
-extern LEVELINFO				g_levInfo;
 
 //-----------------------------------------------------------------------------------------
 

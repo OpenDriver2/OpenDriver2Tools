@@ -1,7 +1,8 @@
 #ifndef IVRITUALSTREAM_H
 #define IVRITUALSTREAM_H
 
-#include "../math/dktypes.h"
+#include "core/dktypes.h"
+#include <stddef.h>
 
 enum VirtStreamType_e
 {

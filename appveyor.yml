@@ -1,4 +1,4 @@
-version: 1.8.{build}
+version: 2.0.{build}
 
 branches:
   only:
@@ -14,27 +14,27 @@ image:
 environment:
   project_folder: '%APPVEYOR_BUILD_FOLDER%'
   dependency_folder: '%APPVEYOR_BUILD_FOLDER%\dependencies'
-  windows_sdl2_dir: '%dependency_folder%\SDL2-2.0.12'
+  windows_sdl2_dir: '%dependency_folder%\SDL2-2.0.14'
   # Dependency URLs
   windows_premake_url: 'https://github.com/premake/premake-core/releases/download/v5.0.0-alpha15/premake-5.0.0-alpha15-windows.zip'
-  windows_sdl2_url: 'https://www.libsdl.org/release/SDL2-devel-2.0.12-VC.zip'
+  windows_sdl2_url: 'https://www.libsdl.org/release/SDL2-devel-2.0.14-VC.zip'
   linux_premake_url: 'https://github.com/premake/premake-core/releases/download/v5.0.0-alpha15/premake-5.0.0-alpha15-linux.tar.gz'
 
 install:
   - cmd: '%APPVEYOR_BUILD_FOLDER%\.appveyor\Install.bat'
-  - sh: '${APPVEYOR_BUILD_FOLDER}/.appveyor/Install.sh'
+#  - sh: '${APPVEYOR_BUILD_FOLDER}/.appveyor/Install.sh'
 
 build_script:
   - cmd: '%APPVEYOR_BUILD_FOLDER%\.appveyor\Build.bat'
-  - sh: '${APPVEYOR_BUILD_FOLDER}/.appveyor/Build.sh'
+#  - sh: '${APPVEYOR_BUILD_FOLDER}/.appveyor/Build.sh'
 
 after_build:
   - cmd: '%APPVEYOR_BUILD_FOLDER%\.appveyor\AfterBuild.bat'
-  - sh: '${APPVEYOR_BUILD_FOLDER}/.appveyor/AfterBuild.sh'
+#  - sh: '${APPVEYOR_BUILD_FOLDER}/.appveyor/AfterBuild.sh'
 
-cache:
-  - 'DriverLevelTool\obj\'
-  - 'DriverSoundTool\obj\'
+#cache:
+#  - 'DriverLevelTool\obj\'
+#  - 'DriverSoundTool\obj\'
     
 artifacts:
   - path: DriverLevelTool\bin\*\*.zip

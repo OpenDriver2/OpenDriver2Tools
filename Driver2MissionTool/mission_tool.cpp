@@ -1,14 +1,7 @@
-﻿#include <math.h>
+﻿#include <stdlib.h>
+#include <string.h>
 
-#include <malloc.h>
-#include "core/VirtualStream.h"
 #include "core/cmdlib.h"
-#include "math/dktypes.h"
-#include "util/image.h"
-#include "util/util.h"
-#include <string>
-#include <DriverLevelTool/driver_routines/d2_types.h>
-
 //----------------------------------------------------
 
 void CompileMissionBlk(const char* filename)

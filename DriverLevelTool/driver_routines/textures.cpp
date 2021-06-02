@@ -1,49 +1,13 @@
-﻿
-#include "driver_level.h"
-
-#include "core/cmdlib.h"
+﻿#include "core/cmdlib.h"
 #include "core/IVirtualStream.h"
 #include "math/Vector.h"
 
-//-------------------------------------------------------------------------------
+#include <string.h>
 
-// 16 bit color to BGRA
-// originalTransparencyKey makes it pink
-TVec4D<ubyte> rgb5a1_ToBGRA8(ushort color, bool originalTransparencyKey /*= true*/)
-{
-	ubyte r = (color & 0x1F) * 8;
-	ubyte g = ((color >> 5) & 0x1F) * 8;
-	ubyte b = ((color >> 10) & 0x1F) * 8;
+#include <nstd/String.hpp>
 
-	ubyte a = (color >> 15) * 255;
-
-	// restore source transparency key
-	if (originalTransparencyKey && color == 0)
-	{
-		return TVec4D<ubyte>(255, 0, 255, 0);
-	}
-
-	return TVec4D<ubyte>(b, g, r, a);
-}
-
-// 16 bit color to RGBA
-// originalTransparencyKey makes it pink
-TVec4D<ubyte> rgb5a1_ToRGBA8(ushort color, bool originalTransparencyKey /*= true*/)
-{
-	ubyte r = (color & 0x1F) * 8;
-	ubyte g = ((color >> 5) & 0x1F) * 8;
-	ubyte b = ((color >> 10) & 0x1F) * 8;
-
-	ubyte a = (color >> 15) * 255;
-
-	// restore source transparency key
-	if (originalTransparencyKey && color == 0)
-	{
-		return TVec4D<ubyte>(255, 0, 255, 0);
-	}
-
-	return TVec4D<ubyte>(r, g, b, a);
-}
+#include "textures.h"
+#include "level.h"
 
 //-------------------------------------------------------------------------------
 
@@ -94,6 +58,7 @@ CTexturePage::CTexturePage()
 CTexturePage::~CTexturePage()
 {
 	delete[] m_details;
+	FreeBitmap();
 }
 
 // free texture page data and bitmap
@@ -220,6 +185,8 @@ void CTexturePage::LoadCompressedTexture(IVirtualStream* pFile)
 	pFile->Read(compressedData, 1, TEXPAGE_4BIT_SIZE);
 
 	char* unpackEnd = unpackTexture((char*)compressedData, (char*)m_bitmap.data);
+
+	delete[] compressedData;
 	
 	// unpack
 	m_bitmap.rsize = (char*)unpackEnd - (char*)compressedData;
@@ -332,10 +299,6 @@ CDriverLevelTextures::~CDriverLevelTextures()
 //
 void CDriverLevelTextures::LoadPermanentTPages(IVirtualStream* pFile)
 {
-	pFile->Seek( g_levInfo.texdata_offset, VS_SEEK_SET );
-	
-	//-----------------------------------
-
 	DevMsg(SPEW_NORM,"Loading permanent texture pages (%d)\n", m_numPermanentPages);
 
 	// simulate sectors
@@ -370,8 +333,6 @@ void CDriverLevelTextures::LoadPermanentTPages(IVirtualStream* pFile)
 	// those are non-spooled ones
 	for (int i = 0; i < m_numSpecPages; i++)
 	{
-		TexBitmap_t* newTexData = new TexBitmap_t;
-
 		long curOfs = pFile->Tell();
 		int tpage = m_specList[i].x;
 
@@ -387,8 +348,6 @@ void CDriverLevelTextures::LoadPermanentTPages(IVirtualStream* pFile)
 //-------------------------------------------------------------
 void CDriverLevelTextures::LoadTextureInfoLump(IVirtualStream* pFile)
 {
-	int l_ofs = pFile->Tell();
-
 	int numPages;
 	pFile->Read(&numPages, 1, sizeof(int));
 
@@ -425,8 +384,6 @@ void CDriverLevelTextures::LoadTextureInfoLump(IVirtualStream* pFile)
 
 	DevMsg(SPEW_NORM,"Special/Car TPages = %d\n", m_numSpecPages);
 
-	pFile->Seek(l_ofs, VS_SEEK_SET);
-
 	// not needed
 	delete tpage_position;
 }
@@ -436,8 +393,6 @@ void CDriverLevelTextures::LoadTextureInfoLump(IVirtualStream* pFile)
 //-------------------------------------------------------------
 void CDriverLevelTextures::LoadTextureNamesLump(IVirtualStream* pFile, int size)
 {
-	int l_ofs = pFile->Tell();
-
 	m_textureNamesData = new char[size+1];
 	memset(m_textureNamesData, 0, size + 1);
 
@@ -454,8 +409,6 @@ void CDriverLevelTextures::LoadTextureNamesLump(IVirtualStream* pFile, int size)
 
 		sz += len + 1;
 	} while (sz < size);
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
 //-------------------------------------------------------------
@@ -465,7 +418,6 @@ void CDriverLevelTextures::ProcessPalletLump(IVirtualStream* pFile)
 {
 	ushort* clutTablePtr;
 	int total_cluts;
-	int l_ofs = pFile->Tell();
 
 	pFile->Read(&total_cluts, 1, sizeof(int));
 
@@ -482,7 +434,7 @@ void CDriverLevelTextures::ProcessPalletLump(IVirtualStream* pFile)
 	{
 		PALLET_INFO info;
 
-		if (g_format == LEV_FORMAT_DRIVER1)
+		if (m_format == LEV_FORMAT_DRIVER1)
 		{
 			PALLET_INFO_D1 infod1;
 			pFile->Read(&infod1, 1, sizeof(info) - sizeof(int));
@@ -521,7 +473,7 @@ void CDriverLevelTextures::ProcessPalletLump(IVirtualStream* pFile)
 			added_cluts++;
 
 			// only in D1 we need to check count
-			if (g_format == LEV_FORMAT_DRIVER1)
+			if (m_format == LEV_FORMAT_DRIVER1)
 			{
 				if (added_cluts >= total_cluts)
 					break;
@@ -545,8 +497,6 @@ void CDriverLevelTextures::ProcessPalletLump(IVirtualStream* pFile)
 
 	DevMsg(SPEW_NORM,"    added: %d\n", added_cluts);
 	m_numExtraPalettes = added_cluts;
-
-	pFile->Seek(l_ofs, VS_SEEK_SET);
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -602,6 +552,16 @@ void CDriverLevelTextures::SetLoadingCallbacks(OnTexturePageLoaded_t onLoaded, O
 {
 	m_onTPageLoaded = onLoaded;
 	m_onTPageFreed = onFreed;
+}
+
+void CDriverLevelTextures::SetFormat(ELevelFormat format)
+{
+	m_format = format;
+}
+
+ELevelFormat CDriverLevelTextures::GetFormat() const
+{
+	return m_format;
 }
 
 void CDriverLevelTextures::OnTexturePageLoaded(CTexturePage* tp)

@@ -7,7 +7,7 @@
 */
 
 #include "core/cmdlib.h"
-#include "math/dktypes.h"
+#include "core/dktypes.h"
 
 struct RNCheader
 {

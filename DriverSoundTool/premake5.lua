@@ -6,22 +6,23 @@ project "DriverSoundTool"
     compileas "C++"
     targetdir "bin/%{cfg.buildcfg}"
 
+	-- framework link
+	dependson { "frameworkLib", "libnstd" }
+	links { "frameworkLib", "libnstd" }
+	includedirs {
+		"../dependencies/libnstd/include",
+	}
+	--
+
     files {
         "**.cpp",
         "**.h",
-		"driver_routines/**.cpp",
-		"driver_routines/**.h",
     }
         
     filter "system:linux"
         buildoptions {
             "-Wno-narrowing",
             "-fpermissive",
-            "-m32"
-        }
-        
-        linkoptions {
-            "-m32"
         }
         
     filter "configurations:Debug"

@@ -6,6 +6,14 @@ project "DriverImageTool"
     compileas "C++"
     targetdir "bin/%{cfg.buildcfg}"
 
+	-- framework link
+	dependson { "frameworkLib", "libnstd" }
+	links { "frameworkLib", "libnstd" }
+	includedirs {
+		"../dependencies/libnstd/include",
+	}
+	--
+
     files {
         "**.cpp",
         "**.h",
@@ -15,11 +23,6 @@ project "DriverImageTool"
         buildoptions {
             "-Wno-narrowing",
             "-fpermissive",
-            "-m32"
-        }
-        
-        linkoptions {
-            "-m32"
         }
         
     filter "configurations:Debug"

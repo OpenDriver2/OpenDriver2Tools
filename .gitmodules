@@ -1,0 +1,6 @@
+[submodule "dependencies/libnstd"]
+	path = dependencies/libnstd
+	url = https://github.com/craflin/libnstd.git
+[submodule "dependencies/imgui"]
+	path = dependencies/imgui
+	url = https://github.com/ocornut/imgui.git

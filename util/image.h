@@ -1,7 +1,8 @@
 #ifndef IMAGE_H
 #define IMAGE_H
 
-#include "math/dktypes.h"
+#include "core/dktypes.h"
+#include "math/Vector.h"
 
 // Define targa header.
 #pragma pack( push, 1 )
@@ -39,11 +40,31 @@ struct TIMIMAGEHDR
 
 //-------------------------------------------------------------------
 
+// 16 bit color to BGRA
+// originalTransparencyKey makes it pink
+TVec4D<ubyte> rgb5a1_ToBGRA8(ushort color, bool originalTransparencyKey /*= true*/);
+
+// 16 bit color to RGBA
+// originalTransparencyKey makes it pink
+TVec4D<ubyte> rgb5a1_ToRGBA8(ushort color, bool originalTransparencyKey /*= true*/);
+
+//-------------------------------------------------------------------
+
+
 void SaveTGA(const char* filename, ubyte* data, int w, int h, int c);
 
 void SaveTIM_4bit(char* filename,
 	ubyte* image_data, int image_size,
 	int x, int y, int w, int h,
 	ubyte* clut_data, int clut_h);
+
+void SaveTIM_8bit(char* filename,
+	ubyte* image_data, int image_size,
+	int x, int y, int w, int h,
+	ubyte* clut_data, int clut_h);
+
+void SaveTIM_16bit(char* filename,
+	ubyte* image_data, int image_size,
+	int x, int y, int w, int h);
 
 #endif // IMAGE_H

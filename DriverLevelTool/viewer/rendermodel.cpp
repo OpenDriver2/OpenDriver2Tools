@@ -1,11 +1,52 @@
 #include "driver_routines/models.h"
+#include "driver_routines/regions.h"
 #include "rendermodel.h"
-
-#include "driver_level.h"
 #include "gl_renderer.h"
 #include "core/cmdlib.h"
-#include "util/DkList.h"
+#include "debug_overlay.h"
+
 #include <assert.h>
+
+#include "convert.h"
+
+#define MODEL_VERTEX_SHADER \
+	"	attribute vec4 a_position_tu;\n"\
+	"	attribute vec4 a_normal_tv;\n"\
+	"	uniform mat4 u_View;\n"\
+	"	uniform mat4 u_Projection;\n"\
+	"	uniform mat4 u_World;\n"\
+	"	uniform mat4 u_WorldViewProj;\n"\
+	"	void main() {\n"\
+	"		v_texcoord = vec2(a_position_tu.w, 1.0-a_normal_tv.w);\n"\
+	"		v_normal = mat3(u_World) * a_normal_tv.xyz;\n"\
+	"		gl_Position = u_WorldViewProj * vec4(a_position_tu.xyz, 1.0);\n"\
+	"	}\n"
+
+#define MODEL_FRAGMENT_SHADER \
+	"	uniform sampler2D s_texture;\n"\
+	"	uniform vec3 u_lightDir;\n"\
+	"	uniform vec4 u_ambientColor;\n"\
+	"	uniform vec4 u_lightColor;\n"\
+	"	void main() {\n"\
+	"		vec4 lighting;\n"\
+	"		vec4 color = texture2D(s_texture, v_texcoord.xy);\n"\
+	"		if(color.a <= 0.5f) discard;\n"\
+	"		lighting = vec4(color.rgb * u_ambientColor.rgb * u_ambientColor.a, color.a);\n"\
+	"		lighting.rgb += u_lightColor.rgb * u_lightColor.a * color.rgb * max(1.0 - dot(v_normal, u_lightDir), 0);\n"\
+	"		fragColor = lighting;\n"\
+	"	}\n"
+
+const char* model_shader =
+	"varying vec2 v_texcoord;\n"
+	"varying vec3 v_normal;\n"
+	"varying vec4 v_color;\n"
+	"#ifdef VERTEX\n"
+	MODEL_VERTEX_SHADER
+	"#else\n"
+	MODEL_FRAGMENT_SHADER
+	"#endif\n";
+
+//-------------------------------------------------------------------
 
 void AddExtentVertex(Vector3D& minPoint, Vector3D& maxPoint, const Vector3D& v)
 {
@@ -73,9 +114,9 @@ struct vertexTuple_t
 	ushort	uvs;
 };
 
-int FindGrVertexIndex(const DkList<vertexTuple_t>& whereFind, int flags, int vertexIndex, int normalIndex, ushort uvs)
+int FindGrVertexIndex(const Array<vertexTuple_t>& whereFind, int flags, int vertexIndex, int normalIndex, ushort uvs)
 {
-	for(int i = 0; i < whereFind.numElem(); i++)
+	for(usize i = 0; i < whereFind.size(); i++)
 	{
 		if (whereFind[i].flags != flags)
 			continue;
@@ -105,14 +146,14 @@ int FindGrVertexIndex(const DkList<vertexTuple_t>& whereFind, int flags, int ver
 
 struct genBatch_t
 {
-	DkList<int>				indices;
+	Array<int>				indices;
 	
 	int tpage;
 };
 
-genBatch_t* FindBatch(DkList<genBatch_t*>& batches, int tpageId)
+genBatch_t* FindBatch(Array<genBatch_t*>& batches, int tpageId)
 {
-	for (int i = 0; i < batches.numElem(); i++)
+	for (usize i = 0; i < batches.size(); i++)
 	{
 		if (batches[i]->tpage == tpageId)
 			return batches[i];
@@ -122,24 +163,16 @@ genBatch_t* FindBatch(DkList<genBatch_t*>& batches, int tpageId)
 
 void CRenderModel::GenerateBuffers()
 {
-	DkList<genBatch_t*>		batches;
-	DkList<GrVertex>		vertices;
-	DkList<vertexTuple_t>	verticesMap;
+	Array<genBatch_t*>		batches;
+	Array<GrVertex>		vertices;
+	Array<vertexTuple_t>	verticesMap;
 	
 	MODEL* model = m_sourceModel->model;
 	MODEL* vertex_ref = model;
 
-	if (model->instance_number > 0) // car models have vertex_ref=0
+	if (m_sourceModel->baseInstance) // car models have vertex_ref=0
 	{
-		ModelRef_t* ref = g_levModels.GetModelByIndex(model->instance_number);
-
-		if (!ref)
-		{
-			Msg("vertex ref not found %d\n", model->instance_number);
-			return;
-		}
-
-		vertex_ref = ref->model;
+		vertex_ref = m_sourceModel->baseInstance->model;
 	}
 
 	genBatch_t* batch = nullptr;
@@ -147,6 +180,8 @@ void CRenderModel::GenerateBuffers()
 	int modelSize = m_sourceModel->size;
 	int face_ofs = 0;
 	dpoly_t dec_face;
+
+	vertices.reserve(model->num_vertices);
 
 	// go through all polygons
 	for (int i = 0; i < model->num_polys; i++)
@@ -251,7 +286,7 @@ void CRenderModel::GenerateBuffers()
 				
 				// get the vertex
 				SVECTOR* vert = vertex_ref->pVertex(dec_face.vindices[VERT_IDX]);
-				Vector3D fVert = Vector3D(vert->x * EXPORT_SCALING, vert->y * -EXPORT_SCALING, vert->z * EXPORT_SCALING);
+				Vector3D fVert = Vector3D(vert->x * RENDER_SCALING, vert->y * -RENDER_SCALING, vert->z * RENDER_SCALING);
 				
 				(*(Vector3D*)&newVert.vx) = fVert;
 
@@ -262,7 +297,7 @@ void CRenderModel::GenerateBuffers()
 					vertMap.normalIndex = dec_face.nindices[VERT_IDX];
 					
 					SVECTOR* norm = vertex_ref->pPointNormal(vertMap.normalIndex);
-					*(Vector3D*)&newVert.nx = Vector3D(norm->x * EXPORT_SCALING, norm->y * -EXPORT_SCALING, norm->z * EXPORT_SCALING);
+					*(Vector3D*)&newVert.nx = Vector3D(norm->x * RENDER_SCALING, norm->y * -RENDER_SCALING, norm->z * RENDER_SCALING);
 				}
 				
 				if (dec_face.flags & FACE_TEXTURED)
@@ -274,13 +309,14 @@ void CRenderModel::GenerateBuffers()
 					newVert.tc_v = ((float)uv.v + 0.5f) / 256.0f;
 				}
 
-				index = vertMap.grVertexIndex = vertices.append(newVert);
+				index = vertMap.grVertexIndex = vertices.size();
+				vertices.append(newVert);
 
 				// add vertex and a map
 				verticesMap.append(vertMap);
 
 				// vertices and verticesMap should be equal
-				assert(verticesMap.numElem() == vertices.numElem());
+				assert(verticesMap.size() == vertices.size());
 			}
 			
 			// add index
@@ -322,23 +358,22 @@ void CRenderModel::GenerateBuffers()
 		}
 	}
 
-	//DkList<GrVertex> vertices;
-	DkList<int> indices;
+	Array<int> indices;
 
 	// merge batches
-	for(int i = 0; i < batches.numElem(); i++)
+	for(usize i = 0; i < batches.size(); i++)
 	{	
 		//int startVertex = vertices.numElem();
-		int startIndex = indices.numElem();
+		int startIndex = indices.size();
 		
 		//vertices.append(batches[i]->vertices);
 
-		for(int j = 0; j < batches[i]->indices.numElem(); j++)
+		for(usize j = 0; j < batches[i]->indices.size(); j++)
 			indices.append(batches[i]->indices[j]);
 
 		modelBatch_t batch;
 		batch.startIndex = startIndex;
-		batch.numIndices = batches[i]->indices.numElem();
+		batch.numIndices = batches[i]->indices.size();
 		batch.tpage = batches[i]->tpage;
 
 		m_batches.append(batch);
@@ -346,7 +381,7 @@ void CRenderModel::GenerateBuffers()
 		delete batches[i];
 	}
 	
-	m_vao = GR_CreateVAO(vertices.numElem(), indices.numElem(), vertices.ptr(), indices.ptr(), 0);
+	m_vao = GR_CreateVAO(vertices.size(), indices.size(), (GrVertex*)vertices, (int*)indices, 0);
 
 	if(!m_vao)
 	{
@@ -357,12 +392,11 @@ void CRenderModel::GenerateBuffers()
 void CRenderModel::Draw()
 {
 	extern TextureID GetHWTexture(int tpage, int pal);
-	extern void SetupModelShader();
-	
+
 	SetupModelShader();
 	GR_SetVAO(m_vao);
 	
-	for(int i = 0; i < m_batches.numElem(); i++)
+	for(usize i = 0; i < m_batches.size(); i++)
 	{
 		modelBatch_t& batch = m_batches[i];
 		
@@ -375,4 +409,129 @@ void CRenderModel::GetExtents(Vector3D& outMin, Vector3D& outMax) const
 {
 	outMin = m_extMin;
 	outMax = m_extMax;
+}
+
+//--------------------------------------------------------------------------------------------------------------
+
+//-------------------------------------------------------
+// Render model viewer
+//-------------------------------------------------------
+void CRenderModel::DrawModelCollisionBox(ModelRef_t* ref, const VECTOR_NOPAD& position, int rotation)
+{
+	if (ref->baseInstance)
+		ref = ref->baseInstance;
+
+	float objRotationRad = -rotation / 64.0f * PI_F * 2.0f;
+
+	Vector3D offset = FromFixedVector(position);
+	offset.y *= -1.0f;
+	Matrix4x4 world = translate(offset) * rotateY4(objRotationRad);
+
+	MODEL* model = ref->model;
+
+	// add collision box drawing
+	int numcb = model->GetCollisionBoxCount();
+	COLLISION_PACKET* box = model->pCollisionBox(0);
+
+	for (int i = 0; i < numcb; i++)
+	{
+		float boxRotationRad = -box->yang / 64.0f * PI_F * 2.0f;
+
+		//if(box->type == 0)
+		{
+			Vector3D pos(box->xpos, -box->ypos, box->zpos);
+			Vector3D size(box->xsize / 2, box->ysize / 2, box->zsize / 2);
+
+			DebugOverlay_SetTransform(world * translate(pos / ONE_F) * rotateY4(boxRotationRad));
+			DebugOverlay_Box(-size / ONE_F, size / ONE_F, ColorRGBA(1, 1, 0, 0.5f));
+		}
+
+		box++;
+	}
+
+	DebugOverlay_SetTransform(identity4());
+}
+
+struct ModelShaderInfo
+{
+	ShaderID	shader{ 0 };
+
+	int			ambientColorConstantId{ -1 };
+	int			lightColorConstantId{ -1 };
+
+	int			lightDirConstantId{ -1 };
+} g_modelShader;
+
+struct WorldRenderProperties
+{
+	Vector4D ambientColor;
+	Vector4D lightColor;
+	Vector3D lightDir;
+
+} g_worldRenderProperties;
+
+// compiles model shader
+void CRenderModel::InitModelShader()
+{
+	// create shader
+	g_modelShader.shader = GR_CompileShader(model_shader);
+
+	g_modelShader.ambientColorConstantId = GR_GetShaderConstantIndex(g_modelShader.shader, "u_ambientColor");
+	g_modelShader.lightColorConstantId = GR_GetShaderConstantIndex(g_modelShader.shader, "u_lightColor");
+
+	g_modelShader.lightDirConstantId = GR_GetShaderConstantIndex(g_modelShader.shader, "u_lightDir");
+}
+
+// prepares shader for rendering
+// used for Models
+void CRenderModel::SetupModelShader()
+{
+	GR_SetShader(g_modelShader.shader);
+	GR_SetShaderConstantVector3D(g_modelShader.lightDirConstantId, g_worldRenderProperties.lightDir);
+
+	GR_SetShaderConstantVector4D(g_modelShader.ambientColorConstantId, g_worldRenderProperties.ambientColor);
+	GR_SetShaderConstantVector4D(g_modelShader.lightColorConstantId, g_worldRenderProperties.lightColor);
+}
+
+extern CBaseLevelMap* g_levMap;
+
+// sets up lighting properties
+void CRenderModel::SetupLightingProperties(float ambientScale /*= 1.0f*/, float lightScale /*= 1.0f*/)
+{
+	const OUT_CELL_FILE_HEADER& cellHeader = g_levMap->GetMapInfo();
+	
+	Vector3D lightVector = normalize(FromFixedVector(cellHeader.light_source));
+	float lightLevel = cellHeader.ambient_light_level / ONE_F;
+	
+	g_worldRenderProperties.ambientColor = ColorRGBA(0.95f, 0.9f, 1.0f, 0.8f * ambientScale * lightLevel);
+	g_worldRenderProperties.lightColor = ColorRGBA(1.0f, 1.0f, 1.0f, 0.8f * lightScale * lightLevel);
+	g_worldRenderProperties.lightDir = lightVector * Vector3D(1,-1,1);
+}
+
+//----------------------------------------
+// callbacks for model lump loader
+
+// called when model loaded in CDriverLevelModels
+void CRenderModel::OnModelLoaded(ModelRef_t* ref)
+{
+	if (!ref->model)
+		return;
+
+	CRenderModel* renderModel = new CRenderModel();
+
+	if (renderModel->Initialize(ref))
+		ref->userData = renderModel;
+	else
+		delete renderModel;
+}
+
+// called when model freed in CDriverLevelModels
+void CRenderModel::OnModelFreed(ModelRef_t* ref)
+{
+	CRenderModel* model = (CRenderModel*)ref->userData;
+
+	if (model)
+		model->Destroy();
+
+	delete model;
 }

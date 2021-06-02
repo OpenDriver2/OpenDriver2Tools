@@ -1,11 +1,13 @@
 ﻿#include <math.h>
 
-#include <malloc.h>
 #include "core/VirtualStream.h"
 #include "core/cmdlib.h"
-#include "math/dktypes.h"
-#include "util/util.h"
+#include <string.h>
+#include <stdlib.h>
 
+#include <nstd/String.hpp>
+#include <nstd/File.hpp>
+#include <nstd/Directory.hpp>
 
 // WAV file header and smpl-chunk template - Quick and dirty solution because I'm lazy
 int wavHeader[11] = {
@@ -185,9 +187,13 @@ int DecompressAndRestoreXM(char* destXM, char* xmData, int srcSize, PCMSample* s
 
 	unsigned short* version = (unsigned short*)(&destXM[58]);
 
+	bool decompress = false;
+
 	// check if it's an XMPlay version (superpacked)
 	if (*version != 0xDDBA)
 	{
+		MsgInfo("Already a non-compressesd XM. Exiting\n");
+	
 		memcpy(destXM, xmData, srcSize);
 		return srcSize;
 	}
@@ -386,13 +392,11 @@ int LoadSoundBank(SAMPLE_DATA* out_sample_info, PCMSample* out_samples, FILE* fp
 	int numBankSamples = 0;
 	fread(&numBankSamples, sizeof(int), 1, fp);
 
-	MsgWarning("bank sounds: %d\n", numBankSamples);
-
 	fread(out_sample_info, sizeof(SAMPLE_DATA), numBankSamples, fp);
 
 	int bankSamplesOffset = ftell(fp);
 
-	MsgWarning("bank sounds: %d\n", numBankSamples);
+	MsgWarning("Bank sounds: %d\n", numBankSamples);
 
 	for (int j = 0; j < numBankSamples; j++)
 	{
@@ -430,7 +434,9 @@ int LoadSoundBank(SAMPLE_DATA* out_sample_info, PCMSample* out_samples, FILE* fp
 
 void ExportSBK(FILE* sbkFp, const char* sbkFileName)
 {
-	char tmpString[_MAX_PATH];
+	String sbkName = String::fromCString(sbkFileName);
+	String directory = File::dirname(sbkName) + "/" + File::basename(sbkName, File::extension(sbkName));
+	
 	PCMSample pcmSamples[80];
 	SAMPLE_DATA sampleDescs[80];
 	memset(pcmSamples, 0, sizeof(PCMSample) * 80);
@@ -439,16 +445,16 @@ void ExportSBK(FILE* sbkFp, const char* sbkFileName)
 	int numBankSamples = LoadSoundBank(sampleDescs, pcmSamples, sbkFp);
 
 	if(numBankSamples)
-		mkdirRecursive(sbkFileName, true);
+		Directory::create(directory);
 
 	for (int i = 0; i < numBankSamples; i++)
 	{
 		PCMSample& sample = pcmSamples[i];
 		SAMPLE_DATA& sampleDesc = sampleDescs[i];
 
-		snprintf(tmpString, _MAX_PATH, "%s/%d.wav", sbkFileName, i);
-
-		FILE* wavfp = fopen(tmpString, "wb");
+		String fileName = String::fromPrintf("%s/%d.wav", (char*)directory, i);
+		
+		FILE* wavfp = fopen(fileName, "wb");
 
 		if (wavfp)
 		{
@@ -475,34 +481,38 @@ void ExportSBK(FILE* sbkFp, const char* sbkFileName)
 			fclose(wavfp);
 		}
 		else
-			MsgError("Unable to create file %s\n", tmpString);
+			MsgError("Unable to create file %s\n", (char*)fileName);
 	}
 }
 
-int DoConvertBLK(const char* sbkFileName)
+int DoConvertBLK(const char* blkFileName)
 {
-	char tmpString[_MAX_PATH];
-	snprintf(tmpString, _MAX_PATH, "%s_dec", sbkFileName);
+	String blkName = String::fromCString(blkFileName);
+	String directory = File::dirname(blkName) + "/" + File::basename(blkName, File::extension(blkName));
 
-	MsgWarning("Loading '%s'...\n", sbkFileName);
+	MsgWarning("Loading '%s'...\n", blkFileName);
 
-	FILE* blkFp = fopen(sbkFileName, "rb");
+	FILE* blkFp = fopen(blkFileName, "rb");
 
 	if (!blkFp)
 	{
-		MsgError("No such file '%s'!", sbkFileName);
+		MsgError("No such file '%s'!", blkFileName);
 		return -1;
 	}
 
-	mkdirRecursive(tmpString);
+	Directory::create(directory);
 
 	// read count
+	// FIXME: is that even correct?
 	int numSoundBanks = 0;
 	fread(&numSoundBanks, 1, sizeof(int), blkFp);
 
 	// really it's a collection of offsets
 	numSoundBanks >>= 2;
 	numSoundBanks -= 1;
+
+	// re-start reading
+	fseek(blkFp, 0, SEEK_SET);
 
 	// read offsets
 	int blockLimit[128];
@@ -512,8 +522,13 @@ int DoConvertBLK(const char* sbkFileName)
 
 	for (int i = 0; i < numSoundBanks; i++)
 	{
+		MsgInfo("----- Bank %d -----\n", i);
+		
 		fseek(blkFp, blockLimit[i], SEEK_SET);
-		ExportSBK(blkFp, varargs("%s/Bank_%d", tmpString, i));
+
+		String bankName = String::fromPrintf("%s/Bank_%d", (char*)directory, i);
+		
+		ExportSBK(blkFp, bankName);
 	}
 
 	fclose(blkFp);
@@ -544,14 +559,10 @@ int DoConvertSBK(const char* sbkFileName)
 
 int DoConvertXMAndSBK(const char* xmFilename)
 {
-	char tmpString[_MAX_PATH];
-	char sbkFileName[_MAX_PATH];
-	strcpy(sbkFileName, xmFilename);
-
-	char* extStr = strchr(sbkFileName, '.');
-	if (extStr)
-		strcpy(extStr, ".sbk");
-
+	String xmName = String::fromCString(xmFilename);
+	String directory = File::dirname(xmName);
+	String sbkFileName = File::basename(xmName, File::extension(xmName)) + ".SBK";
+	
 	FILE* psxXmFp = fopen(xmFilename, "rb");
 
 	if (!psxXmFp)
@@ -564,11 +575,11 @@ int DoConvertXMAndSBK(const char* xmFilename)
 
 	if (!sbkFp)
 	{
-		MsgError("No such file '%s'!", sbkFileName);
+		MsgError("No such file '%s'!", (char*)sbkFileName);
 		return -1;
 	}
 
-	MsgWarning("Loading '%s' & '%s'...\n", xmFilename, sbkFileName);
+	MsgWarning("Loading '%s' & '%s'...\n", xmFilename, (char*)sbkFileName);
 
 	PCMSample pcmSamples[80];
 	SAMPLE_DATA sampleDescs[80];
@@ -579,12 +590,11 @@ int DoConvertXMAndSBK(const char* xmFilename)
 
 	// restore XM and save to disk
 	{
-		*extStr = 0;
+		Msg("--- XM song '%s' ---\n", (char*)xmName);
 
-		Msg("--- XM song '%s' ---\n", sbkFileName);
-		sprintf(tmpString, "%s_orig.xm", sbkFileName);
+		String origXMFileName = directory + "/" + File::basename(xmName, File::extension(xmName)) + "_orig." + File::extension(xmName);
 
-		FILE* xmFp = fopen(tmpString, "wb");
+		FILE* xmFp = fopen(origXMFileName, "wb");
 
 		if (xmFp)
 		{
@@ -603,7 +613,7 @@ int DoConvertXMAndSBK(const char* xmFilename)
 
 			for (int j = 0; j < numBankSamples; j++)
 			{
-				//printf("sample %d rate=%d loop=%d size=%d\n", j, sample.samplerate, sample.loop, sample.length);
+				//printf("sample %d rate=%d loop=%d size=%d\n", j, pcmSamples[j].samplerate, sample.loop, sample.length);
 				addSize += pcmSamples[j].length * sizeof(short);
 			}
 
@@ -623,7 +633,7 @@ int DoConvertXMAndSBK(const char* xmFilename)
 			free(xmData);
 		}
 		else
-			MsgError("ERROR: can't open '%s' for write!", tmpString);
+			MsgError("ERROR: can't open '%s' for write!", (char*)origXMFileName);
 	}
 
 	// free samples
@@ -649,10 +659,14 @@ int DoExtractMusicFile(const char* fileName)
 		return -1;
 	}
 
+	String musicBinName = String::fromCString(fileName);
+	String directory = File::dirname(musicBinName);
+
+
 	MsgWarning("Loading '%s'...\n", fileName);
 
 	//char songPath[_MAX_PATH];
-	char tmpString[_MAX_PATH];
+	//char tmpString[_MAX_PATH];
 
 	// max 80 samples per bank
 	PCMSample pcmSamples[80];
@@ -688,9 +702,9 @@ int DoExtractMusicFile(const char* fileName)
 		// restore XM and save to disk
 		{
 			Msg("--- XM song %d ---\n", i);
-			sprintf(tmpString, "%s_song%d.xm", fileName, i);
+			String xmFileName = String::fromPrintf("%s/%s_song%d.xm", (char*)directory, (char*)File::basename(musicBinName, File::extension(musicBinName)), i);
 
-			FILE* xmFp = fopen(tmpString, "wb");
+			FILE* xmFp = fopen(xmFileName, "wb");
 
 			if (xmFp)
 			{
@@ -718,7 +732,7 @@ int DoExtractMusicFile(const char* fileName)
 				fclose(xmFp);
 			}
 			else
-				MsgError("ERROR: can't open '%s' for write!", tmpString);
+				MsgError("ERROR: can't open '%s' for write!", (char*)xmFileName);
 
 			free(xmData);
 		}
@@ -796,6 +810,9 @@ int main(int argc, char** argv)
 
 		}
 	}
+
+	if(argc > 1)
+		Msg("All done\n");
 
 	return 0;
 }

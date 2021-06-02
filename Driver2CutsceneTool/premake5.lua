@@ -5,6 +5,14 @@ project "Driver2CutsceneTool"
     language "C++"
     compileas "C++"
     targetdir "bin/%{cfg.buildcfg}"
+	
+	-- framework link
+	dependson { "frameworkLib", "libnstd" }
+	links { "frameworkLib", "libnstd" }
+	includedirs {
+		"../dependencies/libnstd/include",
+	}
+	--
 
     files {
         "**.cpp",
@@ -15,11 +23,6 @@ project "Driver2CutsceneTool"
         buildoptions {
             "-Wno-narrowing",
             "-fpermissive",
-            "-m32"
-        }
-        
-        linkoptions {
-            "-m32"
         }
         
     filter "configurations:Debug"

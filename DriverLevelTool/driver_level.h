@@ -1,27 +1,21 @@
 #ifndef DRIVER_LEVEL_H
 #define DRIVER_LEVEL_H
 
-#include <vector>
-#include <string>
-
-#include "driver_routines/level.h"
 #include "driver_routines/models.h"
 #include "driver_routines/textures.h"
 #include "driver_routines/regions.h"
+#include "driver_routines/level.h"
 
 #include "math/Matrix.h"
 
 //----------------------------------------------------------
 
-#define ONE						(4096.0f)
-#define EXPORT_SCALING			(1.0f / ONE)
-
+#define EXPORT_SCALING			(1.0f / ONE_F)
 
 //----------------------------------------------------------
 
 // extern some vars
-extern IVirtualStream*			g_levStream;
-
+extern OUT_CITYLUMP_INFO		g_levInfo;
 extern CDriverLevelTextures		g_levTextures;
 extern CDriverLevelModels		g_levModels;
 extern CBaseLevelMap*			g_levMap;
@@ -33,8 +27,7 @@ void	WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 			bool debugInfo = true,
 			const Matrix4x4& translation = identity4(),
 			int* first_v = nullptr,
-			int* first_t = nullptr,
-			RegionModels_t* regModels = nullptr);
+			int* first_t = nullptr);
 
 //----------------------------------------------------------
 // main functions
