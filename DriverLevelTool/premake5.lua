@@ -6,17 +6,9 @@ SDL2_DIR = os.getenv("SDL2_DIR") or "../dependencies/SDL2"
 project "DriverLevelTool"
     kind "ConsoleApp"
     language "C++"
-    compileas "C++"
     targetdir "bin/%{cfg.buildcfg}"
 
-	dependson { "ImGui", "frameworkLib", "libnstd", "glad" }
-	
-	-- framework link
-	links {  "libnstd", "glad", "ImGui", "frameworkLib" }
-	includedirs {
-		"../dependencies/libnstd/include",
-	}
-	--
+	uses {  "libnstd", "glad", "ImGui", "frameworkLib" }
 
 	includedirs {
 		"./",

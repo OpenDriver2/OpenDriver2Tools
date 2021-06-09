@@ -5,13 +5,7 @@ project "Driver2MissionTool"
     language "C++"
     targetdir "bin/%{cfg.buildcfg}"
 
-	-- framework link
-	dependson { "frameworkLib", "libnstd" }
-	links { "frameworkLib", "libnstd" }
-	includedirs {
-		"../dependencies/libnstd/include",
-	}
-	--
+	uses { "frameworkLib", "libnstd" }
 
     files {
         "**.cpp",

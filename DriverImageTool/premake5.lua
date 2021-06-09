@@ -3,16 +3,9 @@
 project "DriverImageTool"
     kind "ConsoleApp"
     language "C++"
-    compileas "C++"
     targetdir "bin/%{cfg.buildcfg}"
 
-	-- framework link
-	dependson { "frameworkLib", "libnstd" }
-	links { "frameworkLib", "libnstd" }
-	includedirs {
-		"../dependencies/libnstd/include",
-	}
-	--
+	uses { "frameworkLib", "libnstd" }
 
     files {
         "**.cpp",
