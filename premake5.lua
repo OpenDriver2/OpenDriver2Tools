@@ -93,21 +93,26 @@ project "glad"
 	
 usage "glad"
 	includedirs {
-        "dependencies/glad/*.h",
+        "dependencies",
     }
+
+	filter "system:linux"
+		links {
+			"GL",
+		}
 	
 -- ImGui
 project "ImGui"
     kind "StaticLib"
 	targetdir "bin/%{cfg.buildcfg}"
+
+	uses {"SDL2", "glad"}
 	
 	filter "system:Windows"
 		defines { "_CRT_SECURE_NO_WARNINGS", "IMGUI_IMPL_OPENGL_LOADER_GLAD" }
     
 	includedirs {
 		"dependencies/imgui",
-		"dependencies",
-		SDL2_DIR.."/include"
 	}
 	
     files {
@@ -124,6 +129,25 @@ usage "ImGui"
 		"dependencies/imgui",
 	}
 	links { "ImGui" }
+	
+-- SDL2 as a usage
+usage "SDL2"
+	links {
+		"SDL2",
+	}
+	
+	filter "system:linux"
+		includedirs {
+            "/usr/include/SDL2"
+        }
+
+	filter "system:windows"
+		includedirs {
+			SDL2_DIR.."/include"
+		}
+		libdirs { 
+			SDL2_DIR.."/lib/x86",
+		}
 
 include "DriverLevelTool/premake5.lua"
 include "DriverSoundTool/premake5.lua"
