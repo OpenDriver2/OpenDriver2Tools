@@ -105,8 +105,6 @@ void ExportLevelFile()
 	CFileStream stream(levTest);
 	ELevelFormat levFormat = CDriverLevelLoader::DetectLevelFormat(&stream);
 
-	fclose(levTest);
-
 	CDriverLevelLoader levLoader;
 
 	// create map accordingly
@@ -117,10 +115,12 @@ void ExportLevelFile()
 
 	levLoader.Initialize(g_levInfo, &g_levTextures, &g_levModels, g_levMap);
 
-	if (levLoader.LoadFromFile(g_levname))
+	if (levLoader.Load(&stream))
 	{
 		ExportLevelData();
 	}
+
+	fclose(levTest);
 
 	MsgWarning("Freeing level data ...\n");
 

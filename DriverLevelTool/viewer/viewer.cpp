@@ -197,7 +197,7 @@ bool LoadLevelFile()
 	CDriverLevelLoader loader;
 	loader.Initialize(g_levInfo, &g_levTextures, &g_levModels, g_levMap);
 
-	return loader.LoadFromFile(g_levname);
+	return loader.Load(&stream);
 }
 
 //-------------------------------------------------------
