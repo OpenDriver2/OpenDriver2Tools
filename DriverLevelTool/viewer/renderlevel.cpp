@@ -7,8 +7,9 @@
 #include "driver_routines/regions_d2.h"
 #include "driver_routines/textures.h"
 #include "math/Volume.h"
-
+#include "math/isin.h"
 #include "rendermodel.h"
+#include "core/cmdlib.h"
 
 #include "convert.h"
 
@@ -27,6 +28,7 @@ extern bool g_nightMode;
 extern bool g_displayCollisionBoxes;
 extern bool g_displayHeightMap;
 extern bool g_displayAllCellLevels;
+extern bool g_displayRoads;
 extern bool g_noLod;
 extern int g_cellsDrawDistance;
 
@@ -288,6 +290,54 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 
 				if (g_displayCollisionBoxes)
 					CRenderModel::DrawModelCollisionBox(ref, co.pos, co.yang);
+			}
+		}
+	}
+
+	if (g_displayRoads)
+	{
+		// TODO: road at their surface height!
+
+		for (int i = 0; i < levMapDriver2->GetNumStraights(); i++)
+		{
+			DRIVER2_STRAIGHT* straight = levMapDriver2->GetStraight(i);
+
+			int sn, cs;
+			sn = isin(straight->angle);
+			cs = icos(straight->angle);
+
+			VECTOR_NOPAD offset{ ((straight->length / 2) * sn) / ONE, 0, ((straight->length / 2) * cs) / ONE };
+
+			VECTOR_NOPAD positionA { straight->Midx - offset.vx, 0, straight->Midz - offset.vz };
+			VECTOR_NOPAD positionB { straight->Midx + offset.vx, 0, straight->Midz + offset.vz };
+
+			DebugOverlay_Line(FromFixedVector(positionA), FromFixedVector(positionB), ColorRGBA(1,1,0,1));
+		}
+
+		for (int i = 0; i < levMapDriver2->GetNumCurves(); i++)
+		{
+			DRIVER2_CURVE* curve = levMapDriver2->GetCurve(i | 0x4000);
+
+			VECTOR_NOPAD positionA;
+			VECTOR_NOPAD positionB;
+
+			int distAlongPath = curve->start;
+			int curveLength = curve->end - curve->start & 4095;
+
+			for(int j = 0; j < 8; j++)
+			{
+				int angle = distAlongPath;
+
+				int radius = curve->inside * 1024 + 512 * ROAD_LANES_COUNT(curve);
+
+				positionB = VECTOR_NOPAD{ curve->Midx + (radius * isin(angle)) / ONE, 0, curve->Midz + (radius * icos(angle)) / ONE };
+
+				distAlongPath += curveLength / 7; // 8 - 1
+
+				if(j > 0)
+					DebugOverlay_Line(FromFixedVector(positionA), FromFixedVector(positionB), ColorRGBA(1, 1, 0, 1));
+
+				positionA = positionB;
 			}
 		}
 	}

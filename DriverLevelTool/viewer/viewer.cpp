@@ -35,6 +35,7 @@ bool g_nightMode = false;
 bool g_displayCollisionBoxes = false;
 bool g_displayHeightMap = false;
 bool g_displayAllCellLevels = true;
+bool g_displayRoads = false;
 bool g_noLod = false;
 
 int g_cellsDrawDistance = 441;
@@ -519,6 +520,9 @@ void DisplayUI(float deltaTime)
 
 			if (ImGui::MenuItem("Display hidden objects", nullptr, g_displayAllCellLevels))
 				g_displayAllCellLevels ^= 1;
+
+			if (ImGui::MenuItem("Display roads", nullptr, g_displayRoads))
+				g_displayRoads ^= 1;
 
 			ImGui::Separator();
 			
