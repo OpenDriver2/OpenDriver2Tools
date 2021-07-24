@@ -21,7 +21,6 @@ extern bool g_export_overmap;
 extern int g_overlaymap_width;
 extern bool g_explode_tpages;
 extern bool g_export_world;
-extern char* g_overlayMapData;
 extern bool	g_export_worldUnityScript;
 
 void GetTPageDetailPalettes(Array<TEXCLUT*>& out, CTexturePage* tpage, TexDetailInfo_t* detail)
@@ -295,33 +294,19 @@ void ExportAllTextures()
 //-------------------------------------------------------------
 void ExportOverlayMap()
 {
-	ushort* offsets = (ushort*)g_overlayMapData;
+	int numValid = g_levTextures.GetOverlayMapSegmentCount();
 
-	char* mapBuffer = new char[32768];
+	MsgWarning("overlay map segment count: %d\n", numValid);
 
-	int numValid = 0;
-
-	// max offset count for overlay map is 256, next is palette
-	for (int i = 0; i < 256; i++)
-	{
-		char* rncData = g_overlayMapData + offsets[i];
-		if (rncData[0] == 'R' && rncData[1] == 'N' && rncData[2] == 'C')
-		{
-			numValid++;
-		}
-		else
-		{
-			MsgWarning("overlay map segment count: %d\n", numValid);
-			break;
-		}
-	}
+	if (!numValid)
+		return;
 
 	int overmapWidth = g_overlaymap_width * 32;
 	int overmapHeight = (numValid / g_overlaymap_width) * 32;
 
-	TVec4D<ubyte>* rgba = new TVec4D<ubyte>[overmapWidth * overmapHeight];
+	TVec4D<ubyte> tempSegment[32 * 32];
 
-	ushort* clut = (ushort*)(g_overlayMapData + 512);
+	TVec4D<ubyte>* rgba = new TVec4D<ubyte>[overmapWidth * overmapHeight];
 
 	int x, y, xx, yy;
 	int wide, tall;
@@ -337,7 +322,8 @@ void ExportOverlayMap()
 		{
 			int idx = x + y * wide;
 
-			UnpackRNC(g_overlayMapData + offsets[idx], mapBuffer);
+			g_levTextures.GetOverlayMapSegmentRGBA(tempSegment, x + y * wide);
+
 			numTilesProcessed++;
 
 			// place segment
@@ -345,21 +331,10 @@ void ExportOverlayMap()
 			{
 				for (xx = 0; xx < 32; xx++)
 				{
-					int px, py;
+					int px = x * 32 + xx;
+					int py = (tall - 1 - y) * 32 + (31-yy);
 
-					ubyte colorIndex = (ubyte)mapBuffer[yy * 16 + xx / 2];
-
-					if (0 != (xx & 1))
-						colorIndex >>= 4;
-
-					colorIndex &= 0xf;
-
-					TVec4D<ubyte> color = rgb5a1_ToBGRA8(clut[colorIndex]);
-
-					px = x * 32 + xx;
-					py = (tall - 1 - y) * 32 + (31-yy);
-
-					rgba[px + py * overmapWidth] = color;
+					rgba[px + py * overmapWidth] = tempSegment[yy * 32 + xx];
 				}
 			}
 		}
@@ -373,5 +348,4 @@ void ExportOverlayMap()
 	SaveTGA(String::fromPrintf("%s/MAP.tga", (char*)g_levname_texdir), (ubyte*)rgba, overmapWidth, overmapHeight, TEX_CHANNELS);
 
 	delete[] rgba;
-	delete[] mapBuffer;
 }

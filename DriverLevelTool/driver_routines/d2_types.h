@@ -309,6 +309,14 @@ struct CELL_OBJECT {
 
 //------------------------------------------------------------------------------------------------------------
 
+enum SurfaceType
+{
+	SurfType_Asphalt = 0,
+	SurfType_Grass = 4,
+	SurfType_Water = 6,
+	SurfType_DeepWater = 9,		// the default surface
+};
+
 struct sdPlane
 {
 	short surfaceType;
@@ -367,6 +375,14 @@ struct DRIVER2_JUNCTION
 {
 	short ExitIdx[4];
 	uint flags;
+};
+
+//------------------------------------------------------------------------------------------------------------
+
+struct ROAD_MAP_LUMP_DATA
+{
+	int width, height;
+	int unitXMid, unitZMid;
 };
 
 //------------------------------------------------------------------------------------------------------------

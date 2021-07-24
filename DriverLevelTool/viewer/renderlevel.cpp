@@ -398,7 +398,7 @@ void DrawLevelDriver1(const Vector3D& cameraPos, float cameraAngleY, const Volum
 			{
 				levMapDriver1->SpoolRegion(spoolContext, icell);
 
-				pco = levMapDriver1->GetFirstCop(&ci, icell.x, icell.z);
+				pco = levMapDriver1->GetFirstCop(&ci, icell);
 
 				if(pco)
 					g_drawnCells++;

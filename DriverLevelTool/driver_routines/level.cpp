@@ -11,20 +11,6 @@
 
 #include "level.h"
 
-
-//--------------------------------------------------------------------------------------------------------------------------
-
-char*						g_overlayMapData = nullptr;
-
-//-------------------------------------------------------------
-// Loads overhead map lump
-//-------------------------------------------------------------
-void LoadOverlayMapLump(IVirtualStream* pFile, int lumpSize)
-{
-	g_overlayMapData = new char[lumpSize];
-	pFile->Read(g_overlayMapData, 1, lumpSize);
-}
-
 //-------------------------------------------------------------
 // Auto-detects level format
 //-------------------------------------------------------------
@@ -182,12 +168,13 @@ void CDriverLevelLoader::ProcessLumps(IVirtualStream* pFile)
 				break;
 			case LUMP_OVERLAYMAP:
 				DevMsg(SPEW_WARNING, "LUMP_OVERLAYMAP ofs=%d size=%d\n", pFile->Tell(), lump.size);
-				LoadOverlayMapLump(pFile, lump.size);
+				if(m_textures)
+					m_textures->LoadOverlayMapLump(pFile, lump.size);
 				break;
 			case LUMP_PALLET:
 				DevMsg(SPEW_WARNING, "LUMP_PALLET ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				if(m_textures)
-					m_textures->ProcessPalletLump(pFile);
+					m_textures->LoadPalletLump(pFile);
 				break;
 			case LUMP_SPOOLINFO:
 				DevMsg(SPEW_WARNING, "LUMP_SPOOLINFO ofs=%d size=%d\n", pFile->Tell(), lump.size);
@@ -293,7 +280,6 @@ void CDriverLevelLoader::Initialize(OUT_CITYLUMP_INFO& lumpInfo, CDriverLevelTex
 
 void CDriverLevelLoader::Release()
 {
-	delete[] g_overlayMapData;
 }
 
 //-------------------------------------------------------------
