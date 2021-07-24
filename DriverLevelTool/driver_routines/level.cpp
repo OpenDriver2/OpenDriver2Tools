@@ -219,6 +219,8 @@ void CDriverLevelLoader::ProcessLumps(IVirtualStream* pFile)
 			// Driver 1 - only lumps
 			case LUMP_ROADMAP:
 				DevMsg(SPEW_WARNING, "LUMP_ROADMAP ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				if (m_map)
+					((CDriver1LevelMap*)m_map)->LoadRoadMapLump(pFile);
 				break;
 			case LUMP_ROADS:
 				DevMsg(SPEW_WARNING, "LUMP_ROADS ofs=%d size=%d\n", pFile->Tell(), lump.size);
@@ -228,6 +230,8 @@ void CDriverLevelLoader::ProcessLumps(IVirtualStream* pFile)
 				break;
 			case LUMP_ROADSURF:
 				DevMsg(SPEW_WARNING, "LUMP_ROADSURF ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				if (m_map)
+					((CDriver1LevelMap*)m_map)->LoadRoadSurfaceLump(pFile, lump.size);
 				break;
 			case LUMP_ROADBOUNDS:
 				DevMsg(SPEW_WARNING, "LUMP_ROADBOUNDS ofs=%d size=%d\n", pFile->Tell(), lump.size);

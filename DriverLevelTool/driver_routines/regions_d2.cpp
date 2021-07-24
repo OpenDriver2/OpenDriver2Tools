@@ -48,6 +48,8 @@ int SdHeightOnPlane(const VECTOR_NOPAD& position, sdPlane* plane, DRIVER2_CURVE*
 			if (i == 0x4000)
 				return -d;
 
+			//const int half_cell_size = m_mapInfo.cell_size / 2;
+
 			lx = (int)plane->a * ((position.vx - 512 & 0xffff) + 512);
 			ly = (int)plane->c * ((position.vz - 512 & 0xffff) + 512);
 
@@ -198,6 +200,8 @@ int CDriver2LevelRegion::RoadInCell(VECTOR_NOPAD& position) const
 	short* buffer;
 
 	XYPAIR cellPos;
+
+	//const OUT_CELL_FILE_HEADER& mapInfo = m_owner->m_mapInfo;
 
 	cellPos.x = position.vx - 512;
 	cellPos.y = position.vz - 512;
@@ -736,6 +740,8 @@ int CDriver2LevelMap::MapHeight(const VECTOR_NOPAD& position) const
 	XZPAIR cell;
 	int level = 0;
 
+	//const int half_cell_size = m_mapInfo.cell_size / 2;
+
 	cellPos.vx = position.vx - 512;	// FIXME: is that a quarter of a cell?
 	cellPos.vy = position.vy;
 	cellPos.vz = position.vz - 512;
@@ -758,6 +764,8 @@ int CDriver2LevelMap::FindSurface(const VECTOR_NOPAD& position, VECTOR_NOPAD& ou
 	VECTOR_NOPAD cellPos;
 	XZPAIR cell;
 	int level = 0;
+
+	//const int half_cell_size = m_mapInfo.cell_size / 2;
 
 	cellPos.vx = position.vx - 512;	// FIXME: is that a quarter of a cell?
 	cellPos.vy = position.vy;
@@ -796,6 +804,8 @@ int	CDriver2LevelMap::GetRoadIndex(VECTOR_NOPAD& position) const
 	VECTOR_NOPAD cellPos;
 	XZPAIR cell;
 	int level = 0;
+
+	//const int half_cell_size = m_mapInfo.cell_size / 2;
 
 	cellPos.vx = position.vx - 512;	// FIXME: is that a quarter of a cell?
 	cellPos.vy = position.vy;

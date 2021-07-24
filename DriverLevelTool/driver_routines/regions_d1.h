@@ -30,7 +30,10 @@ public:
 	CELL_OBJECT*			StartIterator(CELL_ITERATOR_D1* iterator, int cellNumber) const;
 
 protected:
+	void					LoadRoadHeightMapData(IVirtualStream* pFile);
+
 	CELL_DATA_D1*			m_cells{ nullptr };				// cell data that holding information about cell pointers. 3D world seeks cells first here
+	uint*					m_roadMap{ nullptr };
 };
 
 
@@ -46,6 +49,9 @@ public:
 	void 					LoadMapLump(IVirtualStream* pFile) override;
 	void					LoadSpoolInfoLump(IVirtualStream* pFile) override;
 
+	void					LoadRoadMapLump(IVirtualStream* pFile); // or NewProcessRoadMapLump in D1 & D2
+	void					LoadRoadSurfaceLump(IVirtualStream* pFile, int size);
+
 	void					SpoolRegion(const SPOOL_CONTEXT& ctx, const XZPAIR& cell) override;
 	void					SpoolRegion(const SPOOL_CONTEXT& ctx, int regionIdx) override;
 
@@ -60,10 +66,17 @@ public:
 	CELL_OBJECT*			GetFirstCop(CELL_ITERATOR_D1* iterator, const XZPAIR& cell) const;
 	CELL_OBJECT*			GetNextCop(CELL_ITERATOR_D1* iterator) const;
 
+	//----------------------------------------
+	// road map stuff
+	bool					GetRoadInfo(ROUTE_DATA& outData, const VECTOR_NOPAD& position) const;
+
 protected:
 
-	// Driver 2 - specific
+	ROAD_MAP_LUMP_DATA		m_roadMapLumpData;
+
 	CDriver1LevelRegion*	m_regions{ nullptr };					// map of regions
+	SURFACEINFO*			m_surfacePtrs[900];
+	char*					m_surfaceData{ nullptr };
 };
 
 

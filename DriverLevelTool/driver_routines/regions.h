@@ -55,9 +55,6 @@ protected:
 	ushort*					m_cellPointers{ nullptr };		// cell pointers - pointing to CELL_DATA
 	CELL_OBJECT*			m_cellObjects{ nullptr };		// cell objects that represents objects placed in the world
 
-	ushort*					m_pvsData{ nullptr };			// potentially visibile set of cells
-	short*					m_roadmapData{ nullptr };		// heightfield with planes and BSP
-
 	int						m_regionX{ -1 };
 	int						m_regionZ{ -1 };
 	int						m_regionNumber{ -1 };
