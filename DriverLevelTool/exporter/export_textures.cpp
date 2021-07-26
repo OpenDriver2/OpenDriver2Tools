@@ -266,8 +266,6 @@ void ExportAllTextures()
 			SPOOL_CONTEXT spoolContext;
 			spoolContext.dataStream = &stream;
 			spoolContext.lumpInfo = &g_levInfo;
-			spoolContext.models = nullptr;
-			spoolContext.textures = &g_levTextures;
 
 			int numAreas = g_levMap->GetAreaDataCount();
 

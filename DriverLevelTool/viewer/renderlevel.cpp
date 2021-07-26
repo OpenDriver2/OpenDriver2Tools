@@ -100,8 +100,6 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 	SPOOL_CONTEXT spoolContext;
 	spoolContext.dataStream = &spoolStream;
 	spoolContext.lumpInfo = &g_levInfo;
-	spoolContext.models = &g_levModels;
-	spoolContext.textures = &g_levTextures;
 
 	levMapDriver2->WorldPositionToCellXZ(cell, cameraPosition);
 
@@ -371,8 +369,6 @@ void DrawLevelDriver1(const Vector3D& cameraPos, float cameraAngleY, const Volum
 	SPOOL_CONTEXT spoolContext;
 	spoolContext.dataStream = &spoolStream;
 	spoolContext.lumpInfo = &g_levInfo;
-	spoolContext.models = &g_levModels;
-	spoolContext.textures = &g_levTextures;
 
 	levMapDriver1->WorldPositionToCellXZ(cell, cameraPosition);
 

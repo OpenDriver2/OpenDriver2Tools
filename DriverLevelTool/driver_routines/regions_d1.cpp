@@ -298,7 +298,7 @@ extern sdPlane g_defaultPlane;
 
 int PointInTri2d(int tx, int ty, XYPAIR* verts)
 {
-#if 0
+#if 1
 	// D1 PC version
 	if ((verts[1].y - verts[0].y) * (tx - verts[0].x) - (verts[1].x - verts[0].x) * (ty - verts[0].y) < 0)
 		return 0;
@@ -334,7 +334,7 @@ int PointInTri2d(int tx, int ty, XYPAIR* verts)
 
 int PointInQuad2d(int tx, int ty, XYPAIR* verts)
 {
-#if 0
+#if 1
 	// D1 PC version
 	if ((tx - verts[0].x) * (verts[1].y - verts[0].y) -
 		(ty - verts[0].y) * (verts[1].x - verts[0].x) < 0)
@@ -433,7 +433,7 @@ bool CDriver1LevelMap::GetRoadInfo(ROUTE_DATA& outData, const VECTOR_NOPAD& posi
 			uint value = *(uint*)(loc_x + loc_z * double_region_size + region->m_roadMap);
 
 			outData.height = *(short*)&value;
-			outData.type = value >> 0x10 & 0x3ff;
+			outData.type = value >> 16 & 0x3ff;
 			outData.objectAngle = value >> 30;
 			outData.value = value;
 
@@ -446,12 +446,6 @@ bool CDriver1LevelMap::GetRoadInfo(ROUTE_DATA& outData, const VECTOR_NOPAD& posi
 
 int	CDriver1LevelMap::MapHeight(const VECTOR_NOPAD& position) const
 {
-	const int double_region_size = m_mapInfo.region_size * 2;
-
-	XZPAIR cpos;
-	cpos.x = m_roadMapLumpData.unitXMid + position.vx;
-	cpos.z = m_roadMapLumpData.unitZMid - (position.vz - 750);
-	
 	ROUTE_DATA routeData;
 	if (GetRoadInfo(routeData, position))
 	{
@@ -462,6 +456,10 @@ int	CDriver1LevelMap::MapHeight(const VECTOR_NOPAD& position) const
 
 			if (si)
 			{
+				XZPAIR cpos;
+				cpos.x = m_roadMapLumpData.unitXMid + position.vx;
+				cpos.z = m_roadMapLumpData.unitZMid - (position.vz - 750);
+
 				int py = cpos.x % 1500 - 750;
 				int px = cpos.z % 1500 - 750;
 
@@ -478,7 +476,6 @@ int	CDriver1LevelMap::MapHeight(const VECTOR_NOPAD& position) const
 					py = -py;
 				}
 
-
 				for (int i = 0; i < si->numpolys; i++)
 				{
 					SIPOLY* poly = si->GetPoly(i);
@@ -494,9 +491,6 @@ int	CDriver1LevelMap::MapHeight(const VECTOR_NOPAD& position) const
 						int _height = ((normFac / ONE) - poly->normals.d) - routeData.height;
 
 						return _height;
-
-						// TODO!!! LINK WITH MODELS! Grass model has to make wavy effect on height
-						//return _height + ((int)((uint) * (ushort*)((int)rcossin_tbl + ((px + py) * 8 & 0x3ff8U)) << 0x10) >> 0x19);
 					}
 				}
 			}
@@ -504,64 +498,114 @@ int	CDriver1LevelMap::MapHeight(const VECTOR_NOPAD& position) const
 
 		return -routeData.height;
 	}
-	
-	/*int cell_x = cpos.x / 1500;
-	int cell_z = cpos.z / 1500;
-
-	if (cell_x < m_roadMapLumpData.width && cell_z < m_roadMapLumpData.height)
-	{
-		int loc_x, loc_z;
-
-		// does it have any effect?
-		// cell_x % double_region_size;
-		// cell_z % double_region_size;
-		loc_x = ((cell_x & 127) + ((int)(cell_x & 0xffffff80) >> 4)) % double_region_size;
-		loc_z = ((cell_z & 127) + ((int)(cell_z & 0xffffff80) >> 4)) % double_region_size;
-
-		XZPAIR cell;
-
-		WorldPositionToCellXZ(cell, position);
-		CDriver1LevelRegion* region = (CDriver1LevelRegion*)GetRegion(cell);
-
-		if (region && region->m_roadMap)
-		{
-			uint value = *(uint*)(loc_x + loc_z * double_region_size + region->m_roadMap);
-
-			int surfHeight = *(short*)&value;
-			int type = value >> 0x10 & 0x3ff;
-			int rotation = value >> 30;
-
-
-
-			return -surfHeight;
-		}
-	}*/
 
 	return 0;
 }
 
-int CDriver1LevelMap::FindSurface(const VECTOR_NOPAD& position, VECTOR_NOPAD& outNormal, VECTOR_NOPAD& outPoint, sdPlane** outPlane) const
+int CDriver1LevelMap::FindSurface(const VECTOR_NOPAD& position, VECTOR_NOPAD& outNormal, VECTOR_NOPAD& outPoint, sdPlane& outPlane) const
 {
+	// oh, there is a trouble with D1...
+	ROUTE_DATA routeData;
+	if (GetRoadInfo(routeData, position))
 	{
-		*outPlane = &g_defaultPlane;
+		outNormal.vx = 0;
+		outNormal.vy = 4096;
+		outNormal.vz = 0;
 
 		outPoint.vx = position.vx;
 		outPoint.vz = position.vz;
-		outPoint.vy = 0;
+		outPoint.vy = -routeData.height;
 
-		if (*outPlane == NULL || (*outPlane)->b == 0)
+		outPlane.surfaceType = 0;
+
+		// check collision
+		if (routeData.type < 900)
 		{
-			outNormal.vx = 0;
-			outNormal.vy = 4096;
-			outNormal.vz = 0;
+			ModelRef_t* ref = m_models->GetModelByIndex(routeData.type);
+
+			if (ref && ref->baseInstance)
+				ref = ref->baseInstance;
+
+			MODEL* model = ref ? ref->model : nullptr;
+
+			SURFACEINFO* si = m_surfacePtrs[routeData.type];
+
+			if (si)
+			{
+				XZPAIR cpos;
+				cpos.x = m_roadMapLumpData.unitXMid + position.vx;
+				cpos.z = m_roadMapLumpData.unitZMid - (position.vz - 750);
+
+				int py = cpos.x % 1500 - 750;
+				int px = cpos.z % 1500 - 750;
+
+				if ((routeData.value & 0x40000000) == 0)
+				{
+					int tmp = -px;
+					px = py;
+					py = tmp;
+				}
+
+				if ((int)routeData.value < 0)
+				{
+					px = -px;
+					py = -py;
+				}
+
+				for (int i = 0; i < si->numpolys; i++)
+				{
+					SIPOLY* poly = si->GetPoly(i);
+
+					int res = (poly->num_vertices == 4) ?
+						PointInQuad2d(px, py, poly->xz) :
+						PointInTri2d(px, py, poly->xz);
+
+					if (res != 0)
+					{
+						int normFac = px * poly->normals.a + py * poly->normals.c;
+
+						int _height = ((normFac / ONE) - poly->normals.d) - routeData.height;
+
+						int n_vx = poly->normals.a;
+						int _n_vz = poly->normals.c;
+						int n_vy = poly->normals.b;
+
+						int n_vz = _n_vz;
+
+						if ((routeData.value & 0x40000000) != 0)
+						{
+							n_vz = -n_vx;
+							n_vx = _n_vz;
+						}
+
+						if ((routeData.value & 0x80000000) == 0)
+						{
+							n_vx = -n_vx;
+							n_vz = -n_vz;
+						}
+
+						outNormal.vx = n_vx;
+						outNormal.vy = n_vy;
+						outNormal.vz = n_vz;
+
+						outPoint.vy = _height;
+					}
+				}
+			} // si != null
+
+			if (model)
+			{
+				if (model->shape_flags & SHAPE_FLAG_WATER)
+					outPlane.surfaceType = SurfType_Water;
+
+				if (model->flags2 & MODEL_FLAG_GRASS)
+					outPlane.surfaceType = SurfType_Grass;
+			}
 		}
-		else
-		{
-			outNormal.vx = (int)(*outPlane)->a >> 2;
-			outNormal.vy = (int)(*outPlane)->b >> 2;
-			outNormal.vz = (int)(*outPlane)->c >> 2;
-		}
+
+		return 4096;
 	}
+
 	return 4096;
 }
 

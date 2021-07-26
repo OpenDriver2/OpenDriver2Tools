@@ -288,8 +288,6 @@ void SpoolAllAreaDatas()
 		SPOOL_CONTEXT spoolContext;
 		spoolContext.dataStream = &stream;
 		spoolContext.lumpInfo = &g_levInfo;
-		spoolContext.models = &g_levModels;
-		spoolContext.textures = &g_levTextures;
 
 		int totalRegions = g_levMap->GetRegionsAcross() * g_levMap->GetRegionsDown();
 		

@@ -759,7 +759,7 @@ int CDriver2LevelMap::MapHeight(const VECTOR_NOPAD& position) const
 	return 0;
 }
 
-int CDriver2LevelMap::FindSurface(const VECTOR_NOPAD& position, VECTOR_NOPAD& outNormal, VECTOR_NOPAD& outPoint, sdPlane** outPlane) const
+int CDriver2LevelMap::FindSurface(const VECTOR_NOPAD& position, VECTOR_NOPAD& outNormal, VECTOR_NOPAD& outPoint, sdPlane& outPlane) const
 {
 	VECTOR_NOPAD cellPos;
 	XZPAIR cell;
@@ -776,13 +776,16 @@ int CDriver2LevelMap::FindSurface(const VECTOR_NOPAD& position, VECTOR_NOPAD& ou
 
 	if (region)
 	{
-		*outPlane = region->SdGetCell(cellPos, level, SdGetBSP);
+		sdPlane* foundPlane = region->SdGetCell(cellPos, level, SdGetBSP);
 
 		outPoint.vx = position.vx;
 		outPoint.vz = position.vz;
-		outPoint.vy = SdHeightOnPlane(position, *outPlane, m_curves);
+		outPoint.vy = SdHeightOnPlane(position, foundPlane, m_curves);
 
-		if (*outPlane == NULL || (*outPlane)->b == 0)
+		if (foundPlane)
+			outPlane = *foundPlane;
+
+		if (foundPlane == NULL || foundPlane->b == 0)
 		{
 			outNormal.vx = 0;
 			outNormal.vy = 4096;
@@ -790,9 +793,9 @@ int CDriver2LevelMap::FindSurface(const VECTOR_NOPAD& position, VECTOR_NOPAD& ou
 		}
 		else
 		{
-			outNormal.vx = (int)(*outPlane)->a >> 2;
-			outNormal.vy = (int)(*outPlane)->b >> 2;
-			outNormal.vz = (int)(*outPlane)->c >> 2;
+			outNormal.vx = (int)outPlane.a >> 2;
+			outNormal.vy = (int)outPlane.b >> 2;
+			outNormal.vz = (int)outPlane.c >> 2;
 		}
 	}
 

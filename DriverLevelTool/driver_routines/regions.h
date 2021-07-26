@@ -23,8 +23,6 @@ struct SPOOL_CONTEXT
 	IVirtualStream*			dataStream;
 
 	OUT_CITYLUMP_INFO*		lumpInfo;
-	CDriverLevelTextures*	textures;
-	CDriverLevelModels*		models;
 };
 
 class CBaseLevelRegion
@@ -73,6 +71,7 @@ public:
 	CBaseLevelMap();
 	virtual ~CBaseLevelMap();
 
+	void						Init(CDriverLevelModels* models, CDriverLevelTextures* textures);
 	virtual void				FreeAll();
 
 	//----------------------------------------
@@ -103,10 +102,10 @@ public:
 	virtual CBaseLevelRegion*	GetRegion(int regionIdx) const = 0;
 
 	virtual int					MapHeight(const VECTOR_NOPAD& position) const = 0;
-	virtual int					FindSurface(const VECTOR_NOPAD& position, VECTOR_NOPAD& outNormal, VECTOR_NOPAD& outPoint, sdPlane** outPlane) const = 0;
+	virtual int					FindSurface(const VECTOR_NOPAD& position, VECTOR_NOPAD& outNormal, VECTOR_NOPAD& outPoint, sdPlane& outPlane) const = 0;
 
 	// converters
-	void						WorldPositionToCellXZ(XZPAIR& cell, const VECTOR_NOPAD& position) const;
+	void						WorldPositionToCellXZ(XZPAIR& cell, const VECTOR_NOPAD& position, const XZPAIR& offset = {0}) const;
 
 	const OUT_CELL_FILE_HEADER&	GetMapInfo() const;
 	
@@ -127,6 +126,9 @@ protected:
 	OUT_CELL_FILE_HEADER		m_mapInfo;
 
 	ELevelFormat				m_format;
+
+	CDriverLevelTextures*		m_textures{ nullptr };
+	CDriverLevelModels*			m_models{ nullptr };
 	
 	Spool*						m_regionSpoolInfo{ nullptr };			// region data info
 	ushort*						m_regionSpoolInfoOffsets{ nullptr };	// region offset table

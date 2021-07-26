@@ -187,6 +187,12 @@ CBaseLevelMap::~CBaseLevelMap()
 {
 }
 
+void CBaseLevelMap::Init(CDriverLevelModels* models, CDriverLevelTextures* textures)
+{
+	m_models = models;
+	m_textures = textures;
+}
+
 void CBaseLevelMap::FreeAll()
 {
 	if (m_regionSpoolInfo)
@@ -239,14 +245,16 @@ int CBaseLevelMap::GetRegionsDown() const
 	return m_regions_down;
 }
 
-void CBaseLevelMap::WorldPositionToCellXZ(XZPAIR& cell, const VECTOR_NOPAD& position) const
+void CBaseLevelMap::WorldPositionToCellXZ(XZPAIR& cell, const VECTOR_NOPAD& position, const XZPAIR& offset /*= { 0 }*/) const
 {
 	// @TODO: constants
 	int units_across_halved = m_mapInfo.cells_across / 2 * m_mapInfo.cell_size;
 	int units_down_halved = m_mapInfo.cells_down / 2 * m_mapInfo.cell_size;
 
-	cell.x = (position.vx + units_across_halved) / m_mapInfo.cell_size;
-	cell.z = (position.vz + units_down_halved) / m_mapInfo.cell_size;
+	const int squared_reg_size = m_mapInfo.region_size * m_mapInfo.region_size;
+
+	cell.x = (position.vx + units_across_halved + offset.x) / m_mapInfo.cell_size;
+	cell.z = (position.vz + units_down_halved + offset.z) / m_mapInfo.cell_size;
 }
 
 //-------------------------------------------------------------
@@ -383,6 +391,9 @@ void CBaseLevelMap::LoadInAreaTPages(const SPOOL_CONTEXT& ctx, int areaDataNum) 
 	if (areaDataNum == 255)
 		return;
 
+	if (!m_textures)
+		return;
+
 	AreaDataStr& areaData = m_areaData[areaDataNum];
 	AreaTpageList& areaTPages = m_areaTPages[areaDataNum];
 
@@ -395,7 +406,7 @@ void CBaseLevelMap::LoadInAreaTPages(const SPOOL_CONTEXT& ctx, int areaDataNum) 
 		if (areaTPages.pageIndexes[i] == 0xFF)
 			break;
 
-		CTexturePage* tpage = ctx.textures->GetTPage(areaTPages.pageIndexes[i]);
+		CTexturePage* tpage = m_textures->GetTPage(areaTPages.pageIndexes[i]);
 
 		// assign
 		areaTPages.tpage[i] = tpage;
@@ -410,6 +421,9 @@ void CBaseLevelMap::LoadInAreaTPages(const SPOOL_CONTEXT& ctx, int areaDataNum) 
 void CBaseLevelMap::LoadInAreaModels(const SPOOL_CONTEXT& ctx, int areaDataNum) const
 {
 	if (areaDataNum == -1)
+		return;
+
+	if (!m_models)
 		return;
 
 	AreaDataStr& areaData = m_areaData[areaDataNum];
@@ -438,7 +452,7 @@ void CBaseLevelMap::LoadInAreaModels(const SPOOL_CONTEXT& ctx, int areaDataNum) 
 
 		if (modelSize > 0)
 		{
-			ModelRef_t* ref = ctx.models->GetModelByIndex(new_model_numbers[i]);
+			ModelRef_t* ref = m_models->GetModelByIndex(new_model_numbers[i]);
 
 			// @FIXME: is that correct? Analyze duplicated models...
 			if (ref->model)
@@ -456,7 +470,7 @@ void CBaseLevelMap::LoadInAreaModels(const SPOOL_CONTEXT& ctx, int areaDataNum) 
 
 			ctx.dataStream->Read(ref->model, modelSize, 1);
 
-			ctx.models->OnModelLoaded(ref);
+			m_models->OnModelLoaded(ref);
 		}
 	}
 

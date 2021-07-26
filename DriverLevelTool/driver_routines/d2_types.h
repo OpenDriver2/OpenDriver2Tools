@@ -225,7 +225,7 @@ enum ModelFlags2
 	MODEL_FLAG_SMASHABLE = 0x800,
 	MODEL_FLAG_LAMP = 0x1000,
 	MODEL_FLAG_TREE = 0x2000,
-	MODEL_FLAG_GRASS = 0x4000,
+	MODEL_FLAG_GRASS = 0x4000,		// D1 flag is DIFFERENT!!!
 	MODEL_FLAG_PATH = 0x8000,
 };
 
@@ -272,7 +272,7 @@ struct MODEL
 
 	int GetCollisionBoxCount()
 	{
-		if(collision_block != 0)
+		if(collision_block > 0)
 			return *(int*)((ubyte*)this + collision_block);
 
 		return 0;
@@ -466,5 +466,35 @@ struct Spool
 };
 
 #define REGION_EMPTY	(0xFFFF)
+
+//----------------------------------------------------------------------------
+
+// LCF car cosmetics
+struct CAR_COSMETICS_D2
+{
+	SVECTOR headLight;
+	SVECTOR frontInd;
+	SVECTOR backInd;
+	SVECTOR brakeLight;
+	SVECTOR revLight;
+	SVECTOR policeLight;
+	SVECTOR exhaust;
+	SVECTOR smoke;
+	SVECTOR fire;
+	SVECTOR wheelDisp[4];
+	short extraInfo;
+	short powerRatio;
+	short cbYoffset;
+	short susCoeff;
+	short traction;
+	short wheelSize;
+	SVECTOR cPoints[12];
+	SVECTOR colBox;
+	SVECTOR cog;
+	short twistRateX;
+	short twistRateY;
+	short twistRateZ;
+	short mass;
+};
 
 #endif
