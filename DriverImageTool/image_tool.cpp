@@ -88,6 +88,56 @@ void ConvertIndexedSkyImage(uint* color_data, ubyte* src_indexed, int x_idx, int
 	}
 }
 
+// this function just unpacks sky data
+void ConvertSkyD1(const char* skyFileName)
+{
+	FILE* fp = fopen(skyFileName, "rb");
+	if (!fp)
+	{
+		MsgError("Unable to open '%s'\n", skyFileName);
+		return;
+	}
+
+	for (int skyNum = 0; skyNum < 12; skyNum++)
+	{
+		fseek(fp, skyNum * 48, SEEK_SET);
+
+		int offsetInfo[13];
+		fread(offsetInfo, 1, sizeof(offsetInfo), fp);
+
+		// 12 BMPs for each sky
+		for (int i = 0; i < 12; i++)
+		{
+			FILE* pNewFile = fopen(varargs("%s_%d_%d.BMP", skyFileName, skyNum, i), "wb");
+			if (!pNewFile)
+			{
+				MsgError("Unable to save file!\n");
+				return;
+			}
+
+			// get the BMP data
+			int bmpSize = offsetInfo[i + 1] - offsetInfo[i];
+			char* data = new char[bmpSize];
+
+			fseek(fp, offsetInfo[i], SEEK_SET);
+			fread(data, 1, bmpSize, fp);
+
+			// write header
+			fwrite(data, 1, bmpSize, pNewFile);
+
+			// dun
+			fclose(pNewFile);
+
+			delete[] data;
+		}
+	}
+
+	//LoadfileSeg("DATA\\SKY.BIN", mallocptr, gSkyNumber * 0x30, 0x34);
+	//LoadfileSeg("DATA\\SKY.BIN", &DAT_000f8600, *texturePtr, texturePtr[0xc] - *texturePtr);
+
+	fclose(fp);
+}
+
 void ConvertSky(const char* skyFileName, bool saveTGA)
 {
 	FILE* fp = fopen(skyFileName, "rb");
@@ -364,6 +414,13 @@ int main(int argc, char** argv)
 				ConvertSky(argv[i + 1], true);
 			else
 				MsgWarning("-sky2tga must have an argument!");
+		}
+		else if (!stricmp(argv[i], "-skybin2bmp"))
+		{
+			if (i + 1 <= argc)
+				ConvertSkyD1(argv[i + 1]);
+			else
+				MsgWarning("-skybin2bmp must have an argument!");
 		}
 		else if (!stricmp(argv[i], "-bg2tim"))
 		{
