@@ -69,6 +69,87 @@ int g_drawnCells;
 int g_drawnModels;
 int g_drawnPolygons;
 
+void DrawCellObject(const CELL_OBJECT& co, const Vector3D& cameraPos, float cameraAngleY, const Volume& frustrumVolume, bool buildingLighting)
+{
+	if (co.type >= MAX_MODELS)
+	{
+		// WHAT THE FUCK?
+		return;
+	}
+
+	Vector3D absCellPosition = FromFixedVector(co.pos);
+	absCellPosition.y *= -1.0f;
+
+	const float distanceFromCamera = lengthSqr(absCellPosition - cameraPos);
+
+	ModelRef_t* ref = GetModelCheckLods(co.type, distanceFromCamera);
+
+	if (!ref->model)
+		return;
+
+	MODEL* model = ref->model;
+
+	CRenderModel* renderModel = (CRenderModel*)ref->userData;
+
+	if (!renderModel)
+		return;
+
+	// check if it is in view
+	const float boundSphere = model->bounding_sphere * RENDER_SCALING * 2.0f;
+
+	if (!frustrumVolume.IsSphereInside(absCellPosition, boundSphere))
+		return;
+
+	bool isGround = false;
+
+	if ((model->shape_flags & (SHAPE_FLAG_WATER | SHAPE_FLAG_TILE)) ||
+		(model->flags2 & (MODEL_FLAG_PATH | MODEL_FLAG_GRASS)))
+	{
+		isGround = true;
+	}
+
+	// compute world matrix
+	{
+		Matrix4x4 objectMatrix;
+
+		if (model->shape_flags & SHAPE_FLAG_SPRITE)
+		{
+			objectMatrix = rotateY4(DEG2RAD(cameraAngleY));
+		}
+		else 
+		{
+			const float cellRotationRad = -co.yang / 64.0f * PI_F * 2.0f;
+			objectMatrix = rotateY4(cellRotationRad);
+		}
+			
+		objectMatrix.setTranslationTransposed(absCellPosition);
+
+		GR_SetMatrix(MATRIX_WORLD, objectMatrix);
+		GR_UpdateMatrixUniforms();
+	}
+
+	const float nightAmbientScale = 0.35f;
+	const float nightLightScale = 0.0f;
+
+	const float ambientScale = 1.0f;
+	const float lightScale = 1.0;
+
+	// apply lighting
+	if ((isGround || !buildingLighting) && g_nightMode)
+		CRenderModel::SetupLightingProperties(nightAmbientScale, nightLightScale);
+	else
+		CRenderModel::SetupLightingProperties(ambientScale, lightScale);
+
+	renderModel->Draw();
+
+	g_drawnModels++;
+	g_drawnPolygons += ref->model->num_polys;
+
+	// debug
+	if (g_displayCollisionBoxes)
+		CRenderModel::DrawModelCollisionBox(ref, co.pos, co.yang);
+}
+
 struct PCO_PAIR_D2
 {
 	PACKED_CELL_OBJECT* pco;
@@ -102,30 +183,6 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 	spoolContext.lumpInfo = &g_levInfo;
 
 	levMapDriver2->WorldPositionToCellXZ(cell, cameraPosition);
-
-	/*
-	int cameraAngleY = g_cameraAngles.y * (4096.0f / 360.0f);
-	int FrAng = 512;
-
-	// setup planes
-	int backPlane = 6144;
-	int rightPlane = -6144;
-	int leftPlane = 6144;
-
-	int farClipLimit = 280000;
-
-	int rightAng = cameraAngleY - FrAng & 0xfff;
-	int leftAng = cameraAngleY + FrAng & 0xfff;
-	int backAng = cameraAngleY + 1024 & 0xfff;
-
-	int rightcos = icos(rightAng);
-	int rightsin = isin(rightAng);
-
-	int leftcos = icos(leftAng);
-	int leftsin = isin(leftAng);
-	int backcos = icos(backAng);
-	int backsin = isin(backAng);
-	*/
 
 	static Array<PCO_PAIR_D2> drawObjects;
 	drawObjects.reserve(g_cellsDrawDistance * 2);
@@ -162,7 +219,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 				// walk each cell object in cell
 				while (ppco)
 				{
-					if (ci.listType != 0 && !g_displayAllCellLevels)
+					if (ci.listType != -1 && !g_displayAllCellLevels)
 						break;
 					
 					PCO_PAIR_D2 pair;
@@ -233,63 +290,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 		CELL_OBJECT co;
 		CDriver2LevelMap::UnpackCellObject(co, drawObjects[i].pco, drawObjects[i].nearCell);
 
-		if (co.type >= MAX_MODELS)
-		{
-			// WHAT THE FUCK?
-			continue;
-		}
-
-		Vector3D absCellPosition = FromFixedVector(co.pos);
-		absCellPosition.y *= -1.0f;
-
-		float distanceFromCamera = lengthSqr(absCellPosition - cameraPos);
-
-		ModelRef_t* ref = GetModelCheckLods(co.type, distanceFromCamera);
-
-		MODEL* model = ref->model;
-
-		float cellRotationRad = -co.yang / 64.0f * PI_F * 2.0f;
-
-		bool isGround = false;
-
-		if (model)
-		{
-			if (model->shape_flags & SHAPE_FLAG_SPRITE)
-			{
-				cellRotationRad = DEG2RAD(cameraAngleY);
-			}
-
-			if ((model->shape_flags & (SHAPE_FLAG_WATER | SHAPE_FLAG_TILE)) ||
-				(model->flags2 & (MODEL_FLAG_PATH | MODEL_FLAG_GRASS)))
-			{
-				isGround = true;
-			}
-		}
-
-		Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
-		GR_SetMatrix(MATRIX_WORLD, objectMatrix);
-		GR_UpdateMatrixUniforms();
-
-		if (isGround && g_nightMode)
-			CRenderModel::SetupLightingProperties(0.35f, 0.0f);
-		else
-			CRenderModel::SetupLightingProperties(1.0f, 1.0f);
-
-		CRenderModel* renderModel = (CRenderModel*)ref->userData;
-
-		if (renderModel)
-		{
-			const float boundSphere = ref->model->bounding_sphere * RENDER_SCALING * 2.0f;
-			if (frustrumVolume.IsSphereInside(absCellPosition, boundSphere))
-			{
-				renderModel->Draw();
-				g_drawnModels++;
-				g_drawnPolygons += ref->model->num_polys;
-
-				if (g_displayCollisionBoxes)
-					CRenderModel::DrawModelCollisionBox(ref, co.pos, co.yang);
-			}
-		}
+		DrawCellObject(co, cameraPos, cameraAngleY, frustrumVolume, true);
 	}
 
 	if (g_displayRoads)
@@ -304,38 +305,82 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 			sn = isin(straight->angle);
 			cs = icos(straight->angle);
 
-			VECTOR_NOPAD offset{ ((straight->length / 2) * sn) / ONE, 0, ((straight->length / 2) * cs) / ONE };
+			int numLanes = ROAD_WIDTH_IN_LANES(straight);
+			for (int j = 0; j < numLanes; j++)
+			{
+				VECTOR_NOPAD offset{ ((straight->length / 2) * sn) / ONE, 0, ((straight->length / 2) * cs) / ONE };
+				VECTOR_NOPAD lane_offset{ ((512 * j - numLanes * 256 + 256) * -cs) / ONE, 0, ((512 * j - numLanes * 256 + 256) * sn) / ONE };
 
-			VECTOR_NOPAD positionA { straight->Midx - offset.vx, 0, straight->Midz - offset.vz };
-			VECTOR_NOPAD positionB { straight->Midx + offset.vx, 0, straight->Midz + offset.vz };
+				VECTOR_NOPAD positionA{ straight->Midx - offset.vx + lane_offset.vx, 0, straight->Midz - offset.vz + lane_offset.vz };
+				VECTOR_NOPAD positionB{ straight->Midx + offset.vx + lane_offset.vx, 0, straight->Midz + offset.vz + lane_offset.vz };
 
-			DebugOverlay_Line(FromFixedVector(positionA), FromFixedVector(positionB), ColorRGBA(1,1,0,1));
+				ColorRGBA color(0.0f, 1.0f, 0.0f, 1.0f);
+
+				if (ROAD_IS_PARKING_ALLOWED_AT(straight, j))
+				{
+					color.x = 0.0f;
+					color.y = 1.0f;
+				}
+
+				if (ROAD_LANE_DIR(straight, j))
+					color.z = 1.0f;
+
+				if (!ROAD_IS_AI_LANE(straight, j))
+				{
+					color.x = 1.0f;
+					color.y = 0.0f;
+					color.w = 0.5f;
+				}
+
+				DebugOverlay_Line(FromFixedVector(positionA), FromFixedVector(positionB), color);
+			}
 		}
 
 		for (int i = 0; i < levMapDriver2->GetNumCurves(); i++)
 		{
 			DRIVER2_CURVE* curve = levMapDriver2->GetCurve(i | 0x4000);
 
-			VECTOR_NOPAD positionA;
-			VECTOR_NOPAD positionB;
+			int numLanes = ROAD_WIDTH_IN_LANES(curve);
 
-			int distAlongPath = curve->start;
-			int curveLength = curve->end - curve->start & 4095;
-
-			for(int j = 0; j < 8; j++)
+			for (int j = 0; j < numLanes; j++)
 			{
-				int angle = distAlongPath;
+				VECTOR_NOPAD positionA;
+				VECTOR_NOPAD positionB;
 
-				int radius = curve->inside * 1024 + 512 * ROAD_LANES_COUNT(curve);
+				int distAlongPath = curve->start;
+				int curveLength = curve->end - curve->start & 4095;
 
-				positionB = VECTOR_NOPAD{ curve->Midx + (radius * isin(angle)) / ONE, 0, curve->Midz + (radius * icos(angle)) / ONE };
+				ColorRGBA color(0.0f, 1.0f, 0.0f, 1.0f);
 
-				distAlongPath += curveLength / 7; // 8 - 1
+				if (ROAD_IS_PARKING_ALLOWED_AT(curve, j))
+				{
+					color.x = 0.0f;
+					color.y = 1.0f;
+				}
 
-				if(j > 0)
-					DebugOverlay_Line(FromFixedVector(positionA), FromFixedVector(positionB), ColorRGBA(1, 1, 0, 1));
+				if (ROAD_LANE_DIR(curve, j))
+					color.z = 1.0f;
 
-				positionA = positionB;
+				if (!ROAD_IS_AI_LANE(curve, j))
+				{
+					color.x = 1.0f;
+					color.y = 0.0f;
+					color.w = 0.5f;
+				}
+
+				for (int k = 0; k < 8; k++)
+				{
+					int radius = curve->inside * 1024 + 256 + 512 * j;
+
+					positionB = VECTOR_NOPAD{ curve->Midx + (radius * isin(distAlongPath)) / ONE, 0, curve->Midz + (radius * icos(distAlongPath)) / ONE };
+
+					distAlongPath += curveLength / 7; // 8 - 1
+
+					if (k > 0)
+						DebugOverlay_Line(FromFixedVector(positionA), FromFixedVector(positionB), color);
+
+					positionA = positionB;
+				}
 			}
 		}
 	}
@@ -444,63 +489,6 @@ void DrawLevelDriver1(const Vector3D& cameraPos, float cameraAngleY, const Volum
 
 	for (uint i = 0; i < drawObjects.size(); i++)
 	{
-		pco = drawObjects[i];
-
-		if (pco->type >= MAX_MODELS)
-		{
-			// WHAT THE FUCK?
-			continue;
-		}
-
-		Vector3D absCellPosition = FromFixedVector(pco->pos);
-		absCellPosition.y *= -1.0f;
-		
-		float distanceFromCamera = lengthSqr(absCellPosition - cameraPos);
-
-		ModelRef_t* ref = GetModelCheckLods(pco->type, distanceFromCamera);
-		MODEL* model = ref->model;
-
-		float cellRotationRad = -pco->yang / 64.0f * PI_F * 2.0f;
-
-		bool isGround = false;
-
-		if (model)
-		{
-			if (model->shape_flags & SHAPE_FLAG_SPRITE)
-			{
-				cellRotationRad = DEG2RAD(cameraAngleY);
-			}
-
-			if ((model->shape_flags & (SHAPE_FLAG_WATER | SHAPE_FLAG_TILE)) ||
-				(model->flags2 & (MODEL_FLAG_PATH | MODEL_FLAG_GRASS)))
-			{
-				isGround = true;
-			}
-		}
-
-		Matrix4x4 objectMatrix = translate(absCellPosition) * rotateY4(cellRotationRad);
-		GR_SetMatrix(MATRIX_WORLD, objectMatrix);
-		GR_UpdateMatrixUniforms();
-
-		if (g_nightMode)
-			CRenderModel::SetupLightingProperties(0.25f, 0.0f);
-		else
-			CRenderModel::SetupLightingProperties(0.55f, 0.55f);
-
-		CRenderModel* renderModel = (CRenderModel*)ref->userData;
-
-		if (renderModel)
-		{
-			const float boundSphere = ref->model->bounding_sphere * RENDER_SCALING * 2.0f;
-			if (frustrumVolume.IsSphereInside(absCellPosition, boundSphere))
-			{
-				renderModel->Draw();
-				g_drawnModels++;
-				g_drawnPolygons += ref->model->num_polys;
-
-				if (g_displayCollisionBoxes)
-					CRenderModel::DrawModelCollisionBox(ref, pco->pos, pco->yang);
-			}
-		}
+		DrawCellObject(*drawObjects[i], cameraPos, cameraAngleY, frustrumVolume, true);
 	}
 }

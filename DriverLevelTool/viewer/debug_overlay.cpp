@@ -28,7 +28,7 @@ LINE_VERTEX_SHADER
 LINE_FRAGMENT_SHADER
 "#endif\n";
 
-#define MAX_LINE_BUFFER_SIZE		8192
+#define MAX_LINE_BUFFER_SIZE		32768
 
 GrVertex g_lineBuffer[MAX_LINE_BUFFER_SIZE];
 int g_numLineVerts;
