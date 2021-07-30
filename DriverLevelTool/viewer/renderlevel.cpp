@@ -316,12 +316,6 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 
 				ColorRGBA color(0.0f, 1.0f, 0.0f, 1.0f);
 
-				if (ROAD_IS_PARKING_ALLOWED_AT(straight, j))
-				{
-					color.x = 0.0f;
-					color.y = 1.0f;
-				}
-
 				if (ROAD_LANE_DIR(straight, j))
 					color.z = 1.0f;
 
@@ -330,6 +324,12 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 					color.x = 1.0f;
 					color.y = 0.0f;
 					color.w = 0.5f;
+				}
+
+				if (ROAD_IS_PARKING_ALLOWED_AT(straight, j))
+				{
+					color.x = 1.0f;
+					color.y = 1.0f;
 				}
 
 				DebugOverlay_Line(FromFixedVector(positionA), FromFixedVector(positionB), color);
@@ -352,12 +352,6 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 
 				ColorRGBA color(0.0f, 1.0f, 0.0f, 1.0f);
 
-				if (ROAD_IS_PARKING_ALLOWED_AT(curve, j))
-				{
-					color.x = 0.0f;
-					color.y = 1.0f;
-				}
-
 				if (ROAD_LANE_DIR(curve, j))
 					color.z = 1.0f;
 
@@ -366,6 +360,12 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 					color.x = 1.0f;
 					color.y = 0.0f;
 					color.w = 0.5f;
+				}
+
+				if (ROAD_IS_PARKING_ALLOWED_AT(curve, j))
+				{
+					color.x = 1.0f;
+					color.y = 1.0f;
 				}
 
 				for (int k = 0; k < 8; k++)
