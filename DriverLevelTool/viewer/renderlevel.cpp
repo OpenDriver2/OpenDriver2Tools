@@ -29,6 +29,7 @@ extern bool g_displayCollisionBoxes;
 extern bool g_displayHeightMap;
 extern bool g_displayAllCellLevels;
 extern bool g_displayRoads;
+extern bool g_displayRoadConnections;
 extern bool g_noLod;
 extern int g_cellsDrawDistance;
 
@@ -293,6 +294,131 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 		DrawCellObject(co, cameraPos, cameraAngleY, frustrumVolume, true);
 	}
 
+	if (g_displayRoadConnections)
+	{
+#define IS_STRAIGHT_SURFACE(surfid)			(((surfid) > -1) && ((surfid) & 0xFFFFE000) == 0 && ((surfid) & 0x1FFF) < levMapDriver2->GetNumStraights())
+#define IS_CURVED_SURFACE(surfid)			(((surfid) > -1) && ((surfid) & 0xFFFFE000) == 0x4000 && ((surfid) & 0x1FFF) < levMapDriver2->GetNumCurves())
+#define IS_JUNCTION_SURFACE(surfid)			(((surfid) > -1) && ((surfid) & 0xFFFFE000) == 0x2000 && ((surfid) & 0x1FFF) < levMapDriver2->GetNumJunctions())
+
+		for (int i = 0; i < levMapDriver2->GetNumStraights(); i++)
+		{
+			DRIVER2_STRAIGHT* straight = levMapDriver2->GetStraight(i);
+
+			VECTOR_NOPAD positionA{ straight->Midx, 0, straight->Midz };
+
+			for (int j = 0; j < 4; j++)
+			{
+				if (straight->ConnectIdx[j] == -1)
+					continue;
+				
+				if (IS_STRAIGHT_SURFACE(straight->ConnectIdx[j]))
+				{
+					DRIVER2_STRAIGHT* conn = levMapDriver2->GetStraight(straight->ConnectIdx[j]);
+					VECTOR_NOPAD positionB{ conn->Midx, 0, conn->Midz };
+
+					DebugOverlay_Line(FromFixedVector(positionA), FromFixedVector(positionB), ColorRGBA(1,1,0,1));
+				}
+				else if (IS_CURVED_SURFACE(straight->ConnectIdx[j]))
+				{
+					DRIVER2_CURVE* conn = levMapDriver2->GetCurve(straight->ConnectIdx[j]);
+
+					const int radius = conn->inside * 1024 + 256 + 512 * ROAD_LANES_COUNT(conn);
+					const int curveLength = conn->end - conn->start & 4095;
+					const int distAlongPath = conn->start + curveLength / 2;
+
+					VECTOR_NOPAD positionB{ conn->Midx + (radius * isin(distAlongPath)) / ONE, 0, conn->Midz + (radius * icos(distAlongPath)) / ONE };
+
+					DebugOverlay_Line(FromFixedVector(positionA), FromFixedVector(positionB), ColorRGBA(1, 1, 0, 1));
+				}
+				else if (IS_JUNCTION_SURFACE(straight->ConnectIdx[j]))
+				{
+					DRIVER2_JUNCTION* connJ = levMapDriver2->GetJunction(straight->ConnectIdx[j]);
+
+					for (int k = 0; k < 4; k++)
+					{
+						if (IS_STRAIGHT_SURFACE(connJ->ExitIdx[k]))
+						{
+							DRIVER2_STRAIGHT* connK = levMapDriver2->GetStraight(connJ->ExitIdx[k]);
+							VECTOR_NOPAD positionB{ connK->Midx, 0, connK->Midz };
+
+							DebugOverlay_Line(FromFixedVector(positionA), FromFixedVector(positionB), ColorRGBA(1, 0, 0, 1));
+						}
+						else if (IS_CURVED_SURFACE(connJ->ExitIdx[k]))
+						{
+							DRIVER2_CURVE* connK = levMapDriver2->GetCurve(connJ->ExitIdx[k]);
+							const int radius = connK->inside * 1024 + 256 + 512 * ROAD_LANES_COUNT(connK);
+							const int curveLength = connK->end - connK->start & 4095;
+							const int distAlongPath = connK->start + curveLength / 2;
+
+							VECTOR_NOPAD positionB{ connK->Midx + (radius * isin(distAlongPath)) / ONE, 0, connK->Midz + (radius * icos(distAlongPath)) / ONE };
+
+							DebugOverlay_Line(FromFixedVector(positionA), FromFixedVector(positionB), ColorRGBA(1, 0, 0, 1));
+						}
+					}
+				}
+			} // for j
+		} // for i
+
+		for (int i = 0; i < levMapDriver2->GetNumCurves(); i++)
+		{
+			DRIVER2_CURVE* curve = levMapDriver2->GetCurve(i | 0x4000);
+
+			VECTOR_NOPAD positionA{ curve->Midx, 0, curve->Midz };
+
+			for (int j = 0; j < 4; j++)
+			{
+				if (curve->ConnectIdx[j] == -1)
+					continue;
+
+				if (IS_STRAIGHT_SURFACE(curve->ConnectIdx[j]))
+				{
+					DRIVER2_STRAIGHT* conn = levMapDriver2->GetStraight(curve->ConnectIdx[j]);
+					VECTOR_NOPAD positionB{ conn->Midx, 0, conn->Midz };
+
+					DebugOverlay_Line(FromFixedVector(positionA), FromFixedVector(positionB), ColorRGBA(1, 1, 0, 1));
+				}
+				else if (IS_CURVED_SURFACE(curve->ConnectIdx[j]))
+				{
+					DRIVER2_CURVE* conn = levMapDriver2->GetCurve(curve->ConnectIdx[j]);
+
+					const int radius = conn->inside * 1024 + 256 + 512 * ROAD_LANES_COUNT(conn);
+					const int curveLength = conn->end - conn->start & 4095;
+					const int distAlongPath = conn->start + curveLength / 2;
+
+					VECTOR_NOPAD positionB{ conn->Midx + (radius * isin(distAlongPath)) / ONE, 0, conn->Midz + (radius * icos(distAlongPath)) / ONE };
+
+					DebugOverlay_Line(FromFixedVector(positionA), FromFixedVector(positionB), ColorRGBA(1, 1, 0, 1));
+				}
+				else if (IS_JUNCTION_SURFACE(curve->ConnectIdx[j]))
+				{
+					DRIVER2_JUNCTION* connJ = levMapDriver2->GetJunction(curve->ConnectIdx[j]);
+
+					for (int k = 0; k < 4; k++)
+					{
+						if (IS_STRAIGHT_SURFACE(connJ->ExitIdx[k]))
+						{
+							DRIVER2_STRAIGHT* connK = levMapDriver2->GetStraight(connJ->ExitIdx[k]);
+							VECTOR_NOPAD positionB{ connK->Midx, 0, connK->Midz };
+
+							DebugOverlay_Line(FromFixedVector(positionA), FromFixedVector(positionB), ColorRGBA(1, 0, 0, 1));
+						}
+						else if (IS_CURVED_SURFACE(connJ->ExitIdx[k]))
+						{
+							DRIVER2_CURVE* connK = levMapDriver2->GetCurve(connJ->ExitIdx[k]);
+							const int radius = connK->inside * 1024 + 256 + 512 * ROAD_LANES_COUNT(connK);
+							const int curveLength = connK->end - connK->start & 4095;
+							const int distAlongPath = connK->start + curveLength / 2;
+
+							VECTOR_NOPAD positionB{ connK->Midx + (radius * isin(distAlongPath)) / ONE, 0, connK->Midz + (radius * icos(distAlongPath)) / ONE };
+
+							DebugOverlay_Line(FromFixedVector(positionA), FromFixedVector(positionB), ColorRGBA(1, 0, 0, 1));
+						}
+					}
+				}
+			} // for j
+		} // for i
+	}
+
 	if (g_displayRoads)
 	{
 		// TODO: road at their surface height!
@@ -349,6 +475,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 
 				int distAlongPath = curve->start;
 				int curveLength = curve->end - curve->start & 4095;
+				int radius = curve->inside * 1024 + 256 + 512 * j;
 
 				ColorRGBA color(0.0f, 1.0f, 0.0f, 1.0f);
 
@@ -370,8 +497,6 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 
 				for (int k = 0; k < 8; k++)
 				{
-					int radius = curve->inside * 1024 + 256 + 512 * j;
-
 					positionB = VECTOR_NOPAD{ curve->Midx + (radius * isin(distAlongPath)) / ONE, 0, curve->Midz + (radius * icos(distAlongPath)) / ONE };
 
 					distAlongPath += curveLength / 7; // 8 - 1
