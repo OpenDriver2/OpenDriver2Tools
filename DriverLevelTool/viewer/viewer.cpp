@@ -36,11 +36,14 @@ bool g_displayCollisionBoxes = false;
 bool g_displayHeightMap = false;
 bool g_displayAllCellLevels = true;
 bool g_displayRoads = false;
+bool g_displayRoadConnections = false;
 bool g_noLod = false;
 
 int g_cellsDrawDistance = 441;
 
 int g_currentModel = 0;
+int g_currentCarResidentModel = 0;
+int g_currentCarModel = 0;
 
 int g_viewerMode = 0;
 
@@ -273,6 +276,67 @@ void RenderModelView()
 	}
 }
 
+CRenderModel g_currentCarHwModel;
+ModelRef_t g_carModelRef;
+
+//-------------------------------------------------------
+// Render car model viewer
+//-------------------------------------------------------
+void RenderCarModelView()
+{
+	Volume frustumVolume;
+	Vector3D forward, right;
+	AngleVectors(g_cameraAngles, &forward, &right);
+
+	// setup orbital camera
+	CRenderModel::SetupModelShader();
+	SetupCameraViewAndMatrices(-forward * g_cameraDistance, g_cameraAngles, frustumVolume);
+
+	CRenderModel::SetupLightingProperties(1.0f, 0.5f);
+
+	GR_SetDepth(1);
+	GR_SetCullMode(CULL_FRONT);
+
+	g_currentCarHwModel.Draw();
+
+	if (g_displayCollisionBoxes)
+		CRenderModel::DrawModelCollisionBox(&g_carModelRef, { 0,0,0 }, 0.0f);
+}
+
+//-------------------------------------------------------
+// Updates the car HW render model
+//-------------------------------------------------------
+void UpdateCarRenderModel()
+{
+	CarModelData_t* carModel = g_levModels.GetCarModel(g_currentCarResidentModel);
+
+	if (g_currentCarModel == 0)
+	{
+		g_carModelRef.model = carModel->cleanmodel;
+		g_carModelRef.size = carModel->cleanSize;
+	}
+	else if (g_currentCarModel == 1)
+	{
+		g_carModelRef.model = carModel->dammodel;
+		g_carModelRef.size = carModel->damSize;
+	}
+	else
+	{
+		g_carModelRef.model = carModel->lowmodel;
+		g_carModelRef.size = carModel->lowSize;
+	}
+
+	g_carModelRef.index = 100;
+
+	if (g_carModelRef.model)
+	{
+		GR_SetVAO(nullptr);
+
+		g_currentCarHwModel.Destroy();
+		g_currentCarHwModel.Initialize(&g_carModelRef);
+	}
+}
+
 //-------------------------------------------------------------
 // Forcefully spools entire level regions and area datas
 //-------------------------------------------------------------
@@ -488,6 +552,9 @@ void DisplayUI(float deltaTime)
 			
 			if (ImGui::MenuItem("Model viewer"))
 				g_viewerMode = 1;
+
+			if (ImGui::MenuItem("Car model viewer"))
+				g_viewerMode = 2;
 			
 			ImGui::EndMenu();
 		}
@@ -521,6 +588,9 @@ void DisplayUI(float deltaTime)
 
 			if (ImGui::MenuItem("Display roads", nullptr, g_displayRoads))
 				g_displayRoads ^= 1;
+
+			if (ImGui::MenuItem("Display road connections", nullptr, g_displayRoadConnections))
+				g_displayRoadConnections ^= 1;
 
 			ImGui::Separator();
 			
@@ -559,14 +629,19 @@ void DisplayUI(float deltaTime)
 			ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Drawn models: %d", g_drawnModels);
 			ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Drawn polygons: %d", g_drawnPolygons);
 		}
-		else if (g_viewerMode == 1)
+		else if (g_viewerMode >= 1 )
 		{
 			ImGui::SetWindowSize(ImVec2(400, 720));
 			
 			ModelRef_t* ref = g_levModels.GetModelByIndex(g_currentModel);
+
+			if (g_viewerMode == 2)
+				ref = &g_carModelRef;
+
 			MODEL* model = ref->model;
 
-			ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.5f), "Use arrows to change models");
+			if (g_viewerMode == 1)
+				ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.5f), "Use arrows to change models");
 
 			if(model)
 			{
@@ -642,47 +717,110 @@ void DisplayUI(float deltaTime)
 				ImGui::Text("");
 				ImGui::Text("");
 				ImGui::Text("");
+				ImGui::Text("");
+				ImGui::Text("");
+				ImGui::Text("");
+				ImGui::Text("");
+				ImGui::Text("");
 			}
 
-			ImGui::InputText("Filter", g_modelSearchNameBuffer, sizeof(g_modelSearchNameBuffer));
-
-			ImGuiTextFilter filter(g_modelSearchNameBuffer);
-
-			Array<ModelRef_t*> modelRefs;
-			
-			for (int i = 0; i < MAX_MODELS; i++)
+			// regular model renderer
+			if (g_viewerMode == 1)
 			{
-				ModelRef_t* itemRef = g_levModels.GetModelByIndex(i);
-				
-				if(!filter.IsActive() && !itemRef->name || itemRef->name && filter.PassFilter(itemRef->name))
-					modelRefs.append(itemRef);
-			}
-			
-			if (ImGui::ListBoxHeader("", modelRefs.size(), 30))
-			{
-				ImGuiListClipper clipper(modelRefs.size(), ImGui::GetTextLineHeightWithSpacing());
-				
-				while (clipper.Step())
+				ImGui::InputText("Filter", g_modelSearchNameBuffer, sizeof(g_modelSearchNameBuffer));
+
+				ImGuiTextFilter filter(g_modelSearchNameBuffer);
+
+				Array<ModelRef_t*> modelRefs;
+
+				for (int i = 0; i < MAX_MODELS; i++)
 				{
-					for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
-					{
-						ModelRef_t* itemRef = modelRefs[i];
-						const bool item_selected = (itemRef->index == g_currentModel);
-						
-						String item = String::fromPrintf("%d: %s%s", itemRef->index, itemRef->name ? itemRef->name : "", itemRef->model ? "" : "(empty slot)");
+					ModelRef_t* itemRef = g_levModels.GetModelByIndex(i);
 
-						ImGui::PushID(i);
-
-						if (ImGui::Selectable(item, item_selected))
-						{
-							g_currentModel = itemRef->index;
-						}
-
-						ImGui::PopID();
-					}
+					if (!filter.IsActive() && !itemRef->name || itemRef->name && filter.PassFilter(itemRef->name))
+						modelRefs.append(itemRef);
 				}
-				ImGui::ListBoxFooter();
+
+				if (ImGui::ListBoxHeader("", modelRefs.size(), 30))
+				{
+					ImGuiListClipper clipper(modelRefs.size(), ImGui::GetTextLineHeightWithSpacing());
+
+					while (clipper.Step())
+					{
+						for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
+						{
+							ModelRef_t* itemRef = modelRefs[i];
+							const bool item_selected = (itemRef->index == g_currentModel);
+
+							String item = String::fromPrintf("%d: %s%s", itemRef->index, itemRef->name ? itemRef->name : "", itemRef->model ? "" : "(empty slot)");
+
+							ImGui::PushID(i);
+
+							if (ImGui::Selectable(item, item_selected))
+							{
+								g_currentModel = itemRef->index;
+							}
+
+							ImGui::PopID();
+						}
+					}
+					ImGui::ListBoxFooter();
+				}
 			}
+			else if (g_viewerMode == 2)
+			{ // car model renderer
+
+				if (ImGui::Button("Clean"))
+				{
+					g_currentCarModel = 0;
+					UpdateCarRenderModel();
+				}
+
+				// if (ImGui::Button("Damaged"))
+				// {
+				// 	g_currentCarModel = 1;
+				// 	UpdateCarRenderModel();
+				// }
+
+				ImGui::SameLine();
+				if (ImGui::Button("Low poly"))
+				{
+					g_currentCarModel = 2;
+					UpdateCarRenderModel();
+				}
+
+
+				if (ImGui::ListBoxHeader("", 12, 30))
+				{
+					ImGuiListClipper clipper(12, ImGui::GetTextLineHeightWithSpacing());
+
+					while (clipper.Step())
+					{
+						for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
+						{
+							CarModelData_t* itemRef = g_levModels.GetCarModel(i);
+
+							const bool item_selected = (i == g_currentCarResidentModel);
+
+							String item = String::fromPrintf("Model %d: %s", i, itemRef->cleanmodel ? "" : "(empty slot)");
+
+							ImGui::PushID(i);
+
+							if (ImGui::Selectable(item, item_selected))
+							{
+								g_currentCarResidentModel = i;
+								UpdateCarRenderModel();
+							}
+
+							ImGui::PopID();
+						}
+					}
+					ImGui::ListBoxFooter();
+				}
+
+
+			}
+
 		}
 		ImGui::End();
 	}
@@ -783,7 +921,7 @@ void SDLPollEvent()
 			{
 				if (g_viewerMode == 0)
 					g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? 1.0f : 0.0f;
-				else if (g_viewerMode == 1 && (event.type == SDL_KEYDOWN))
+				else if (g_viewerMode >= 1 && (event.type == SDL_KEYDOWN))
 				{
 					g_currentModel--;
 					g_currentModel = MAX(0, g_currentModel);
@@ -793,7 +931,7 @@ void SDLPollEvent()
 			{
 				if (g_viewerMode == 0)
 					g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? -1.0f : 0.0f;
-				else if (g_viewerMode == 1 && (event.type == SDL_KEYDOWN))
+				else if (g_viewerMode >= 1 && (event.type == SDL_KEYDOWN))
 				{
 					g_currentModel++;
 					g_currentModel = MIN(MAX_MODELS, g_currentModel);
@@ -862,9 +1000,13 @@ void ViewerMainLoop()
 			UpdateCameraMovement(deltaTime, cameraSpeedModifier);
 			RenderLevelView();
 		}
-		else
+		else if(g_viewerMode == 1)
 		{
 			RenderModelView();
+		}
+		else
+		{
+			RenderCarModelView();
 		}
 
 		DebugOverlay_Draw();
@@ -919,6 +1061,8 @@ int ViewerMain()
 
 	// this is for filtering purposes
 	PopulateUIModelNames();
+
+	UpdateCarRenderModel();
 
 	// loop and stuff
 	ViewerMainLoop();
