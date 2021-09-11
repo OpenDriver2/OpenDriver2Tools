@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include "mission.hpp"
 
 void initStack(Stack* stack)
 {
@@ -69,5 +70,19 @@ void printStack(Stack stack)
     {
         uint addr = (stack.operations + i) - stack.operations;
         printf("(%u): 0x%x\n", addr, stack.operations[i]);
+    }
+}
+
+void processThreads(Stack* stack)
+{
+    for (int i = 0; i < stack->nbOperations; i++)
+    {
+        // Check if this is a thread call
+        if (stack->operations[i] == CMD_StartThreadForPlayer || stack->operations[i] == CMD_StartThread2)
+        {
+            // If yes we want to replace the threadId by the offset where it's in the stack
+            uint threadId = stack->operations[i - 1];
+            stack->operations[i - 1] = stack->thread_offsets[threadId] - i + 1;
+        }
     }
 }
