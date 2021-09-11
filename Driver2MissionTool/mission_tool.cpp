@@ -5,6 +5,7 @@
 #include <nstd/File.hpp>
 #include "core/cmdlib.h"
 #include "mission.hpp"
+#include "script.hpp"
 //----------------------------------------------------
 
 void CompileMissionBlk(const char* filename)
@@ -262,12 +263,14 @@ void CreateMission(const char* filename)
 
 		done = true;
 	} while (!done);
+
+	done = false;
 	
 	uint nbTargets = 0;
 
 	MsgInfo("How many targets do you want ? :");
 	scanf("%d", &nbTargets);
-
+	
 	int i = 0;
 	do
 	{
@@ -291,30 +294,42 @@ void CreateMission(const char* filename)
 			MsgInfo("\tFlag Active P2: 1\n");
 			MsgInfo("\tFlag Completed P1: 2\n");
 			MsgInfo("\tFlag Completed P2: 3\n");
-			MsgInfo("\tFinish: 6\n");
+			MsgInfo("\tFinish: 4\n");
 			MsgInfo("Add target properties to finish enter 6\n");
-			while (true)
+			while (!done)
 			{
 				MsgInfo("Enter Target Flag (0-3) or 4 to finish: ");
 				int value = 0;
-				if (value == 4) break;
-				scanf("%d", value);
+				if (value == 4)
+				{
+					done = true;
+					continue;
+				}
+				scanf("%d", &value);
 				target->target_flags |= value;
 			}
 
+			done = false;
+			
 			MsgInfo("Common Display Flags\n");
 			MsgInfo("\tFlag Visible P1: 4\n");
 			MsgInfo("\tFlag Visible P2: 5\n");
 			MsgInfo("\tFinish: 6\n");
 			MsgInfo("Add target properties to finish enter 6\n");
-			while (true)
+			while (!done)
 			{
 				MsgInfo("Enter Target Flag (4-5) or 6 to finish: ");
 				int value = 0;
-				if (value == 6) break;
-				scanf("%d", value);
+				if (value == 6) 
+				{
+					done = true;
+					continue;
+				}
+				scanf("%d", &value);
 				target->target_flags |= TargetFlags[value];
 			}
+
+			done = false;
 		}
 		
 		if (target->type == Target_Point)
@@ -339,14 +354,20 @@ void CreateMission(const char* filename)
 			MsgInfo("\tOn Boat: 12\n");
 			MsgInfo("\tStop Cops Trigger: 13\n");
 
-			while (true)
+			while (!done)
 			{
 				MsgInfo("Enter Point Flag (6-13) or 14 to finish: ");
 				int value = 0;
-				if (value == 14) break;
-				scanf("%d", value);
+				if (value == 14)
+				{
+					done = true;
+					continue;
+				}
+				scanf("%d", &value);
 				target->point.actionFlag |= TargetFlags[value];
 			}
+
+			done = false;
 		}
 		else if (target->type == Target_Car)
 		{
@@ -387,23 +408,30 @@ void CreateMission(const char* filename)
 			MsgInfo("\tSwapped: 16\n");
 			MsgInfo("\tPinged In: 17\n");
 
-			while (true)
+			while (!done)
 			{
 				MsgInfo("Enter action flag (14-17) or 18 to finish: ");
 				int value = 0;
-				if (value == 18) break;
-				scanf("%d", value);
+				if (value == 18)
+				{
+					done = true;
+					continue;
+				}
+				scanf("%d", &value);
 				target->car.flags |= TargetFlags[value];
 			}
+			
+			done = false;
 		}
 		/*else if (target->type == Target_Event)
 		{
 			MsgInfo("Event Id: "); scanf("%d", target->event.eventId);
 			MsgInfo("Event Pos: "); scanf("%d", target->event.eventId);
 		}*/
-		
-	} while (i < 4);
-	
+		i++;
+	} while (i < nbTargets);
+
+	// Script System
 }
 
 //-----------------------------------------------------
