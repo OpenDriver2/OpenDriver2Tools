@@ -5,6 +5,89 @@
 
 #define MISSION_IDENT		(('D' << 24) | ('2' << 16) | ('M' << 8) | 'S' )
 
+enum MR_VAR_FLAGS
+{
+	VAR_Timer = 0x2000008,
+	VAR_gCopDesiredSpeedScale = 0x2000100,
+	VAR_gCopMaxPowerScale = 0x2000101,
+	VAR_gMinimumCops = 0x2000102,
+	VAR_maxCopCars = 0x2000103,
+};
+
+enum MR_FUNCTION_FLAGS
+{
+	FUNC_ProcessTarget = 0x4000020, // ProcessTarget(targetIndex)
+};
+
+enum MR_OPERATOR_FLAGS
+{
+	OP_AND = 0x3000003, // AND
+	OP_OR = 0x3000004, // OR
+	OP_NEQ = 0x3000005, // NEQ
+	OP_EQ = 0x3000006, // EQ
+	OP_GT = 0x3000007, // GT
+	OP_LT = 0x3000008, // LT
+	OP_ADD = 0x3000009, // ADD
+	OP_NONE = 0x0, // Stop Thread
+};
+
+enum MR_COMMAND_FLAGS
+{
+	CMD_PlayCutscene = 0x1000051, // 1 arg
+	CMD_CompleteAllActiveTargets = 0x1000021, // 0 arg
+	CMD_SetVariable = 0x1000010, // 2 args (addr,value)
+	CMD_Jump = 0x1000011, // 1 arg (addr)
+	CMD_BranchIf = 0x1000001, // 2 arg 
+	CMD_MultiCarEvent = 0x1000022, // 1 arg
+	CMD_SetPlayerFelony = 0x1000030, // 1 arg
+	CMD_ShowPlayerMessage = 0x1000050, // 2 arg (offset, timeS)
+	CMD_TriggerEvent = 0x1000070, // 1 arg (event)
+	CMD_SetDoorsLocked = 0x1000080, // 1 arg (bool)
+	CMD_SetStealMessage = 0x1000054, // 1 arg (offset)
+	CMD_ShowOutOfTimeMessage = 0x1000055, // 0 arg
+	CMD_StopThread = 0x1001000, // 0 arg
+	CMD_StartThreadForPlayer = 0x1001002, // 0 arg
+	CMD_StartThread2 = 0x1001003, // 1 arg (addr)
+	CMD_SetCameraEvent = 0x1000100, // 0 arg
+	CMD_AwardPlayerCheat = 0x1000071, // 1 arg
+	CMD_SetRaining = 0x1000090, // 0 arg
+	CMD_SetMissionComplete = 0x1001001, // 0 arg
+	CMD_SetTimerFlagCounter = 0x1000040, // 0 arg
+	CMD_SetBombTimerFlag = 0x1000042, // 0 arg
+	CMD_UnSetTimerFlagCounter = 0x1000041, //0 arg
+
+	// TODO: Miss 3 commands of timers 
+
+};
+
+int COMMANDS[22][2]
+{
+	{CMD_PlayCutscene, 1},
+	{CMD_CompleteAllActiveTargets, 0},
+	{CMD_SetVariable, 2},
+	{CMD_Jump, 1},
+	{CMD_BranchIf, 2},
+	{CMD_MultiCarEvent, 1},
+	{CMD_SetPlayerFelony, 1},
+	{CMD_ShowPlayerMessage, 2},
+	{CMD_TriggerEvent, 1},
+	{CMD_SetDoorsLocked, 1},
+	{CMD_SetStealMessage, 1},
+	{CMD_ShowOutOfTimeMessage, 0},
+	{CMD_StopThread, 0},
+	{CMD_StartThreadForPlayer, 1},
+	{CMD_StartThread2, 1},
+	{CMD_SetCameraEvent, 1},
+	{CMD_AwardPlayerCheat, 1},
+	{CMD_SetRaining, 0},
+	{CMD_SetMissionComplete, 0},
+	{CMD_SetTimerFlagCounter, 0},
+	{CMD_SetBombTimerFlag, 0},
+	{CMD_UnSetTimerFlagCounter, 0},
+};
+
+
+
 int TargetFlags[19]
 {
 	0x1,
