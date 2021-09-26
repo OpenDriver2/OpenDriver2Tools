@@ -1,0 +1,14 @@
+{
+  "FileVersion": 2,
+  "Id": "f2f313d5-5e7f-8199-6790-048ed39add99",
+  "Items": [
+    {
+      "Id": "3bd21443-9b3e-4e95-87d5-1b0e0aba4c18",
+      "Command": "-tim2bg 1.TIM 2.TIM"
+    },
+    {
+      "Id": "5a95fb20-bc47-4a18-9ef8-fd9c25e99d8b",
+      "Command": "-bg2tim GFX.RAW"
+    }
+  ]
+}

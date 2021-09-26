@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstring>
+
 #include "core/dktypes.h"
 #include "math/psx_math_types.h"
 
@@ -60,7 +62,33 @@ enum MR_COMMAND_FLAGS
 
 };
 
-int COMMANDS[22][2]
+const char* COMMANDS_STR[22]
+{
+	"PlayCutscene",
+	"CompleteAllActiveTargets",
+	"SetVariable",
+	"Jump",
+	"BranchIf",
+	"MultiCarEvent",
+	"SetPlayerFelony",
+	"ShowPlayerMessage",
+	"TriggerEvent",
+	"SetDoorsLocked",
+	"SetStealMessage",
+	"ShowOutOfTimeMessage",
+	"StopThread",
+	"StarThreadForPlayer",
+	"StartThread2",
+	"SetCameraEvent",
+	"AwardPlayerCheat",
+	"SetRaining",
+	"SetMissionComplete",
+	"SetTimerFlagCounter",
+	"SetBombTimerFlag",
+	"UnSetTimerFlagCount"
+};
+
+const uint COMMANDS[22][2]
 {
 	{CMD_PlayCutscene, 1},
 	{CMD_CompleteAllActiveTargets, 0},

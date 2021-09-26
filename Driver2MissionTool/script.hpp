@@ -15,3 +15,12 @@ typedef struct Stack
     uint nbThreads; // >= 1 (max.16)
     uint nbOperations; // Number of operations (sum of each nbOperations of all Thread)
 } Stack;
+
+void initStack(Stack* stack);
+void addThread(Stack* stack, Thread* thread);
+void init_thread(Thread* thread, uint size);
+void push_thread(Thread* thread, uint op_code);
+uint pop_thread(Thread* thread);
+void print_thread(Thread thread);
+void printStack(Stack stack);
+void processThreads(Stack* stack);

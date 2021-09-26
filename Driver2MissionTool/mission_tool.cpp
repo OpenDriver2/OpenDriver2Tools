@@ -4,39 +4,50 @@
 
 #include <nstd/File.hpp>
 #include "core/cmdlib.h"
-#include "mission.hpp"
 #include "script.hpp"
+#include "mission.hpp"
 //----------------------------------------------------
 
-void CompileMissionBlk(const char* filename)
-{
-
-}
-
-void DecompileMissionBlk(const char* filename, int missionNumber)
-{
-	if (missionNumber <= 0) // decompile all
-	{
-
-	}
-}
-
-void CreateMission(const char* filename)
+void CompileMissionBlk(const char* filename, 
+	MS_MISSION settings, MS_TARGET targets[16], Stack stack, StringsStack strings)
 {
 	String filename_str = String::fromPrintf("%s", filename);
 	File* file = new File();
-	
+
 	if (!file->open(filename_str, File::writeFlag))
 	{
 		MsgWarning("%s can't be opened\n", filename);
 		exit(EXIT_FAILURE);
 	}
 
+	file->write(&settings, 0x86);
+	file->write(&targets, 1024);
+	file->write(&stack.operations, stack.nbOperations);
+
+	//file->write(&strings.strings, strings)
+	
+	file->close();
+}
+
+void CreateMission2(const char* filename)
+{
+	
+}
+
+void CreateMission(const char* filename)
+{	
+
 	MsgInfo("%s mission file is opened\n", filename);
 
 	MS_MISSION settings;
 	MS_TARGET targets[16];
 	StringsStack strings;
+	Stack stack;
+	initStack(&stack);
+	char str[64];
+	int value = 0;
+	uint nbTargets = 0;
+	uint nbThreads = 0;
 
 	settings.id = MISSION_IDENT;
 	settings.size = 0x84;
@@ -134,8 +145,8 @@ void CreateMission(const char* filename)
 			scanf("%d", &settings.maxDamage);
 
 			settings.residentModels[0] = settings.playerCarModel;
-			if ((settings.playerCarModel >= 0 && settings.playerCarModel <= 4) 
-				|| (settings.playerCarModel >= 8 && settings.playerCarModel <= 12)) done = true;
+			if (settings.playerCarModel >= 0 && settings.playerCarModel <= 4 
+				|| settings.playerCarModel >= 8 && settings.playerCarModel <= 12) done = true;
 		} while (!done);
 
 		done = false;
@@ -164,36 +175,35 @@ void CreateMission(const char* filename)
 	} while (!done);
 
 	done = false;
-	char str_0[64];
 	
 	MsgInfo("Enter the drowned message: ");
-	scanf(" %64[^\n]", str_0);
-	settings.msgDrowned = strlen(str_0) ? strings.addString(str_0) : -1;
+	scanf(" %64[^\n]", str);
+	settings.msgDrowned = strlen(str) ? strings.addString(str) : -1;
 	_flushall();
 	
 	MsgInfo("Enter the complete message: ");
-	scanf(" %64[^\n]", str_0);
-	settings.msgComplete = strlen(str_0) ? strings.addString(str_0) : -1;
+	scanf(" %64[^\n]", str);
+	settings.msgComplete = strlen(str) ? strings.addString(str) : -1;
 	_flushall();
 	
 	MsgInfo("Enter the out of time message: ");
-	scanf(" %64[^\n]", str_0);
-	settings.msgOutOfTime = strlen(str_0) ? strings.addString(str_0) : -1;
+	scanf(" %64[^\n]", str);
+	settings.msgOutOfTime = strlen(str) ? strings.addString(str) : -1;
 	_flushall();
 	
 	MsgInfo("Enter the car wrecked message: ");
-	scanf(" %64[^\n]", str_0);
-	settings.msgCarWrecked = strlen(str_0) ? strings.addString(str_0) : -1;
+	scanf(" %64[^\n]", str);
+	settings.msgCarWrecked = strlen(str) ? strings.addString(str) : -1;
 	_flushall();
 	
 	MsgInfo("Enter the drowned message: ");
-	scanf(" %64[^\n]", str_0);
-	settings.msgDrowned = strlen(str_0) ? strings.addString(str_0) : -1;
+	scanf(" %64[^\n]", str);
+	settings.msgDrowned = strlen(str) ? strings.addString(str) : -1;
 	_flushall();
 
 	MsgInfo("Enter the doors locked message: ");
-	scanf(" %64[^\n]", str_0);
-	settings.msgDoorsLocked = strlen(str_0) ? strings.addString(str_0) : -1;
+	scanf(" %64[^\n]", str);
+	settings.msgDoorsLocked = strlen(str) ? strings.addString(str) : -1;
 	_flushall();
 	
 	done = false;
@@ -233,7 +243,6 @@ void CreateMission(const char* filename)
 		MsgInfo("\tBomb Triggered: 5\n");
 
 		MsgInfo("Enter a number: ");
-		int value = 0;
 		
 		scanf("%d", &value);
 
@@ -265,8 +274,6 @@ void CreateMission(const char* filename)
 	} while (!done);
 
 	done = false;
-	
-	uint nbTargets = 0;
 
 	MsgInfo("How many targets do you want ? :");
 	scanf("%d", &nbTargets);
@@ -275,17 +282,27 @@ void CreateMission(const char* filename)
 	do
 	{
 		MS_TARGET* target = &targets[i];
-		
+
+		printf("All targets: \n");
+		for (int j = 0; j < nbTargets; j++)
+		{
+			printf("Target(%d)\n", j);
+		}
+
+		MsgInfo("New Target: \n");
 		MsgInfo("Target(%d)", i);
 		MsgInfo("\tPoint: 1\n");
 		MsgInfo("\tCar: 2\n");
-		//MsgInfo("\tEvent: 3\n");
-		// MsgInfo("\tPlayerToStart: 4\n");
+		// MsgInfo("\tEvent: 3\n");
+		MsgInfo("\tPlayerToStart: 4\n");
 		// MsgInfo("\tMultiCar: 5\n");
+		MsgInfo("Finish: 5\n");
 
 		MsgInfo("Which type do you want ? ");
 
-		scanf("%d", &target->type);
+		scanf("%d", &value);
+		if (value == 3) break;
+		target->type = value;
 
 		if (target->type != Target_MultiCar)
 		{
@@ -299,13 +316,13 @@ void CreateMission(const char* filename)
 			while (!done)
 			{
 				MsgInfo("Enter Target Flag (0-3) or 4 to finish: ");
-				int value = 0;
+				scanf("%d", &value);
+				
 				if (value == 4)
 				{
 					done = true;
 					continue;
 				}
-				scanf("%d", &value);
 				target->target_flags |= value;
 			}
 
@@ -319,13 +336,13 @@ void CreateMission(const char* filename)
 			while (!done)
 			{
 				MsgInfo("Enter Target Flag (4-5) or 6 to finish: ");
-				int value = 0;
+				scanf("%d", &value);
+				
 				if (value == 6) 
 				{
 					done = true;
 					continue;
 				}
-				scanf("%d", &value);
 				target->target_flags |= TargetFlags[value];
 			}
 
@@ -339,8 +356,8 @@ void CreateMission(const char* filename)
 			MsgInfo("Radius: "); scanf("%d", &target->point.radius);
 			MsgInfo("Pos Y: "); scanf("%d", &target->point.posY);
 			MsgInfo("Height: "); scanf("%d", &target->point.height);
-			MsgInfo("Lose Tail Message: "); scanf(" %64[^\n]", str_0);
-			target->point.loseTailMessage = strlen(str_0) ? strings.addString(str_0) : -1;
+			MsgInfo("Lose Tail Message: "); scanf(" %64[^\n]", str);
+			target->point.loseTailMessage = strlen(str) ? strings.addString(str) : -1;
 			MsgInfo("Boat Offset X: "); scanf("%d", &target->point.boatOffsetX);
 			MsgInfo("Boat Offset Z: "); scanf("%d", &target->point.boatOffsetZ);
 
@@ -357,19 +374,19 @@ void CreateMission(const char* filename)
 			while (!done)
 			{
 				MsgInfo("Enter Point Flag (6-13) or 14 to finish: ");
-				int value = 0;
+
+				scanf("%d", &value);
 				if (value == 14)
 				{
 					done = true;
 					continue;
 				}
-				scanf("%d", &value);
 				target->point.actionFlag |= TargetFlags[value];
 			}
 
 			done = false;
 		}
-		else if (target->type == Target_Car)
+		else if (target->type == Target_Car || target->type == Target_Player2Start)
 		{
 			MsgInfo("Pos X: "); scanf("%d", &target->car.posX);
 			MsgInfo("Pos Z: "); scanf("%d", &target->car.posZ);
@@ -382,19 +399,19 @@ void CreateMission(const char* filename)
 			MsgInfo("Enter number: "); scanf("%d", &target->car.type);
 			if (target->car.type != 3)
 			{
-				MsgInfo("Tail Close Message: "); scanf(" %64[^\n]", str_0);
-				target->car.tail.closeMessages = strlen(str_0) ? strings.addString(str_0) : -1;
+				MsgInfo("Tail Close Message: "); scanf(" %64[^\n]", str);
+				target->car.tail.closeMessages = strlen(str) ? strings.addString(str) : -1;
 
-				MsgInfo("Tail Far Message: "); scanf(" %64[^\n]", str_0);
-				target->car.tail.farMessages = strlen(str_0) ? strings.addString(str_0) : -1;
+				MsgInfo("Tail Far Message: "); scanf(" %64[^\n]", str);
+				target->car.tail.farMessages = strlen(str) ? strings.addString(str) : -1;
 			}
 			else
 			{
-				MsgInfo("Chase Too Far Message: "); scanf(" %64[^\n]", str_0);
-				target->car.chasing.tooFarMessage = strlen(str_0) ? strings.addString(str_0) : -1;
+				MsgInfo("Chase Too Far Message: "); scanf(" %64[^\n]", str);
+				target->car.chasing.tooFarMessage = strlen(str) ? strings.addString(str) : -1;
 
-				MsgInfo("Chase Getting Far Message: "); scanf(" %64[^\n]", str_0);
-				target->car.chasing.gettingFarMessage = strlen(str_0) ? strings.addString(str_0) : -1;
+				MsgInfo("Chase Getting Far Message: "); scanf(" %64[^\n]", str);
+				target->car.chasing.gettingFarMessage = strlen(str) ? strings.addString(str) : -1;
 
 				MsgInfo("Chase Max Damage: "); scanf("%d", &target->car.chasing.maxDamage);
 			}
@@ -411,27 +428,62 @@ void CreateMission(const char* filename)
 			while (!done)
 			{
 				MsgInfo("Enter action flag (14-17) or 18 to finish: ");
-				int value = 0;
+
+				scanf("%d", &value);
 				if (value == 18)
 				{
 					done = true;
 					continue;
 				}
-				scanf("%d", &value);
 				target->car.flags |= TargetFlags[value];
 			}
 			
 			done = false;
 		}
-		/*else if (target->type == Target_Event)
-		{
-			MsgInfo("Event Id: "); scanf("%d", target->event.eventId);
-			MsgInfo("Event Pos: "); scanf("%d", target->event.eventId);
-		}*/
 		i++;
 	} while (i < nbTargets);
 
+	done = false;
+	
 	// Script System
+
+	MsgInfo("How many threads do you want ?\n");
+	scanf("%u", &nbThreads);
+
+	Thread* threads = static_cast<Thread*>(malloc(sizeof(Thread) * nbThreads));
+
+	while (i < nbThreads)
+	{
+		do
+		{
+			// Here ask which type of command they want to add
+			for (int i = 0; i < 22; i++)
+			{
+				MsgInfo("%s: %d\n", COMMANDS_STR[i]);
+			}
+			MsgInfo("Finish Thread: 21\n");
+			scanf("%d", &value);
+
+			if (value >= 21 || value < 0) break;
+
+			for (int j = 0; j < COMMANDS[value][1]; j++)
+			{
+				uint tmp_value = 0;
+				MsgInfo("Enter argument (%d): ", j);
+				scanf("%u", &tmp_value);
+				push_thread(&threads[i], tmp_value);
+			}
+			push_thread(&threads[i], COMMANDS[value][0]);
+			done = true;
+		} while (!done);
+		done = false;
+		addThread(&stack, &threads[i]);
+		i++;
+	}
+	
+	processThreads(&stack);
+
+	CompileMissionBlk(filename, settings, targets, stack, strings);
 }
 
 //-----------------------------------------------------
@@ -444,7 +496,7 @@ void PrintCommandLineArguments()
 	MsgInfo("\tDriver2MissionTool -compile <mission_script_name.d2ms>\n");
 }
 
-int main(int argc, char** argv)
+int main(const int argc, char** argv)
 {
 #ifdef _WIN32
 	Install_ConsoleSpewFunction();
@@ -460,20 +512,7 @@ int main(int argc, char** argv)
 
 	for (int i = 0; i < argc; i++)
 	{
-		if (!stricmp(argv[i], "-compile"))
-		{
-			if (i + 1 <= argc)
-				CompileMissionBlk(argv[i + 1]);
-			else
-				MsgWarning("-compile must have an argument!");
-		}
-		else if (!stricmp(argv[i], "-decompile"))
-		{
-			if (i + 1 <= argc)
-				DecompileMissionBlk(argv[i + 1], atoi(argv[i + 2]));
-			else
-				MsgWarning("-decompile must have at least one argument!");
-		} else if (!stricmp(argv[i], "-make"))
+		if (!stricmp(argv[i], "-make"))
 		{
 			if (i + 1 <= argc)
 				CreateMission(argv[i + 1]);

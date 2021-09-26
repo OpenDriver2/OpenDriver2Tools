@@ -1,0 +1,10 @@
+{
+  "FileVersion": 2,
+  "Id": "63d5b066-4fb9-71bc-b819-6c0fa41c5c3e",
+  "Items": [
+    {
+      "Id": "71148420-6089-4632-80ad-4137c85455cc",
+      "Command": "-make test.d2ms"
+    }
+  ]
+}

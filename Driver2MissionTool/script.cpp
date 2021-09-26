@@ -1,7 +1,6 @@
-#include "script.hpp"
-
 #include <cstdio>
 #include <cstdlib>
+#include "script.hpp"
 #include "mission.hpp"
 
 void initStack(Stack* stack)
@@ -28,7 +27,7 @@ void addThread(Stack* stack, Thread* thread)
     stack->nbOperations += thread->offset;
 }
 
-void init(Thread* thread, uint size)
+void init_thread(Thread* thread, uint size)
 {
     thread->operations = (uint*)malloc(sizeof(uint) * size);
     thread->offset = 0;
@@ -39,12 +38,12 @@ void init(Thread* thread, uint size)
     }
 }
 
-void push(Thread* thread, uint op_code)
+void push_thread(Thread* thread, uint op_code)
 {
     thread->operations[thread->offset++] = op_code;
 }
 
-uint pop(Thread* thread)
+uint pop_thread(Thread* thread)
 {
     uint popValue = thread->operations[thread->offset];
     thread->operations[thread->offset] = 0;
@@ -53,7 +52,7 @@ uint pop(Thread* thread)
     return popValue;
 }
 
-void print(Thread thread)
+void print_thread(Thread thread)
 {
     uint* operations = thread.operations;
     for (int i = 0; i < thread.offset; i++)

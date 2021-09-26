@@ -67,4 +67,7 @@ void SaveTIM_16bit(char* filename,
 	ubyte* image_data, int image_size,
 	int x, int y, int w, int h);
 
+void SaveRAW_TIM(char* out, 
+	char** filenames, 
+	size_t nbFiles);
 #endif // IMAGE_H

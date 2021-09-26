@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 
+#include "core/cmdlib.h"
+
 //-------------------------------------------------------------------------------
 
 // 16 bit color to BGRA
@@ -76,6 +78,79 @@ void SaveTGA(const char* filename, ubyte* data, int w, int h, int c)
 	fwrite(data, imageSize, 1, pFile);
 
 	fclose(pFile);
+}
+
+void SaveRAW_TIM(char* out, char** filenames, size_t nbFiles)
+{
+	ubyte** image_data = (ubyte**) malloc(sizeof(ubyte*) * nbFiles);
+	ubyte** clut_data = (ubyte**) malloc(sizeof(ubyte*) * nbFiles);
+
+	size_t* size_id = (size_t*)malloc(sizeof(size_t) * nbFiles);
+	size_t* size_cd = (size_t*)malloc(sizeof(size_t) * nbFiles);
+	
+	/*
+	 * TIM FILE
+	 * TIMHDR(header)
+	 * TIMIMAGEHDR(cluthdr)
+	 * binary data clut_data
+	 * TIMIMAGEHDR(datahdr)
+	 * binary data clut_data
+	 */
+
+	for (size_t i = 0; i < nbFiles; i++)
+	{
+		FILE* fp = fopen(filenames[i], "rb");
+		if (!fp)
+		{
+			fprintf(stderr, "Unable to open '%s' file\n", filenames[i]);
+			exit(EXIT_FAILURE);
+		}
+		// Here parse TIM files
+		
+		TIMHDR hdr;
+		TIMIMAGEHDR cluthdr;
+		TIMIMAGEHDR datahdr;
+
+		fread(&hdr, 1, sizeof(TIMHDR), fp);
+		
+		fread(&cluthdr, 1, sizeof(TIMIMAGEHDR), fp);
+		clut_data[i] = (ubyte*) malloc(sizeof(ubyte)*cluthdr.len);
+		fread(clut_data[i], 1, cluthdr.len - sizeof(TIMIMAGEHDR), fp);
+		
+		fread(&datahdr, 1, sizeof(TIMIMAGEHDR), fp);
+		image_data[i] = (ubyte*) malloc(sizeof(ubyte) * datahdr.len);
+		fread(image_data[i], 1, datahdr.len - sizeof(TIMIMAGEHDR), fp);
+
+		size_id[i] = datahdr.len - sizeof(TIMIMAGEHDR);
+		size_cd[i] = cluthdr.len - sizeof(TIMIMAGEHDR);
+		
+		fclose(fp);
+	}
+
+	FILE* fp = fopen(out, "wb");
+
+	if (!fp)
+	{
+		fprintf(stderr, "Unable to open '%s' file\n", out);
+		return;
+	}
+
+	for (int i = 0; i < nbFiles; i++)
+	{
+		fwrite(image_data[i], 1, size_id[i], fp);
+	}
+
+	for (int i = 0; i < nbFiles; i++)
+	{
+		fwrite(clut_data[i], 1, size_cd[i], fp);
+	}
+
+	fseek(fp, 0, SEEK_END);
+	int bgSize = ftell(fp);
+	int zero = 0;
+	fwrite(&zero, 1, 0x60000 - bgSize, fp);
+
+	fclose(fp);
 }
 
 //-------------------------------------------------------------

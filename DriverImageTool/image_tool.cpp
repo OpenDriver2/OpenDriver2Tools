@@ -235,6 +235,12 @@ void ExportExtraImage(const char* filename, ubyte* data, ubyte* clut_data, int n
 // In frontend, extra poly has a preview image drawn
 void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 {
+	/* Inside RAW Files
+	 * imageCLUT are found at offset + 0x58000
+	 * timData is an array of each image 64 width, 256 height, and 6 pieces of image
+	 *
+	 */
+	
 	FILE* bgFp = fopen(filename, "rb");
 
 	if (!bgFp)
@@ -312,7 +318,9 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 			SaveTIM_4bit(varargs("%s_SEL.TIM", filename),
 				bgImagePiece, 64 * 2 * 36, 0, 0, 256, 36, imageClut, 1);
 		}
-		/*else // pointless to have font and selection texture as tpage, but i'll leave it here as reference code
+
+		// TODO: Decompress everything that we have something to recompress
+		//else // pointless to have font and selection texture as tpage, but i'll leave it here as reference code
 		{
 			// try extract the rest
 			for (int i = 0; i < 6; i++)
@@ -334,7 +342,7 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 
 			SaveTIM_4bit(varargs("%s_REST.TIM", filename),
 				timData, 64 * 6 * 512, 0, 0, 384 * 2, 512, (ubyte*)imageClut, 1);
-		}*/
+		}
 	}
 
 	// load extra file if specified
@@ -375,6 +383,17 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 	MsgInfo("Done!\n");
 }
 
+void ConvertTIMToBackgroundRaw(char** filenames)
+{
+	FILE* fp = fopen(filenames[0], "wb");
+
+	if (!fp)
+	{
+		MsgError("Unable to open '%s'\n", filenames[0]);
+		return;
+	}
+}
+
 //-----------------------------------------------------
 
 void PrintCommandLineArguments()
@@ -383,6 +402,7 @@ void PrintCommandLineArguments()
 	MsgInfo("\tDriverImageTool -sky2tim SKY0.RAW\n");
 	MsgInfo("\tDriverImageTool -sky2tga SKY1.RAW\n");
 	MsgInfo("\tDriverImageTool -bg2tim CARBACK.RAW <CCARS.RAW>\n");
+	MsgInfo("\tDriverImageTool -tim2bg BG.RAW FILE.TIM FILE2.TIM\n");
 }
 
 int main(int argc, char** argv)
@@ -433,6 +453,22 @@ int main(int argc, char** argv)
 			}
 			else
 				MsgWarning("-bg2tim must have an argument!");
+		}
+		else if (!stricmp(argv[i], "-tim2bg"))
+		{
+			int nbFiles = argc - i - 1;
+			if (nbFiles > 1)
+			{
+				char** filenames = (char**)malloc(sizeof(char*)*nbFiles);
+				for (int j = 0; j < nbFiles; j++)
+				{
+					filenames[j] = argv[i + j + 1];
+				}
+
+				SaveRAW_TIM("TEST.RAW", filenames, nbFiles);
+			}
+			else
+				MsgWarning("-tim2bg must have at least an argument!");
 		}
 	}
 
