@@ -97,6 +97,13 @@ void SaveRAW_TIM(char* out, char** filenames, size_t nbFiles)
 	 * binary data clut_data
 	 */
 
+	/* GFX.RAW FILE
+		0x00000 - 0x32000 - GFX.RAW.TIM image_data[0]
+		0x32000 - 0x52000 - GFX_REST.RAW.TIM image_data[1]
+		0x52000 - 0x58000 - CLUT DATA clut_data 
+		0x58000 - 0x60000 - NULL BYTES
+	*/
+
 	for (size_t i = 0; i < nbFiles; i++)
 	{
 		FILE* fp = fopen(filenames[i], "rb");
@@ -134,6 +141,8 @@ void SaveRAW_TIM(char* out, char** filenames, size_t nbFiles)
 		fprintf(stderr, "Unable to open '%s' file\n", out);
 		return;
 	}
+	
+	// Here re-order tim raw image and clut data as well to psx raw data
 
 	for (int i = 0; i < nbFiles; i++)
 	{
