@@ -63,3 +63,4 @@ Driver2CutsceneTool/obj/*
 Driver2MissionTool/bin/*
 Driver2MissionTool/obj/*
 LEVELS/*
+*.args.json
