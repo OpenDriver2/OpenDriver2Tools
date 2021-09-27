@@ -82,57 +82,8 @@ void SaveTGA(const char* filename, ubyte* data, int w, int h, int c)
 
 void SaveRAW_TIM(char* out, char** filenames, size_t nbFiles)
 {
-	ubyte** image_data = (ubyte**) malloc(sizeof(ubyte*) * nbFiles);
-	ubyte** clut_data = (ubyte**) malloc(sizeof(ubyte*) * nbFiles);
-
-	size_t* size_id = (size_t*)malloc(sizeof(size_t) * nbFiles);
-	size_t* size_cd = (size_t*)malloc(sizeof(size_t) * nbFiles);
-	
-	/*
-	 * TIM FILE
-	 * TIMHDR(header)
-	 * TIMIMAGEHDR(cluthdr)
-	 * binary data clut_data
-	 * TIMIMAGEHDR(datahdr)
-	 * binary data clut_data
-	 */
-
-	/* GFX.RAW FILE
-		0x00000 - 0x32000 - GFX.RAW.TIM image_data[0]
-		0x32000 - 0x52000 - GFX_REST.RAW.TIM image_data[1]
-		0x52000 - 0x58000 - CLUT DATA clut_data 
-		0x58000 - 0x60000 - NULL BYTES
-	*/
-
-	for (size_t i = 0; i < nbFiles; i++)
-	{
-		FILE* fp = fopen(filenames[i], "rb");
-		if (!fp)
-		{
-			fprintf(stderr, "Unable to open '%s' file\n", filenames[i]);
-			exit(EXIT_FAILURE);
-		}
-		// Here parse TIM files
-		
-		TIMHDR hdr;
-		TIMIMAGEHDR cluthdr;
-		TIMIMAGEHDR datahdr;
-
-		fread(&hdr, 1, sizeof(TIMHDR), fp);
-		
-		fread(&cluthdr, 1, sizeof(TIMIMAGEHDR), fp);
-		clut_data[i] = (ubyte*) malloc(sizeof(ubyte)*cluthdr.len);
-		fread(clut_data[i], 1, cluthdr.len - sizeof(TIMIMAGEHDR), fp);
-		
-		fread(&datahdr, 1, sizeof(TIMIMAGEHDR), fp);
-		image_data[i] = (ubyte*) malloc(sizeof(ubyte) * datahdr.len);
-		fread(image_data[i], 1, datahdr.len - sizeof(TIMIMAGEHDR), fp);
-
-		size_id[i] = datahdr.len - sizeof(TIMIMAGEHDR);
-		size_cd[i] = cluthdr.len - sizeof(TIMIMAGEHDR);
-		
-		fclose(fp);
-	}
+	ubyte** clut_data = static_cast<ubyte**>(malloc(sizeof(ubyte*) * nbFiles));
+	size_t* size_cd = static_cast<size_t*>(malloc(sizeof(size_t) * nbFiles)); // Sizes of clut_data
 
 	FILE* fp = fopen(out, "wb");
 
@@ -142,24 +93,75 @@ void SaveRAW_TIM(char* out, char** filenames, size_t nbFiles)
 		return;
 	}
 	
-	// Here re-order tim raw image and clut data as well to psx raw data
-
-	for (int i = 0; i < nbFiles; i++)
+	for (size_t i = 0; i < nbFiles; i++)
 	{
-		fwrite(image_data[i], 1, size_id[i], fp);
+		FILE* inFp = fopen(filenames[i], "rb");
+		if (!inFp)
+		{
+			fprintf(stderr, "Unable to open '%s' file\n", filenames[i]);
+			exit(EXIT_FAILURE);
+		}
+		
+		MsgInfo("Parsing '%s' file\n", filenames[i]);
+		
+		TIMIMAGEHDR cluthdr;
+		TIMIMAGEHDR header;
+		ubyte* image_data;
+
+		// Skip header
+		fseek(inFp, 8, SEEK_SET);
+
+		// Parsing CLUT Header
+		fread(&cluthdr, 1, sizeof(TIMIMAGEHDR), inFp);
+		clut_data[i] = static_cast<ubyte*>(malloc(cluthdr.len - sizeof(TIMIMAGEHDR)));
+		fread(clut_data[i], 1, cluthdr.len - sizeof(TIMIMAGEHDR), inFp);
+
+		// Parsing image data header
+		fread(&header, 1, sizeof(TIMIMAGEHDR), inFp);
+		image_data = static_cast<ubyte*>(malloc(header.len - sizeof(TIMIMAGEHDR)));
+		fread(image_data, 1, header.len - sizeof(TIMIMAGEHDR), inFp);
+
+		size_cd[i] = cluthdr.len - sizeof(TIMIMAGEHDR);
+		
+		fclose(inFp);
+		MsgInfo("Writing image data of file '%s' to '%s'\n", filenames[i], out);
+		
+		int rect_w = 64;
+		int rect_h = 256;
+
+		for (int j = 0; j < 6; j++)
+		{
+			ubyte* bgImagePiece = (ubyte*)malloc(0x8000);
+
+			int rect_y = j / 3;
+			int rect_x = (j - (rect_y & 1) * 3) * 128;
+			rect_y *= 256;
+
+			for (int y = 0; y < rect_h; y++)
+			{
+				for (int x = 0; x < rect_w * 2; x++)
+				{
+					size_t timDataIndex = (rect_y + y) * 64 * 6 + rect_x + x;
+					size_t bgImagePieceIndex = y * 128 + x;
+					bgImagePiece[bgImagePieceIndex] = image_data[timDataIndex];
+				}
+			}
+			fwrite(bgImagePiece, 1, 0x8000, fp);
+		}
+		MsgAccept("Image data of '%s' wrote with success\n\n", filenames[i]);
 	}
 
-	for (int i = 0; i < nbFiles; i++)
+	// Set offset to start of CLUT data
+	fseek(fp, 0x58000, SEEK_SET);
+	for (size_t i = 0; i < nbFiles; i++)
 	{
+		MsgInfo("Writting CLUT data to '%s'\n", filenames[i]);
 		fwrite(clut_data[i], 1, size_cd[i], fp);
+		MsgAccept("CLUT data of '%s' wrote with success\n\n", filenames[i]);
 	}
-
-	fseek(fp, 0, SEEK_END);
-	int bgSize = ftell(fp);
-	int zero = 0;
-	fwrite(&zero, 1, 0x60000 - bgSize, fp);
 
 	fclose(fp);
+	MsgAccept("'%s' compiled with success !\n", out);
 }
 
 //-------------------------------------------------------------

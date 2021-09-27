@@ -291,7 +291,9 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 			{
 				for (int x = 0; x < rect_w * 2; x++)
 				{
-					timData[(rect_y + y) * 64 * 6 + rect_x + x] = bgImagePiece[y * 128 + x];
+					size_t timDataIndex = (rect_y + y) * 64 * 6 + rect_x + x;
+					size_t bgImagePieceIndex = y * 128 + x;
+					timData[timDataIndex] = bgImagePiece[bgImagePieceIndex];
 				}
 			}
 		}
@@ -402,7 +404,7 @@ void PrintCommandLineArguments()
 	MsgInfo("\tDriverImageTool -sky2tim SKY0.RAW\n");
 	MsgInfo("\tDriverImageTool -sky2tga SKY1.RAW\n");
 	MsgInfo("\tDriverImageTool -bg2tim CARBACK.RAW <CCARS.RAW>\n");
-	MsgInfo("\tDriverImageTool -tim2bg BG.RAW FILE.TIM FILE2.TIM\n");
+	MsgInfo("\tDriverImageTool -tim2raw BG.RAW <FILE.TIM FILE2.TIM ..>\n");
 }
 
 int main(int argc, char** argv)
@@ -454,21 +456,21 @@ int main(int argc, char** argv)
 			else
 				MsgWarning("-bg2tim must have an argument!");
 		}
-		else if (!stricmp(argv[i], "-tim2bg"))
+		else if (!stricmp(argv[i], "-tim2raw"))
 		{
-			int nbFiles = argc - i - 1;
-			if (nbFiles > 1)
+			int nbFiles = argc - i - 2;
+			if (argc > 3)
 			{
 				char** filenames = (char**)malloc(sizeof(char*)*nbFiles);
 				for (int j = 0; j < nbFiles; j++)
 				{
-					filenames[j] = argv[i + j + 1];
+					filenames[j] = argv[i + j + 2];					
 				}
-
-				SaveRAW_TIM("TEST.RAW", filenames, nbFiles);
+				
+				SaveRAW_TIM(argv[i + 1], filenames, nbFiles);
 			}
 			else
-				MsgWarning("-tim2bg must have at least an argument!");
+				MsgWarning("-tim2raw must have at least three arguments!");
 		}
 	}
 
