@@ -141,9 +141,7 @@ void SaveRAW_TIM(char* out, char** filenames, size_t nbFiles)
 			{
 				for (int x = 0; x < rect_w * 2; x++)
 				{
-					size_t timDataIndex = (rect_y + y) * 64 * 6 + rect_x + x;
-					size_t bgImagePieceIndex = y * 128 + x;
-					bgImagePiece[bgImagePieceIndex] = image_data[timDataIndex];
+					bgImagePiece[y * 128 + x] = image_data[(rect_y + y) * 64 * 6 + rect_x + x];
 				}
 			}
 			fwrite(bgImagePiece, 1, 0x8000, fp);
