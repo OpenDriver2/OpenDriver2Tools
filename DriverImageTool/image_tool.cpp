@@ -234,13 +234,7 @@ void ExportExtraImage(const char* filename, ubyte* data, ubyte* clut_data, int n
 
 // In frontend, extra poly has a preview image drawn
 void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
-{
-	/* Inside RAW Files
-	 * imageCLUT are found at offset + 0x58000
-	 * timData is an array of each image 64 width, 256 height, and 6 pieces of image
-	 *
-	 */
-	
+{	
 	FILE* bgFp = fopen(filename, "rb");
 
 	if (!bgFp)
@@ -291,9 +285,7 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 			{
 				for (int x = 0; x < rect_w * 2; x++)
 				{
-					size_t timDataIndex = (rect_y + y) * 64 * 6 + rect_x + x;
-					size_t bgImagePieceIndex = y * 128 + x;
-					timData[timDataIndex] = bgImagePiece[bgImagePieceIndex];
+					timData[(rect_y + y) * 64 * 6 + rect_x + x] = bgImagePiece[y * 128 + x];
 				}
 			}
 		}
@@ -321,7 +313,6 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 				bgImagePiece, 64 * 2 * 36, 0, 0, 256, 36, imageClut, 1);
 		}
 
-		// TODO: Decompress everything that we have something to recompress
 		//else // pointless to have font and selection texture as tpage, but i'll leave it here as reference code
 		{
 			// try extract the rest
