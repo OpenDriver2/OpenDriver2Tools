@@ -1,7 +1,7 @@
 #include "image.h"
 
 #include <stdio.h>
-
+#include <nstd/Array.hpp>
 #include "core/cmdlib.h"
 
 //-------------------------------------------------------------------------------
@@ -78,88 +78,6 @@ void SaveTGA(const char* filename, ubyte* data, int w, int h, int c)
 	fwrite(data, imageSize, 1, pFile);
 
 	fclose(pFile);
-}
-
-void SaveRAW_TIM(char* out, char** filenames, size_t nbFiles)
-{
-	ubyte** clut_data = static_cast<ubyte**>(malloc(sizeof(ubyte*) * nbFiles));
-	size_t* size_cd = static_cast<size_t*>(malloc(sizeof(size_t) * nbFiles)); // Sizes of clut_data
-
-	FILE* fp = fopen(out, "wb");
-
-	if (!fp)
-	{
-		fprintf(stderr, "Unable to open '%s' file\n", out);
-		return;
-	}
-	
-	for (size_t i = 0; i < nbFiles; i++)
-	{
-		FILE* inFp = fopen(filenames[i], "rb");
-		if (!inFp)
-		{
-			fprintf(stderr, "Unable to open '%s' file\n", filenames[i]);
-			exit(EXIT_FAILURE);
-		}
-		
-		MsgInfo("Parsing '%s' file\n", filenames[i]);
-		
-		TIMIMAGEHDR cluthdr;
-		TIMIMAGEHDR header;
-		ubyte* image_data;
-
-		// Skip header
-		fseek(inFp, 8, SEEK_SET);
-
-		// Parsing CLUT Header
-		fread(&cluthdr, 1, sizeof(TIMIMAGEHDR), inFp);
-		clut_data[i] = static_cast<ubyte*>(malloc(cluthdr.len - sizeof(TIMIMAGEHDR)));
-		fread(clut_data[i], 1, cluthdr.len - sizeof(TIMIMAGEHDR), inFp);
-
-		// Parsing image data header
-		fread(&header, 1, sizeof(TIMIMAGEHDR), inFp);
-		image_data = static_cast<ubyte*>(malloc(header.len - sizeof(TIMIMAGEHDR)));
-		fread(image_data, 1, header.len - sizeof(TIMIMAGEHDR), inFp);
-
-		size_cd[i] = cluthdr.len - sizeof(TIMIMAGEHDR);
-		
-		fclose(inFp);
-		MsgInfo("Writing image data of file '%s' to '%s'\n", filenames[i], out);
-		
-		int rect_w = 64;
-		int rect_h = 256;
-
-		for (int j = 0; j < 6; j++)
-		{
-			ubyte* bgImagePiece = (ubyte*)malloc(0x8000);
-
-			int rect_y = j / 3;
-			int rect_x = (j - (rect_y & 1) * 3) * 128;
-			rect_y *= 256;
-
-			for (int y = 0; y < rect_h; y++)
-			{
-				for (int x = 0; x < rect_w * 2; x++)
-				{
-					bgImagePiece[y * 128 + x] = image_data[(rect_y + y) * 64 * 6 + rect_x + x];
-				}
-			}
-			fwrite(bgImagePiece, 1, 0x8000, fp);
-		}
-		MsgAccept("Image data of '%s' wrote with success\n\n", filenames[i]);
-	}
-
-	// Set offset to start of CLUT data
-	fseek(fp, 0x58000, SEEK_SET);
-	for (size_t i = 0; i < nbFiles; i++)
-	{
-		MsgInfo("Writting CLUT data to '%s'\n", filenames[i]);
-		fwrite(clut_data[i], 1, size_cd[i], fp);
-		MsgAccept("CLUT data of '%s' wrote with success\n\n", filenames[i]);
-	}
-
-	fclose(fp);
-	MsgAccept("'%s' compiled with success !\n", out);
 }
 
 //-------------------------------------------------------------
