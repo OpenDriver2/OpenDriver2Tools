@@ -366,7 +366,7 @@ void PackCutsceneFile(const char* foldername)
 		MsgWarning("No chase replays\n");
 	}
 
-	String folderPath = String::fromPrintf(numChaseReplays > 0 ? "%s_N.R" : "%s.R", foldername);
+	String folderPath = String::fromPrintf(replays[0] || replays[1] ? "%s.R" : "%s_N.R", foldername);
 
 	FILE* wp = fopen(folderPath, "wb");
 
