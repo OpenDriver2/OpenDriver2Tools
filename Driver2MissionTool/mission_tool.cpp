@@ -1,19 +1,12 @@
 ﻿#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
-
+#include <nstd/File.hpp>
 #include "core/cmdlib.h"
-//----------------------------------------------------
 
-void CompileMissionBlk(const char* filename)
+void CreateMission(const char* filename)
 {
-}
 
-void DecompileMissionBlk(const char* filename, int missionNumber)
-{
-	if (missionNumber <= 0) // decompile all
-	{
-
-	}
 }
 
 //-----------------------------------------------------
@@ -25,7 +18,7 @@ void PrintCommandLineArguments()
 	MsgInfo("\tDriver2MissionTool -compile <mission_script_name.d2ms>\n");
 }
 
-int main(int argc, char** argv)
+int main(const int argc, char** argv)
 {
 #ifdef _WIN32
 	Install_ConsoleSpewFunction();
@@ -41,20 +34,7 @@ int main(int argc, char** argv)
 
 	for (int i = 0; i < argc; i++)
 	{
-		if (!stricmp(argv[i], "-compile"))
-		{
-			if (i + 1 <= argc)
-				CompileMissionBlk(argv[i + 1]);
-			else
-				MsgWarning("-compile must have an argument!");
-		}
-		else if (!stricmp(argv[i], "-decompile"))
-		{
-			if (i + 1 <= argc)
-				DecompileMissionBlk(argv[i + 1], atoi(argv[i + 2]));
-			else
-				MsgWarning("-decompile must have at least one argument!");
-		}
+		
 	}
 
 	return 0;

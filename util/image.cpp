@@ -1,6 +1,8 @@
 #include "image.h"
 
 #include <stdio.h>
+#include <nstd/Array.hpp>
+#include "core/cmdlib.h"
 
 //-------------------------------------------------------------------------------
 

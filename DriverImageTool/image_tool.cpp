@@ -9,12 +9,17 @@
 
 #include <string.h>
 #include <nstd/String.hpp>
+#include <nstd/Array.hpp>
 
 #include "math/Vector.h"
 
 const int SKY_CLUT_START_Y = 252;
 const int SKY_SIZE_W = 256 / 4;
 const int SKY_SIZE_H = 84;
+
+const int BG_SPLICE_W = 64;
+const int BG_SPLICE_H = 256;
+const int BG_SPLICE_SIZE = BG_SPLICE_W * 2 * BG_SPLICE_H;
 
 void CopyTpageImage(ushort* tp_src, ushort* dst, int x, int y, int dst_w, int dst_h)
 {
@@ -234,7 +239,7 @@ void ExportExtraImage(const char* filename, ubyte* data, ubyte* clut_data, int n
 
 // In frontend, extra poly has a preview image drawn
 void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
-{
+{	
 	FILE* bgFp = fopen(filename, "rb");
 
 	if (!bgFp)
@@ -255,7 +260,7 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 
 	fclose(bgFp);
 
-	ubyte* imageClut = bgData + 11 * 0x8000;
+	ubyte* imageClut = bgData + 11 * BG_SPLICE_SIZE;
 	
 	// convert background image and store
 	{
@@ -275,7 +280,7 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 
 		for (int i = 0; i < 6; i++)
 		{
-			ubyte* bgImagePiece = bgData + i * 0x8000;
+			ubyte* bgImagePiece = bgData + i * BG_SPLICE_SIZE;
 
 			int rect_y = i / 3;
 			int rect_x = (i - (rect_y & 1) * 3) * 128;
@@ -297,7 +302,7 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 		// check if it's GFX.RAW
 		// if(str.find("gfx"))
 		{
-			imageClut = bgData + 0x30000 + 5 * 0x8000 + 128;
+			imageClut = bgData + 0x30000 + 5 * BG_SPLICE_SIZE + 128;
 
 			// extract font
 			ubyte* bgImagePiece = bgData + 0x30000;
@@ -306,18 +311,19 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 				bgImagePiece, 64*2*256, 0, 0, 256, 256, imageClut, 1);
 			
 			imageClut += 128;
-			bgImagePiece += 0x8000;
+			bgImagePiece += BG_SPLICE_SIZE;
 
 			// extract selection texture
 			SaveTIM_4bit(varargs("%s_SEL.TIM", filename),
 				bgImagePiece, 64 * 2 * 36, 0, 0, 256, 36, imageClut, 1);
 		}
-		/*else // pointless to have font and selection texture as tpage, but i'll leave it here as reference code
+
+		//else // pointless to have font and selection texture as tpage, but i'll leave it here as reference code
 		{
 			// try extract the rest
 			for (int i = 0; i < 6; i++)
 			{
-				ubyte* bgImagePiece = bgData + 0x30000 + i * 0x8000;
+				ubyte* bgImagePiece = bgData + 0x30000 + i * BG_SPLICE_SIZE;
 
 				int rect_y = i / 3;
 				int rect_x = (i - (rect_y & 1) * 3) * 128;
@@ -334,7 +340,7 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 
 			SaveTIM_4bit(varargs("%s_REST.TIM", filename),
 				timData, 64 * 6 * 512, 0, 0, 384 * 2, 512, (ubyte*)imageClut, 1);
-		}*/
+		}
 	}
 
 	// load extra file if specified
@@ -361,9 +367,9 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 
 		for (int i = 0; i < 16; i++)
 		{
-			ubyte* imageAddr = data + i * 0x8000;
+			ubyte* imageAddr = data + i * BG_SPLICE_SIZE;
 
-			if ((i * 0x8000) < size)
+			if ((i * BG_SPLICE_SIZE) < size)
 				ExportExtraImage(extraFilename, imageAddr, imageClut, i);
 		}
 
@@ -377,12 +383,122 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 
 //-----------------------------------------------------
 
+// builds image out of separate TIM slices
+bool BuildBackgroundRaw(char* out, const Array<char*>& timFileNames)
+{
+	Array<usize> size_cd;
+	Array<ubyte*> clut_data;
+
+	// TODO: check for maximum number of images
+
+	clut_data.resize(timFileNames.size());
+	size_cd.resize(timFileNames.size());
+
+	FILE* fp = fopen(out, "wb");
+
+	if (!fp)
+	{
+		MsgError("Unable to open '%s' file\n", out);
+		return false;
+	}
+	
+	for (usize i = 0; i < timFileNames.size(); i++)
+	{
+		FILE* inFp = fopen(timFileNames[i], "rb");
+		if (!inFp)
+		{
+			MsgError("Unable to open '%s' file\n", timFileNames[i]);
+			return false;
+		}
+		
+		MsgInfo("Adding file: '%s'\n", timFileNames[i]);
+		
+		TIMHDR timHdr;
+		TIMIMAGEHDR cluthdr;
+		TIMIMAGEHDR header;
+		ubyte* image_data;
+
+		// Check header
+		fread(&timHdr, 1, sizeof(timHdr), inFp);
+		if (timHdr.magic != 0x10)
+		{
+			MsgError("Input file is not a TIM file!\n");
+			fclose(inFp);
+			return false;
+		}
+
+		if (timHdr.flags != 0x08)
+		{
+			MsgError("Input image must be 4-bit!\n");
+			fclose(inFp);
+			return false;
+		}
+
+		// FIXME: need to check background image size properties!!!
+
+		// Parsing CLUT Header
+		fread(&cluthdr, 1, sizeof(cluthdr), inFp);
+		clut_data[i] = static_cast<ubyte*>(malloc(cluthdr.len - sizeof(cluthdr)));
+		fread(clut_data[i], 1, cluthdr.len - sizeof(cluthdr), inFp);
+
+		// Parsing image data header
+		fread(&header, 1, sizeof(header), inFp);
+		image_data = static_cast<ubyte*>(malloc(header.len - sizeof(header)));
+		fread(image_data, 1, header.len - sizeof(header), inFp);
+
+		size_cd[i] = cluthdr.len - sizeof(cluthdr);
+		
+		fclose(inFp);
+		MsgInfo("Writing image data of file '%s' to '%s'\n", timFileNames[i], out);
+	
+		ubyte* bgImagePiece = static_cast<ubyte*>(malloc(BG_SPLICE_SIZE));
+
+		for (int j = 0; j < 6; j++)
+		{
+			int rect_y = j / 3;
+			int rect_x = (j - (rect_y & 1) * 3) * (BG_SPLICE_W * 2);
+			rect_y *= BG_SPLICE_H;
+
+			for (int y = 0; y < BG_SPLICE_H; y++)
+			{
+				for (int x = 0; x < BG_SPLICE_W * 2; x++)
+				{
+					bgImagePiece[y * BG_SPLICE_W * 2 + x] = image_data[(rect_y + y) * BG_SPLICE_W * 6 + rect_x + x];
+				}
+			}
+
+			fwrite(bgImagePiece, 1, BG_SPLICE_SIZE, fp);			
+		}
+
+		free(bgImagePiece);
+		free(image_data);
+	}
+
+	// Set offset to start of CLUT data
+	fseek(fp, 0x58000, SEEK_SET);
+	for (usize i = 0; i < timFileNames.size(); i++)
+	{
+		MsgInfo("Writting CLUT data to '%s'\n", timFileNames[i]);
+		fwrite(clut_data[i], 1, size_cd[i], fp);
+
+		free(clut_data[i]);
+	}
+
+	fclose(fp);
+	MsgAccept("'%s' compiled with success !\n", out);
+
+	return true;
+}
+
+//-----------------------------------------------------
+
 void PrintCommandLineArguments()
 {
 	MsgInfo("Example usage:\n");
 	MsgInfo("\tDriverImageTool -sky2tim SKY0.RAW\n");
 	MsgInfo("\tDriverImageTool -sky2tga SKY1.RAW\n");
 	MsgInfo("\tDriverImageTool -bg2tim CARBACK.RAW <CCARS.RAW>\n");
+	MsgInfo("\tDriverImageTool -tim2raw GFX.RAW BG.tim <FontAndSelection.tim Image3.tim ..>\n");
 }
 
 int main(int argc, char** argv)
@@ -432,7 +548,27 @@ int main(int argc, char** argv)
 					ConvertBackgroundRaw(argv[i + 1], nullptr);
 			}
 			else
-				MsgWarning("-bg2tim must have an argument!");
+				MsgWarning("-bg2tim must have argument!");
+		}
+		else if (!stricmp(argv[i], "-tim2raw"))
+		{
+			if (i + 2 <= argc)
+			{
+				Array<char*> filenames;
+				const char* outputFilename = argv[i + 1];
+
+				for (int j = i + 2; j < argc; j++)
+				{
+					if (*argv[j] == '-' || *argv[j] == '+' || *argv[j] == '/' || *argv[j] == '\\') // encountered new option?
+						break;
+
+					filenames.append(argv[j]);
+				}
+				
+				BuildBackgroundRaw(argv[i + 1], filenames);
+			}
+			else
+				MsgWarning("-tim2raw must have at least two arguments!");
 		}
 	}
 

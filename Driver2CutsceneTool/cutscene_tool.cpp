@@ -260,13 +260,14 @@ void PackCutsceneFile(const char* foldername)
 
 	int numCutsceneReplays = 0;
 	int numChaseReplays = 0;
-
+	bool hasChases = false;
 	for (int i = 0; i < MAX_FILE_CUTSCENES; i++)
 	{
 		String folderPath = String::fromPrintf("%s/%s_%d.D2RP", foldername, foldername, i);
 		FILE* fp = fopen(String::fromPrintf("%s/%s_%d.D2RP", foldername, foldername, i), "rb");
 		if (fp)
 		{
+			if (i > 1) hasChases = true;
 			if (i == 0)
 			{
 				MsgAccept("Got intro cutscene\n");
@@ -367,7 +368,7 @@ void PackCutsceneFile(const char* foldername)
 		MsgWarning("No chase replays\n");
 	}
 
-	String folderPath = String::fromPrintf("%s_N.R", foldername);
+	String folderPath = String::fromPrintf("%s.R", foldername);
 
 	FILE* wp = fopen(folderPath, "wb");
 
@@ -386,7 +387,7 @@ void PackCutsceneFile(const char* foldername)
 	char* bufptr = buffer;
 	offset = 2048;
 
-	for (int i = 0; i < MAX_FILE_CUTSCENES; i++)
+	for (int i = 0; i < (hasChases ? MAX_FILE_CUTSCENES : 2); i++)
 	{
 		int replayId = i;
 
@@ -398,7 +399,7 @@ void PackCutsceneFile(const char* foldername)
 		{
 			if (i == 0 || i == 1)
 				continue;
-
+			
 			if (numChaseReplays > 0)
 			{
 				do
