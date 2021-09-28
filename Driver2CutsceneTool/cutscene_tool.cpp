@@ -260,14 +260,12 @@ void PackCutsceneFile(const char* foldername)
 
 	int numCutsceneReplays = 0;
 	int numChaseReplays = 0;
-	bool hasChases = false;
 	for (int i = 0; i < MAX_FILE_CUTSCENES; i++)
 	{
 		String folderPath = String::fromPrintf("%s/%s_%d.D2RP", foldername, foldername, i);
 		FILE* fp = fopen(String::fromPrintf("%s/%s_%d.D2RP", foldername, foldername, i), "rb");
 		if (fp)
 		{
-			if (i > 1) hasChases = true;
 			if (i == 0)
 			{
 				MsgAccept("Got intro cutscene\n");
@@ -368,7 +366,7 @@ void PackCutsceneFile(const char* foldername)
 		MsgWarning("No chase replays\n");
 	}
 
-	String folderPath = String::fromPrintf("%s.R", foldername);
+	String folderPath = String::fromPrintf(numChaseReplays > 0 ? "%s_N.R" : "%s.R", foldername);
 
 	FILE* wp = fopen(folderPath, "wb");
 
@@ -387,7 +385,7 @@ void PackCutsceneFile(const char* foldername)
 	char* bufptr = buffer;
 	offset = 2048;
 
-	for (int i = 0; i < (hasChases ? MAX_FILE_CUTSCENES : 2); i++)
+	for (int i = 0; i < MAX_FILE_CUTSCENES; i++)
 	{
 		int replayId = i;
 
@@ -400,27 +398,26 @@ void PackCutsceneFile(const char* foldername)
 			if (i == 0 || i == 1)
 				continue;
 			
-			if (numChaseReplays > 0)
-			{
-				do
-				{
-					replayId = 2 + (rand() % (MAX_FILE_CUTSCENES - 2));
-				} while (replayId == i || !replays[replayId]);
-				MsgInfo("Picked random replay %d for chase %d\n", replayId, i);
-			}
-		}
+			if (numChaseReplays < 1) break;
 
+			do
+			{
+				replayId = 2 + (rand() % (MAX_FILE_CUTSCENES - 2));
+			} while (replayId == i || !replays[replayId]);
+			MsgInfo("Picked random replay %d for chase %d\n", replayId, i);
+		}
+		
 		// write to file
 		memcpy(bufptr, replays[replayId], repsizes[replayId]);
-
+		
 		header.data[i].offset = offset / 4;	// because it use shorts we have an multiplier
 		header.data[i].size = repsizes[replayId];
-
+		
 		int sizeStep = ((repsizes[replayId] + 1024) / 2048) * 2048;
-
+		
 		if (sizeStep < 2048)
 			sizeStep = 2048;
-
+		
 		bufptr += sizeStep;
 		offset += sizeStep;
 	}
