@@ -103,7 +103,7 @@ void ConvertSkyD1(const char* skyFileName)
 		return;
 	}
 
-	for (int skyNum = 0; skyNum < 12; skyNum++)
+	for (int skyNum = 0; skyNum < 13; skyNum++)
 	{
 		fseek(fp, skyNum * 48, SEEK_SET);
 
