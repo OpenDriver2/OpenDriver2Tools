@@ -60,10 +60,13 @@ int ExportRegionDriver1(CDriver1LevelRegion* region, IVirtualStream* levelFileSt
 	if (g_export_worldUnityScript)
 		levelFileStream->Print("// Region %d\n", region->GetNumber());
 	
+	CELL_ITERATOR_CACHE cache;
+
 	// walk through all cell data
 	for(int i = 0; i < mapInfo.region_size * mapInfo.region_size; i++)
 	{	
 		CELL_ITERATOR_D1 iterator;
+		iterator.cache = &cache;
 		CELL_OBJECT* co = region->StartIterator(&iterator, i);
 
 		if (!co)
@@ -124,10 +127,15 @@ int ExportRegionDriver2(CDriver2LevelRegion* region, IVirtualStream* levelFileSt
 	if (g_export_worldUnityScript)
 		levelFileStream->Print("// Region %d\n", region->GetNumber());
 
+	CELL_ITERATOR_CACHE cache;
+
 	// walk through all cell data
 	for (int i = 0; i < mapInfo.region_size * mapInfo.region_size; i++)
 	{
+
+
 		CELL_ITERATOR_D2 ci;
+		ci.cache = &cache;
 
 		PACKED_CELL_OBJECT* pco = region->StartIterator(&ci, i);
 

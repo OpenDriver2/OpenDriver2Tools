@@ -10,7 +10,7 @@
 #include "math/isin.h"
 #include "rendermodel.h"
 #include "core/cmdlib.h"
-
+#include <string.h>
 #include "convert.h"
 
 // extern some vars
@@ -163,6 +163,7 @@ struct PCO_PAIR_D2
 //-------------------------------------------------------
 void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volume& frustrumVolume)
 {
+	CELL_ITERATOR_CACHE iteratorCache;
 	int i = g_cellsDrawDistance;
 	int vloop = 0;
 	int hloop = 0;
@@ -189,6 +190,8 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 	drawObjects.reserve(g_cellsDrawDistance * 2);
 	drawObjects.clear();
 
+	CBaseLevelRegion* currentRegion = nullptr;
+
 	// walk through all cells
 	while (i >= 0)
 	{
@@ -201,6 +204,12 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 			icell.x = cell.x + hloop;
 			icell.z = cell.z + vloop;
 
+			CBaseLevelRegion* reg = g_levMap->GetRegion(icell);
+
+			if (currentRegion != reg)
+				memset(&iteratorCache, 0, sizeof(iteratorCache));
+			currentRegion = reg;
+
 			if ( //rightPlane < 0 &&
 				//leftPlane > 0 &&
 				//backPlane < farClipLimit &&  // check planes
@@ -208,6 +217,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 				icell.z > -1 && icell.z < levMapDriver2->GetCellsDown())
 			{
 				CELL_ITERATOR_D2 ci;
+				ci.cache = &iteratorCache;
 				PACKED_CELL_OBJECT* ppco;
 
 				levMapDriver2->SpoolRegion(spoolContext, icell);
@@ -517,6 +527,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 //-------------------------------------------------------
 void DrawLevelDriver1(const Vector3D& cameraPos, float cameraAngleY, const Volume& frustrumVolume)
 {
+	CELL_ITERATOR_CACHE iteratorCache;
 	CELL_ITERATOR_D1 ci;
 	CELL_OBJECT* pco;
 
@@ -546,6 +557,10 @@ void DrawLevelDriver1(const Vector3D& cameraPos, float cameraAngleY, const Volum
 	drawObjects.reserve(g_cellsDrawDistance * 2);
 	drawObjects.clear();
 
+	ci.cache = &iteratorCache;
+
+	CBaseLevelRegion* currentRegion = nullptr;
+
 	// walk through all cells
 	while (i >= 0)
 	{
@@ -558,6 +573,11 @@ void DrawLevelDriver1(const Vector3D& cameraPos, float cameraAngleY, const Volum
 			icell.x = cell.x + hloop;
 			icell.z = cell.z + vloop;
 
+			CBaseLevelRegion* reg = g_levMap->GetRegion(icell);
+
+			if (currentRegion != reg)
+				memset(&iteratorCache, 0, sizeof(iteratorCache));
+			currentRegion = reg;
 
 			if (icell.x > -1 && icell.x < levMapDriver1->GetCellsAcross() &&
 				icell.z > -1 && icell.z < levMapDriver1->GetCellsDown())
