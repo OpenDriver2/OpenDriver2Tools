@@ -45,7 +45,7 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 		if(debugInfo)
 			pStream->Print("#vertex data ref model: %d (count = %d)\r\n", model->instance_number, model->num_vertices);
 
-		ModelRef_t* ref = g_levModels.GetModelByIndex(model->instance_number);//, regModels);
+		ModelRef_t* ref = g_levModels.GetModelByIndex(model->instance_number);
 
 		if (!ref)
 		{

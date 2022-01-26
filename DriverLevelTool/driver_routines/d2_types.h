@@ -286,6 +286,8 @@ struct MODEL
 
 //------------------------------------------------------------------------------------------------------------
 
+#define OBJECT_SMASHED_MARK			0xFD46FEC0
+
 struct CELL_DATA {
 	ushort num; // size=0, offset=0
 };
@@ -469,6 +471,36 @@ struct Spool
 
 //----------------------------------------------------------------------------
 
+// Exe embedded car cosmetics
+struct CAR_COSMETICS_D1
+{
+	SVECTOR headLight;
+	SVECTOR frontInd;
+	SVECTOR backInd;
+	SVECTOR brakeLight;
+	SVECTOR revLight;
+	SVECTOR exhaust;
+	SVECTOR smoke;
+	SVECTOR fire;
+	SVECTOR wheelDisp[4];
+	int _pad;
+};
+
+struct D2_ExtraInfo
+{
+	ushort empty : 3;
+	ushort hasBackLights : 1;
+
+	ushort frontDouble : 1;
+	ushort backDouble : 1;
+
+	ushort frontVertical : 1;
+	ushort backVertical : 1;
+
+	ushort backOffset : 2;
+	ushort frontOffset : 2;
+};
+
 // LCF car cosmetics
 struct CAR_COSMETICS_D2
 {
@@ -482,7 +514,7 @@ struct CAR_COSMETICS_D2
 	SVECTOR smoke;
 	SVECTOR fire;
 	SVECTOR wheelDisp[4];
-	short extraInfo;
+	D2_ExtraInfo extraInfo;
 	short powerRatio;
 	short cbYoffset;
 	short susCoeff;
