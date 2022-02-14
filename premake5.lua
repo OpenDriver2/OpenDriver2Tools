@@ -6,6 +6,9 @@ require "premake_modules/usage"
 SDL2_DIR = os.getenv("SDL2_DIR") or "dependencies/SDL2"
 
 workspace "OpenDriver2Tools"
+	location "project_%{_ACTION}_%{os.target()}"
+	targetdir "bin/%{cfg.buildcfg}"
+
     language "C++"
     configurations { "Debug", "Release" }
 	linkgroups 'On'

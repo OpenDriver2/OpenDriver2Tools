@@ -3,7 +3,6 @@
 project "DriverLevelTool"
     kind "ConsoleApp"
     language "C++"
-    targetdir "bin/%{cfg.buildcfg}"
 
 	uses { "ImGui", "libnstd", "frameworkLib" }
 

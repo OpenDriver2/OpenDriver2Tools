@@ -3,7 +3,6 @@
 project "DriverSoundTool"
     kind "ConsoleApp"
     language "C++"
-    targetdir "bin/%{cfg.buildcfg}"
 
 	uses { "frameworkLib", "libnstd" }
 
