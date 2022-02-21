@@ -497,6 +497,7 @@ void PrintCommandLineArguments()
 	MsgInfo("Example usage:\n");
 	MsgInfo("\tDriverImageTool -sky2tim SKY0.RAW\n");
 	MsgInfo("\tDriverImageTool -sky2tga SKY1.RAW\n");
+	MsgInfo("\tDriverImageTool -skybin2bmp SKY.BIN\n");
 	MsgInfo("\tDriverImageTool -bg2tim CARBACK.RAW <CCARS.RAW>\n");
 	MsgInfo("\tDriverImageTool -tim2raw GFX.RAW BG.tim <FontAndSelection.tim Image3.tim ..>\n");
 }
