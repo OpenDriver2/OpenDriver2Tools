@@ -30,7 +30,7 @@ void GetTPageDetailPalettes(Array<TEXCLUT*>& out, CTexturePage* tpage, TexDetail
 	// ofc, add default
 	out.append(&bitmap.clut[detail->detailNum]);
 
-	for(int i = 0; i < detail->numExtraCLUTs; i++)
+	for (int i = 0; i < detail->numExtraCLUTs; i++)
 		out.append(detail->extraCLUTs[i]);
 }
 
@@ -39,7 +39,7 @@ void GetTPageDetailPalettes(Array<TEXCLUT*>& out, CTexturePage* tpage, TexDetail
 //-------------------------------------------------------------
 void ExportTIM(CTexturePage* tpage, int detail)
 {
-	if (!(detail < tpage->GetDetailCount()))
+	if (detail < 0 || detail >= tpage->GetDetailCount())
 	{
 		MsgError("Cannot apply palette to non-existent detail! Programmer error?\n");
 		return;
@@ -107,7 +107,14 @@ void ExportTIM(CTexturePage* tpage, int detail)
 
 	// copy cluts
 	for (usize i = 0; i < palettes.size(); i++)
-		memcpy(&clut_data[i], palettes[i], sizeof(TEXCLUT));
+	{
+		if (!palettes[i])
+		{
+			clut_data[i] = *palettes[0];
+			continue;
+		}
+		clut_data[i] = *palettes[i];
+	}
 
 	// compose TIMs
 	SaveTIM_4bit(String::fromPrintf("%s/PAGE_%d/%s_%d.TIM", (char*)g_levname_texdir, tpage->GetId(), textureName, detail),
@@ -123,6 +130,9 @@ void ExportTIM(CTexturePage* tpage, int detail)
 //-------------------------------------------------------------
 void ExportTexturePage(CTexturePage* tpage)
 {
+	if (!tpage)
+		return;
+
 	//
 	// This is where texture is converted from paletted BGR5A1 to BGRA8
 	// Also saving to LEVEL_texture/PAGE_*
