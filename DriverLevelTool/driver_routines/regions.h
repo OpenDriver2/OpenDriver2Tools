@@ -60,7 +60,7 @@ protected:
 	int						m_regionX{ -1 };
 	int						m_regionZ{ -1 };
 	int						m_regionNumber{ -1 };
-	int						m_regionBarrelNumber{ -1 };
+	int						m_regionBarrelNumber{ -1 };		// required for cell iterator slots
 	bool					m_loaded{ false };
 };
 
@@ -94,8 +94,8 @@ public:
 	virtual void				LoadInAreaTPages(const SPOOL_CONTEXT& ctx, int areaDataNum) const;
 	virtual void				LoadInAreaModels(const SPOOL_CONTEXT& ctx, int areaDataNum) const;
 
-	virtual void				SpoolRegion(const SPOOL_CONTEXT& ctx, const XZPAIR& cell) = 0;
-	virtual void				SpoolRegion(const SPOOL_CONTEXT& ctx, int regionIdx) = 0;
+	virtual bool				SpoolRegion(const SPOOL_CONTEXT& ctx, const XZPAIR& cell) = 0;
+	virtual bool				SpoolRegion(const SPOOL_CONTEXT& ctx, int regionIdx) = 0;
 
 	int							GetRegionIndex(const XZPAIR& cell) const;
 

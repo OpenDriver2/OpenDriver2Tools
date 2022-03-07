@@ -4,7 +4,7 @@
 #include "core/dktypes.h"
 #include "math/psx_math_types.h"
 
-#define TEXPAGE_SIZE_X	(128)	// don't ask why. It's 4 bit.
+#define TEXPAGE_SIZE_X	(128)	// 4 bit. DO NOT CHANGE!
 #define TEXPAGE_SIZE_Y	(256)
 
 #define TEXPAGE_4BIT_SIZE	(TEXPAGE_SIZE_X*TEXPAGE_SIZE_Y)
@@ -270,7 +270,7 @@ struct MODEL
 		return (char *)((ubyte *)this + poly_block + ofs);
 	}
 
-	int GetCollisionBoxCount()
+	int GetCollisionBoxCount() const
 	{
 		if(collision_block > 0)
 			return *(int*)((ubyte*)this + collision_block);
@@ -278,7 +278,7 @@ struct MODEL
 		return 0;
 	}
 
-	COLLISION_PACKET* pCollisionBox(int i)
+	COLLISION_PACKET* pCollisionBox(int i) const
 	{
 		return (COLLISION_PACKET*)((ubyte*)this + collision_block + sizeof(int)) + i;
 	}
@@ -311,12 +311,14 @@ struct CELL_OBJECT {
 
 //------------------------------------------------------------------------------------------------------------
 
-enum SurfaceType
+enum class SurfaceType
 {
-	SurfType_Asphalt = 0,
-	SurfType_Grass = 4,
-	SurfType_Water = 6,
-	SurfType_DeepWater = 9,		// the default surface
+	Concrete	= 0,	// concrete/paved tiles
+	Grass		= 4,
+	Water		= 6,
+	Alley		= 8,
+	DeepWater	= 9,
+	Sand		= 11,
 };
 
 struct sdPlane
