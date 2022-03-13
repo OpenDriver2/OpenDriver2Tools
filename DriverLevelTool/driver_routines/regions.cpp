@@ -8,6 +8,9 @@
 #include "core/IVirtualStream.h"
 #include "core/cmdlib.h"
 
+sdPlane g_defaultPlane = { (short)SurfaceType::Concrete, 0, 0, 0, 2048 };
+sdPlane g_seaPlane = { (short)SurfaceType::DeepWater, 0, 16384, 0, 2048 };
+
 // loaded headers
 CBaseLevelRegion::CBaseLevelRegion()
 {
@@ -410,7 +413,8 @@ void CBaseLevelMap::LoadInAreaTPages(const SPOOL_CONTEXT& ctx, int areaDataNum) 
 		// assign
 		areaTPages.tpage[i] = tpage;
 
-		tpage->LoadTPageAndCluts(ctx.dataStream, true);
+		if(tpage)
+			tpage->LoadTPageAndCluts(ctx.dataStream, true);
 
 		if (ctx.dataStream->Tell() % SPOOL_CD_BLOCK_SIZE)
 			ctx.dataStream->Seek(SPOOL_CD_BLOCK_SIZE - (ctx.dataStream->Tell() % SPOOL_CD_BLOCK_SIZE), VS_SEEK_CUR);
