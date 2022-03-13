@@ -54,21 +54,23 @@ void UpdateCameraMovement(float deltaTime, float speedModifier)
 
 	VECTOR_NOPAD cameraPosition = ToFixedVector(g_cameraPosition);
 
-	int height = g_levMap->MapHeight(cameraPosition);
+	VECTOR_NOPAD outCameraPos;
+	sdPlane outPlane;
+	g_levMap->FindSurface(cameraPosition, outCameraPos, outPlane);
 
 	// debug display
 	if (g_displayHeightMap)
 	{
 		// draw the cell
 		VECTOR_NOPAD cameraCell = cameraPosition;
-		cameraCell.vy = height;
+		cameraCell.vy = outCameraPos.vy;
 		DebugDrawDriver2HeightmapCell(cameraCell, ColorRGBA(1, 1, 0.25, 1.0f));
 	}
 
-	if (cameraPosition.vy < height)
+	if (cameraPosition.vy < outCameraPos.vy)
 	{
-		cameraPosition.vy = height;
-		g_cameraPosition.y = float(height) / ONE_F;
+		cameraPosition.vy = outCameraPos.vy;
+		g_cameraPosition.y = float(outCameraPos.vy) / ONE_F;
 	}
 }
 
