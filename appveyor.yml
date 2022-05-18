@@ -37,27 +37,8 @@ after_build:
 #  - 'DriverSoundTool\obj\'
     
 artifacts:
-  - path: DriverLevelTool\bin\*\*.zip
-    name: DriverLevelTool Windows Binaries
-    
-  - path: DriverSoundTool\bin\*\*.zip
-    name: DriverSoundTool Windows Binaries
+  - path: bin\*\*.zip
+    name: Windows Binaries
 
-  - path: DriverImageTool\bin\*\*.zip
-    name: DriverImageTool Windows Binaries
-    
-  - path: Driver2CutsceneTool\bin\*\*.zip
-    name: Driver2CutsceneTool Windows Binaries
-    
-#--------------
-  - path: DriverLevelTool\bin\*\*.tar.gz
-    name: DriverLevelTool Linux Binaries
-    
-  - path: DriverSoundTool\bin\*\*.tar.gz
-    name: DriverSoundTool Linux Binaries
-    
-  - path: DriverImageTool\bin\*\*.tar.gz
-    name: DriverImageTool Linux Binaries
-
-  - path: Driver2CutsceneTool\bin\*\*.tar.gz
-    name: Driver2CutsceneTool Linux Binaries
+  - path: bin\*\*.tar.gz
+    name: Linux Binaries
