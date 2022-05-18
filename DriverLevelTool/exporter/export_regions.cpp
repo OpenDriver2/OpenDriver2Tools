@@ -35,18 +35,6 @@ extern bool				g_export_worldUnityScript;
 extern String			g_levname_moddir;
 extern String			g_levname;
 
-char g_packed_cell_pointers[8192];
-ushort g_cell_ptrs[8192];
-
-CELL_DATA g_cells[16384];
-CELL_DATA_D1 g_cells_d1[16384];
-
-// Driver 2
-PACKED_CELL_OBJECT g_packed_cell_objects[16384];
-
-// Driver 1
-CELL_OBJECT g_cell_objects[16384];
-
 //-------------------------------------------------------------
 // Processes Driver 1 region
 //-------------------------------------------------------------
@@ -74,7 +62,7 @@ int ExportRegionDriver1(CDriver1LevelRegion* region, IVirtualStream* levelFileSt
 
 		while(co)
 		{
-			Vector3D absCellPosition(co->pos.vx * -EXPORT_SCALING, -co->pos.vy * -EXPORT_SCALING, co->pos.vz * EXPORT_SCALING);
+			Vector3D absCellPosition(co->pos.vx * -EXPORT_SCALING, co->pos.vy * -EXPORT_SCALING, co->pos.vz * EXPORT_SCALING);
 			float cellRotationRad = co->yang / 64.0f * PI_F * 2.0f;
 
 			ModelRef_t* ref = g_levModels.GetModelByIndex(co->type);
@@ -132,8 +120,6 @@ int ExportRegionDriver2(CDriver2LevelRegion* region, IVirtualStream* levelFileSt
 	// walk through all cell data
 	for (int i = 0; i < mapInfo.region_size * mapInfo.region_size; i++)
 	{
-
-
 		CELL_ITERATOR_D2 ci;
 		ci.cache = &cache;
 
@@ -147,7 +133,7 @@ int ExportRegionDriver2(CDriver2LevelRegion* region, IVirtualStream* levelFileSt
 			CELL_OBJECT co;
 			CDriver2LevelMap::UnpackCellObject(co, pco, ci.nearCell);
 
-			Vector3D absCellPosition(co.pos.vx * -EXPORT_SCALING, -co.pos.vy * EXPORT_SCALING, co.pos.vz * EXPORT_SCALING);
+			Vector3D absCellPosition(co.pos.vx * -EXPORT_SCALING, co.pos.vy * -EXPORT_SCALING, co.pos.vz * EXPORT_SCALING);
 			float cellRotationRad = co.yang / 64.0f * PI_F * 2.0f;
 
 			ModelRef_t* ref = g_levModels.GetModelByIndex(co.type);
