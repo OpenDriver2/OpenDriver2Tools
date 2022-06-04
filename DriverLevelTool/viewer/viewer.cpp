@@ -569,7 +569,7 @@ void DisplayExportUI()
 		{
 			ImGui::Checkbox("Only extract as DMODEL", &g_extract_dmodels);
 
-			if (ImGui::Button("Export models"))
+			if (ImGui::Button("Export car models"))
 			{
 				g_export_worldUnityScript = false;
 				Directory::create(g_levname_moddir);
@@ -582,7 +582,12 @@ void DisplayExportUI()
 		{
 			ImGui::Checkbox("Extract as TIM files for REDRIVER2", &g_explode_tpages);
 
-			if (ImGui::Button("Export textures"))
+			static int texturePageIdx = 0;
+			ImGui::InputInt("Page number", &texturePageIdx);
+			texturePageIdx = clamp(texturePageIdx, 0, g_levTextures.GetTPageCount()-1);
+			ImGui::Image((void*)g_hwTexturePages[texturePageIdx][0], ImVec2(256, 256));
+
+			if (ImGui::Button("Export all textures"))
 			{
 				g_export_worldUnityScript = false;
 				Directory::create(g_levname_texdir);
