@@ -645,14 +645,24 @@ GrVAO* GR_CreateVAO(int numVertices, int numIndices, GrVertex* verts /*= nullptr
 	newVAO->buffers[1] = buffers[1];
 	newVAO->dynamic = dynamic;
 
+	// bind back and continue good life
+	if (g_CurrentVAO)
+		glBindVertexArray(g_CurrentVAO->vertexArray);
+
 	return newVAO;
 }
 
 void GR_UpdateVAO(GrVAO* vaoPtr, int numVertices, GrVertex* verts)
 {
+	// unbind vertex array or shiitty GL will crash
+	glBindVertexArray(0);
+
 	glBindBuffer(GL_ARRAY_BUFFER, vaoPtr->buffers[0]);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(GrVertex) * numVertices, verts, vaoPtr->dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// bind back and continue good life
+	if (g_CurrentVAO)
+		glBindVertexArray(g_CurrentVAO->vertexArray);
 }
 
 void GR_SetVAO(GrVAO* vaoPtr)
