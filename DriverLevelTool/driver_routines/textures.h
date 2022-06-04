@@ -127,7 +127,7 @@ public:
 	const char*				GetTextureDetailName(TEXINF* info) const;
 
 	// unpacks RNC2 overlay map segment into RGBA buffer (32x32)
-	void					GetOverlayMapSegmentRGBA(TVec4D<ubyte>* destination, int index) const;
+	void					GetOverlayMapSegmentRGBA(TVec4D<ubyte>* destination, int index, bool bgra = false) const;
 	int						GetOverlayMapSegmentCount() const;
 
 protected:

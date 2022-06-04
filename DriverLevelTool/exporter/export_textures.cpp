@@ -302,15 +302,15 @@ void ExportAllTextures()
 //-------------------------------------------------------------
 void ExportOverlayMap()
 {
-	int numValid = g_levTextures.GetOverlayMapSegmentCount();
+	const int numValid = g_levTextures.GetOverlayMapSegmentCount();
 
 	MsgWarning("overlay map segment count: %d\n", numValid);
 
 	if (!numValid)
 		return;
 
-	int overmapWidth = g_overlaymap_width * 32;
-	int overmapHeight = (numValid / g_overlaymap_width) * 32;
+	const int overmapWidth = g_overlaymap_width * 32;
+	const int overmapHeight = (numValid / g_overlaymap_width) * 32;
 
 	TVec4D<ubyte> tempSegment[32 * 32];
 
@@ -330,7 +330,7 @@ void ExportOverlayMap()
 		{
 			int idx = x + y * wide;
 
-			g_levTextures.GetOverlayMapSegmentRGBA(tempSegment, x + y * wide);
+			g_levTextures.GetOverlayMapSegmentRGBA(tempSegment, x + y * wide, true);
 
 			numTilesProcessed++;
 

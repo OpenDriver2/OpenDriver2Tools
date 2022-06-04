@@ -5,6 +5,7 @@
 #include <nstd/Directory.hpp>
 #include <nstd/String.hpp>
 #include <nstd/Time.hpp>
+#include <nstd/Math.hpp>
 
 #include "camera.h"
 #include "convert.h"
@@ -28,6 +29,7 @@
 
 #include "backends/imgui_impl_opengl3.h"
 #include "backends/imgui_impl_sdl.h"
+
 
 bool g_quit = false;
 
@@ -400,6 +402,59 @@ void PopulateUIModelNames()
 bool g_exportWidget = false;
 int g_exportMode = 0;
 
+TextureID g_overheadMapTexture = 0;
+
+void UpdateOverlayMapPreview()
+{
+	extern int g_overlaymap_width;
+
+	GR_DestroyTexture(g_overheadMapTexture);
+
+	const int numValid = g_levTextures.GetOverlayMapSegmentCount();
+
+	const int overmapWidth = g_overlaymap_width * 32;
+	const int overmapHeight = (numValid / g_overlaymap_width) * 32;
+
+	int x, y, xx, yy;
+	int wide, tall;
+
+	wide = overmapWidth / 32;
+	tall = overmapHeight / 32;
+
+	int numTilesProcessed = 0;
+
+	TVec4D<ubyte> tempSegment[32 * 32];
+	TVec4D<ubyte>* rgba = new TVec4D<ubyte>[overmapWidth * overmapHeight];
+
+	for (x = 0; x < wide; x++)
+	{
+		for (y = 0; y < tall; y++)
+		{
+			int idx = x + y * wide;
+
+			g_levTextures.GetOverlayMapSegmentRGBA(tempSegment, x + y * wide);
+
+			numTilesProcessed++;
+
+			// place segment
+			for (yy = 0; yy < 32; yy++)
+			{
+				for (xx = 0; xx < 32; xx++)
+				{
+					int px = x * 32 + xx;
+					int py = (tall - 1 - y) * 32 + (31 - yy);
+
+					rgba[px + py * overmapWidth] = tempSegment[yy * 32 + xx];
+				}
+			}
+		}
+	}
+
+	g_overheadMapTexture = GR_CreateRGBATexture(overmapWidth, overmapHeight, (ubyte*)rgba);
+
+	delete[] rgba;
+}
+
 //-------------------------------------------------------------
 // Displays export settings UI
 //-------------------------------------------------------------
@@ -410,16 +465,70 @@ void DisplayExportUI()
 	extern bool g_explode_tpages;
 	extern int g_overlaymap_width;
 	
+
+	const int dim_x = g_levMap->GetRegionsAcross();
+	const int dim_y = g_levMap->GetRegionsDown();
+
+	ImGui::SetNextWindowSize(ImVec2(dim_x * 24, Math::max(dim_y * 20, 600)), ImGuiCond_Appearing);
+
 	if (ImGui::Begin("Export options", &g_exportWidget))
 	{
-		ImGui::SetWindowSize(ImVec2(400, 220));
+		static bool exportedRegions[8192] = { true };
+		static ModelExportFilters filters;
 
 		if(g_exportMode == 0)
 		{
-			// TODO: Unity export option
-			ImGui::Checkbox("Export for Unity Engine", &g_export_worldUnityScript);
-			
-			if(ImGui::Button("Export world"))
+			bool anySelected = false;
+			if (ImGui::Button("Select all")) 
+			{
+				memset(exportedRegions, 1, sizeof(exportedRegions));
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Select none"))
+			{
+				memset(exportedRegions, 0, sizeof(exportedRegions));
+			}
+
+			if(ImGui::BeginTable("Regions", dim_x))
+			{
+				for (int y = 0; y < dim_y; y++)
+				{
+					ImGui::TableNextRow();
+					for (int x = 0; x < dim_x; x++)
+					{
+						const int regIndex = y * dim_x + x;
+						ImGui::TableSetColumnIndex(x);
+						if (!g_levMap->GetRegion(regIndex)->IsEmpty())
+						{
+							ImGui::Checkbox((char*)String::fromPrintf("##reg%d", regIndex), &exportedRegions[regIndex]);
+							if (exportedRegions[regIndex])
+								anySelected = true;
+						}
+					}
+				}
+				ImGui::EndTable();
+			}
+
+			if (ImGui::CollapsingHeader("Settings"))
+			{
+				ImGui::Checkbox("Export as Unity objects", &g_export_worldUnityScript);
+
+				ImGui::RadioButton("Filter off", &filters.mode, ModelExportFilters::MODE_DISABLE); ImGui::SameLine();
+				ImGui::RadioButton("Include only", &filters.mode, ModelExportFilters::MODE_EXCLUDE_ALL_INCLUDE_FLAGS); ImGui::SameLine();
+				ImGui::RadioButton("Exclude only", &filters.mode, ModelExportFilters::MODE_INCLUDE_ALL_EXCLUDE_FLAGS);
+
+				if (filters.mode > ModelExportFilters::MODE_DISABLE)
+				{
+					ImGui::CheckboxFlags("Water", &filters.shapeFlags, SHAPE_FLAG_WATER); ImGui::SameLine();
+					ImGui::CheckboxFlags("Sprite", &filters.shapeFlags, SHAPE_FLAG_SPRITE); ImGui::SameLine();
+					ImGui::CheckboxFlags("Chair", &filters.flags2, MODEL_FLAG_CHAIR); ImGui::SameLine();
+					ImGui::CheckboxFlags("Barr", &filters.flags2, MODEL_FLAG_BARRIER); ImGui::SameLine();
+					ImGui::CheckboxFlags("Smsh", &filters.flags2, MODEL_FLAG_SMASHABLE); ImGui::SameLine();
+					ImGui::CheckboxFlags("Tree", &filters.flags2, MODEL_FLAG_TREE);
+				}
+			}
+
+			if(anySelected && ImGui::Button("Export world"))
 			{
 				// idk why, but some regions are bugged while exporting
 				SpoolAllAreaDatas();
@@ -439,7 +548,7 @@ void DisplayExportUI()
 					ExportAllTextures();
 				}
 				
-				ExportRegions();
+				ExportRegions(filters, exportedRegions);
 				MsgInfo("Job done!\n");
 			}
 		}
@@ -483,15 +592,39 @@ void DisplayExportUI()
 		}
 		else if (g_exportMode == 4)
 		{
-			ImGui::InputInt("Image width", &g_overlaymap_width);
+			const int numValid = g_levTextures.GetOverlayMapSegmentCount();
 
-			if (ImGui::Button("Export textures"))
+			ImGui::Text("Overlay map tiles: %d", numValid);
+			ImGui::SameLine();
+			if (ImGui::Button("Export"))
 			{
 				g_export_worldUnityScript = false;
 				Directory::create(g_levname_texdir);
 				ExportOverlayMap();
 				MsgInfo("Job done!\n");
 			}
+
+			bool update = false;
+
+			if (ImGui::InputInt("Columns width", &g_overlaymap_width))
+			{
+				update = true;
+			}
+
+			if (g_overlaymap_width <= 0)
+			{
+				// init
+				g_overlaymap_width = 4;
+				update = true;
+			}
+
+			if(update)
+				UpdateOverlayMapPreview();
+
+			const int overmapWidth = g_overlaymap_width * 32;
+			const int overmapHeight = (numValid / g_overlaymap_width) * 32;
+
+			ImGui::Image((void*)g_overheadMapTexture, ImVec2(overmapWidth, overmapHeight));
 		}
 
 		ImGui::End();

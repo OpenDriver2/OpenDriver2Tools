@@ -32,11 +32,49 @@ void	WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 //----------------------------------------------------------
 // main functions
 
+struct ModelExportFilters
+{
+	enum {
+		MODE_DISABLE = 0,
+		MODE_EXCLUDE_ALL_INCLUDE_FLAGS,
+		MODE_INCLUDE_ALL_EXCLUDE_FLAGS
+	};
+
+	int shapeFlags{ 0 };
+	int flags2{ 0 };
+
+	int mode{ MODE_DISABLE };
+
+	bool Check(MODEL* model) const
+	{
+		switch (mode)
+		{
+		case MODE_EXCLUDE_ALL_INCLUDE_FLAGS:
+			if (model->shape_flags & shapeFlags)
+				return true;
+
+			if (model->flags2 & flags2)
+				return true;
+			return false;
+		case MODE_INCLUDE_ALL_EXCLUDE_FLAGS:
+			if (model->shape_flags & shapeFlags)
+				return false;
+
+			if (model->flags2 & flags2)
+				return false;
+
+			return true;
+		}
+
+		return true;
+	}
+};
+
 void SaveModelPagesMTL();
 void ExportAllModels();
 void ExportAllCarModels();
 
-void ExportRegions();
+void ExportRegions(const ModelExportFilters& filters, bool* regionsToExport = nullptr);
 
 void ExportAllTextures();
 void ExportOverlayMap();

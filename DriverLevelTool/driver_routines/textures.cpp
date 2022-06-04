@@ -525,7 +525,7 @@ const char* CDriverLevelTextures::GetTextureDetailName(TEXINF* info) const
 }
 
 // unpacks RNC2 overlay map segment into RGBA buffer (32x32)
-void CDriverLevelTextures::GetOverlayMapSegmentRGBA(TVec4D<ubyte>* destination, int index) const
+void CDriverLevelTextures::GetOverlayMapSegmentRGBA(TVec4D<ubyte>* destination, int index, bool bgra /*= false*/) const
 {
 	// 8 bit texture so...
 	char mapBuffer[16 * 32];
@@ -556,7 +556,7 @@ void CDriverLevelTextures::GetOverlayMapSegmentRGBA(TVec4D<ubyte>* destination, 
 
 			colorIndex &= 0xf;
 
-			destination[y * 32 + x] = rgb5a1_ToBGRA8(clut[colorIndex]);
+			destination[y * 32 + x] = bgra ? rgb5a1_ToBGRA8(clut[colorIndex]) : rgb5a1_ToRGBA8(clut[colorIndex]);
 		}
 	}
 }

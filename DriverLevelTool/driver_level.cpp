@@ -28,7 +28,7 @@ bool g_explode_tpages = false;
 
 bool g_export_overmap = false;
 
-int g_overlaymap_width = 1;
+int g_overlaymap_width = 0;
 
 //---------------------------------------------------------------------------------------------------------------------------------
 
@@ -72,7 +72,8 @@ void ExportLevelData()
 	
 	if (g_export_world)
 	{
-		ExportRegions();
+		ModelExportFilters filters;
+		ExportRegions(filters);
 	}
 
 	if (g_export_textures)
