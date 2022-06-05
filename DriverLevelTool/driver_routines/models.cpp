@@ -435,8 +435,6 @@ int decode_poly(const char* polyList, dpoly_t* out, int forceType /*= -1*/)
 			out->page = pft4->texture_set;
 			out->detail = pft4->texture_id;
 
-			//SwapValues(out->uv[2], out->uv[3]);
-
 			out->flags = FACE_IS_QUAD | FACE_TEXTURED;
 
 			break;
@@ -494,6 +492,12 @@ int decode_poly(const char* polyList, dpoly_t* out, int forceType /*= -1*/)
 		{
 			g_UnknownPolyTypes.append(ptype);
 		}
+	}
+
+	// triangles are hacked to be quads for PSX. We don't need that
+	if (out->flags && FACE_IS_QUAD && out->vindices[2] == out->vindices[3])
+	{
+		out->flags &= ~FACE_IS_QUAD;
 	}
 
 	if (out->page == 255)

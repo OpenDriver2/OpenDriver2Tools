@@ -140,7 +140,7 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 		if (debugInfo)
 			pStream->Print("# ft=%d ofs=%d size=%d\r\n", *facedata & 31, model->poly_block + face_ofs, poly_size);
 
-		volatile int numPolyVerts = (dec_face.flags & FACE_IS_QUAD) ? 4 : 3;
+		const int numPolyVerts = (dec_face.flags & FACE_IS_QUAD) ? 4 : 3;
 		bool bad_face = false;
 
 		// perform vertex checks
@@ -236,6 +236,11 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 			// dump vertex normal
 			if(dec_face.flags & FACE_VERT_NORMAL)
 			{
+				if (!(dec_face.flags & FACE_TEXTURED))
+				{
+					strcat(vertex_value, "/");
+				}
+
 				// add vertex normal to face value
 				sprintf(temp, "/%d", dec_face.nindices[VERT_IDX] + 1 + numVerts);
 				strcat(vertex_value, temp);
