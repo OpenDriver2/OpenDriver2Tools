@@ -10,7 +10,7 @@
 
 #include "textures.h"
 #include "level.h"
-
+#pragma optimize("", off)
 
 
 //-------------------------------------------------------------------------------
@@ -339,6 +339,65 @@ void CDriverLevelTextures::LoadPermanentTPages(IVirtualStream* pFile)
 	}
 }
 
+void CDriverLevelTextures::LoadPermanentTPagesD1Demo(IVirtualStream* pFile)
+{
+	long lumpOffset = pFile->Tell() + 8;
+
+	DevMsg(SPEW_NORM, "Loading OLD FORMAT permanent texture pages\n");
+	m_numPermanentPages = 0;
+
+	int textureCount = 0;
+	pFile->Read(&m_numPermanentPages, 1, sizeof(m_numPermanentPages));
+	pFile->Read(&textureCount, 1, sizeof(textureCount));
+	
+	TEXPAGE_POS permlist[128];
+	pFile->Read(permlist, m_numPermanentPages+1, sizeof(XYPAIR));
+	
+	m_texPages = new CTexturePage[m_numPermanentPages];
+	m_numTexPages = m_numPermanentPages;
+
+	int totalTexturesRead = 0;
+	// for each tpage read TEXINF array
+	for (int i = 0; i < m_numPermanentPages; ++i)
+	{
+		CTexturePage& tp = m_texPages[i];
+		int detailCount;
+		pFile->Read(&detailCount, 1, sizeof(detailCount));
+
+		tp.m_id = i;
+		tp.m_tp = permlist[i];
+		tp.m_owner = this;
+		tp.m_details = new TexDetailInfo_t[detailCount];
+		tp.m_numDetails = detailCount;
+
+		for (int j = 0; j < detailCount; ++j)
+		{
+			TexDetailInfo_t& detailInfo = tp.m_details[j];
+			detailInfo.pageNum = i;
+			detailInfo.detailNum = j;
+			detailInfo.numExtraCLUTs = 0;
+			memset(detailInfo.extraCLUTs, 0, sizeof(detailInfo.extraCLUTs));
+
+			pFile->Read(&detailInfo.info, 1, sizeof(detailInfo.info));
+			totalTexturesRead++;
+		}
+	}
+
+	Msg("Loading permanent texture pages (%d, tex: %d, read %d)\n", m_numPermanentPages, textureCount, totalTexturesRead);
+	DevMsg(SPEW_NORM, "Loading permanent texture pages (%d)\n", m_numPermanentPages);
+
+	// load permanent pages
+	for (int i = 0; i < m_numPermanentPages; i++)
+	{
+		pFile->Seek(lumpOffset + permlist[i].offset, VS_SEEK_SET);
+		//if ((permlist[i].flags & 1) != 0)
+		{
+			// permanents are also compressed
+			m_texPages[i].LoadTPageAndCluts(pFile, false);
+		}
+	}
+}
+
 //-------------------------------------------------------------
 // parses texture info lumps. Quite simple
 //-------------------------------------------------------------
@@ -418,6 +477,10 @@ void CDriverLevelTextures::LoadOverlayMapLump(IVirtualStream* pFile, int lumpSiz
 //-------------------------------------------------------------
 void CDriverLevelTextures::LoadPalletLump(IVirtualStream* pFile)
 {
+	// temporary not working. Maybe it's incorrect
+	if (m_format < LEV_FORMAT_DRIVER1)
+		return;
+
 	ushort* clutTablePtr;
 	int total_cluts;
 
@@ -436,7 +499,7 @@ void CDriverLevelTextures::LoadPalletLump(IVirtualStream* pFile)
 	{
 		PALLET_INFO info;
 
-		if (m_format == LEV_FORMAT_DRIVER1)
+		if (m_format <= LEV_FORMAT_DRIVER1)
 		{
 			PALLET_INFO_D1 infod1;
 			pFile->Read(&infod1, 1, sizeof(info) - sizeof(int));
@@ -476,7 +539,7 @@ void CDriverLevelTextures::LoadPalletLump(IVirtualStream* pFile)
 			added_cluts++;
 
 			// only in D1 we need to check count
-			if (m_format == LEV_FORMAT_DRIVER1)
+			if (m_format <= LEV_FORMAT_DRIVER1)
 			{
 				if (added_cluts >= total_cluts)
 					break;

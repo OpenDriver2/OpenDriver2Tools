@@ -1131,7 +1131,7 @@ void ViewerMainLoop()
 			GR_ClearColor(128 / 255.0f, 158 / 255.0f, 182 / 255.0f);
 
 		// Render stuff
-		if (g_viewerMode == 0)
+		if (g_viewerMode == 0 && g_levMap->GetFormat() != LEV_FORMAT_DRIVER1_OLD)
 		{
 			float cameraSpeedModifier = g_holdShift ? 4.0f : 1.0f;
 			

@@ -112,6 +112,7 @@ public:
 	// loaders
 	void					LoadTextureInfoLump(IVirtualStream* pFile);
 	void					LoadPermanentTPages(IVirtualStream* pFile);
+	void					LoadPermanentTPagesD1Demo(IVirtualStream* pFile);
 	void					LoadTextureNamesLump(IVirtualStream* pFile, int size);
 	void					LoadOverlayMapLump(IVirtualStream* pFile, int size);
 	void					LoadPalletLump(IVirtualStream* pFile);

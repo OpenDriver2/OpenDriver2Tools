@@ -89,11 +89,18 @@ void CDriverLevelModels::LoadCarModelsLump(IVirtualStream* pFile, int size)
 	int modelCount;
 	pFile->Read(&modelCount, sizeof(int), 1);
 
+	if (!modelCount)
+		return;
+
 	DevMsg(SPEW_NORM, "	all car models count: %d\n", modelCount);
 
 	// read entries
 	carmodelentry_t model_entries[MAX_CAR_MODELS];
 	pFile->Read(&model_entries, sizeof(carmodelentry_t), MAX_CAR_MODELS);
+
+	// a kind of validation for older formats since they have duplicate car model lumps
+	if ((uint)model_entries[0].cleanOffset > 100000)
+		return;
 
 	// position
 	int r_ofs = pFile->Tell();
