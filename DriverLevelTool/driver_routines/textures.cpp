@@ -344,21 +344,28 @@ void CDriverLevelTextures::LoadPermanentTPagesD1Demo(IVirtualStream* pFile)
 	long lumpOffset = pFile->Tell() + 8;
 
 	DevMsg(SPEW_NORM, "Loading OLD FORMAT permanent texture pages\n");
-	m_numPermanentPages = 0;
+	
 
+	int numTpages = 0;
 	int textureCount = 0;
-	pFile->Read(&m_numPermanentPages, 1, sizeof(m_numPermanentPages));
+	pFile->Read(&numTpages, 1, sizeof(numTpages));
 	pFile->Read(&textureCount, 1, sizeof(textureCount));
+
+	if (numTpages == 0 || numTpages > 127)
+	{
+		return;
+	}
 	
 	TEXPAGE_POS permlist[128];
-	pFile->Read(permlist, m_numPermanentPages+1, sizeof(XYPAIR));
+	pFile->Read(permlist, numTpages + 1, sizeof(XYPAIR));
 	
-	m_texPages = new CTexturePage[m_numPermanentPages];
-	m_numTexPages = m_numPermanentPages;
+	m_texPages = new CTexturePage[numTpages];
+	m_numPermanentPages = numTpages;
+	m_numTexPages = numTpages;
 
 	int totalTexturesRead = 0;
 	// for each tpage read TEXINF array
-	for (int i = 0; i < m_numPermanentPages; ++i)
+	for (int i = 0; i < numTpages; ++i)
 	{
 		CTexturePage& tp = m_texPages[i];
 		int detailCount;
@@ -383,11 +390,11 @@ void CDriverLevelTextures::LoadPermanentTPagesD1Demo(IVirtualStream* pFile)
 		}
 	}
 
-	Msg("Loading permanent texture pages (%d, tex: %d, read %d)\n", m_numPermanentPages, textureCount, totalTexturesRead);
-	DevMsg(SPEW_NORM, "Loading permanent texture pages (%d)\n", m_numPermanentPages);
+	Msg("Loading permanent texture pages (%d, tex: %d, read %d)\n", numTpages, textureCount, totalTexturesRead);
+	DevMsg(SPEW_NORM, "Loading permanent texture pages (%d)\n", numTpages);
 
 	// load permanent pages
-	for (int i = 0; i < m_numPermanentPages; i++)
+	for (int i = 0; i < numTpages; i++)
 	{
 		pFile->Seek(lumpOffset + permlist[i].offset, VS_SEEK_SET);
 		//if ((permlist[i].flags & 1) != 0)
