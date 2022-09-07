@@ -177,6 +177,18 @@ void CDriverLevelModels::LoadModelNamesLump(IVirtualStream* pFile, int size)
 		sz += len + 1;
 	} while (sz < size);
 
+	// assign model names to existing models if they were loaded
+	// (for older D1 LEV versions)
+
+	for (int i = 0; i < m_numModelsInPack; i++)
+	{
+		ushort mappedId;
+		pFile->Read(&mappedId, 1, sizeof(ushort));
+
+		ModelRef_t& ref = m_levelModels[i];
+		ref.name = GetModelNameByIndex(i);
+	}
+
 	delete[] modelnames;
 }
 
