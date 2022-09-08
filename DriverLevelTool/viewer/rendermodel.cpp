@@ -194,7 +194,7 @@ void CRenderModel::GenerateBuffers()
 		// check offset
 		if ((ubyte*)facedata >= (ubyte*)model + modelSize)
 		{
-			MsgError("poly id=%d type=%d ofs=%d bad offset!\n", i, *facedata & 31, model->poly_block + face_ofs);
+			MsgError("MDL %d poly id=%d type=%d ofs=%d bad offset!\n", m_sourceModel->index, i, *facedata & 31, model->poly_block + face_ofs);
 			break;
 		}
 
@@ -209,7 +209,7 @@ void CRenderModel::GenerateBuffers()
 		// check poly size
 		if (poly_size == 0)
 		{
-			MsgError("poly id=%d type=%d ofs=%d zero size!\n", i, *facedata & 31, model->poly_block + face_ofs);
+			MsgError("MDL %d poly id=%d type=%d ofs=%d zero size!\n", m_sourceModel->index, i, *facedata & 31, model->poly_block + face_ofs);
 			break;
 		}
 
@@ -241,7 +241,7 @@ void CRenderModel::GenerateBuffers()
 
 		if (bad_face)
 		{
-			MsgError("poly id=%d type=%d ofs=%d has invalid indices (or format is unknown)\n", i, *facedata & 31, model->poly_block + face_ofs);
+			MsgError("MDL %d poly id=%d type=%d ofs=%d has invalid indices (or format is unknown)\n", m_sourceModel->index,  i, *facedata & 31, model->poly_block + face_ofs);
 
 			continue;
 		}

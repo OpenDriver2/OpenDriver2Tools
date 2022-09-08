@@ -372,12 +372,11 @@ int decode_poly(const char* polyList, dpoly_t* out, int forceType /*= -1*/)
 	int ptype = polyType & 31;
 	int extFlags = (polyType >> 5) & 7;
 
+	out->type = ptype;
 	out->page = 0xFF;
 	out->detail = 0xFF;
 	out->flags = 0;
-	out->color = CVECTOR{ 255 };
-
-	*(uint*)&out->color = 0;
+	out->color = CVECTOR{ 255, 0, 255, 0 };
 
 	// TODO: D1 and D2 to have different decoding routines
 
@@ -385,7 +384,9 @@ int decode_poly(const char* polyList, dpoly_t* out, int forceType /*= -1*/)
 	{
 		case 1:
 			// what a strange face type. Hardcoded?
-			*(uint*)out->vindices = *(uint*)&polyList[3];
+			*(uint*)out->vindices = *(uint*)&polyList[4];
+			*(uint*)&out->color = *(uint*)&polyList[8];
+			out->flags = FACE_IS_QUAD | FACE_RGB;
 			break;
 		case 0:
 		case 8:
@@ -403,9 +404,9 @@ int decode_poly(const char* polyList, dpoly_t* out, int forceType /*= -1*/)
 		case 19:
 		{
 			// F4
-			*(uint*)out->vindices = *(uint*)&polyList[1];
-			*(uint*)out->uv = *(uint*)&polyList[4];
-			*(uint*)&out->color = *(uint*)&polyList[8];
+			*(uint*)out->vindices = *(uint*)&polyList[4];
+			*(uint*)out->uv = *(uint*)&polyList[8];
+			*(uint*)&out->color = *(uint*)&polyList[12];
 			
 			// FIXME: read colours
 
@@ -519,11 +520,12 @@ int decode_poly(const char* polyList, dpoly_t* out, int forceType /*= -1*/)
 		out->flags &= ~FACE_IS_QUAD;
 	}
 
-	if (out->page == 255)
+	if (out->page == 255 && (out->flags & FACE_TEXTURED))
 	{
 		out->flags &= ~FACE_TEXTURED;
 		out->flags |= FACE_RGB;
+		out->color.pad = 128;
 	}
 	
-	return PolySizes[*polyList & 0x1f];
+	return PolySizes[*polyList & 31];
 }
