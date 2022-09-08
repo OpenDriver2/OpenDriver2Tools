@@ -356,8 +356,8 @@ void CDriverLevelTextures::LoadPermanentTPagesD1Demo(IVirtualStream* pFile)
 		return;
 	}
 	
-	TEXPAGE_POS permlist[128];
-	pFile->Read(permlist, numTpages + 1, sizeof(XYPAIR));
+	TEXPAGE_POS tpage_position[128];
+	pFile->Read(tpage_position, numTpages + 1, sizeof(XYPAIR));
 	
 	m_texPages = new CTexturePage[numTpages];
 	m_numPermanentPages = numTpages;
@@ -372,7 +372,7 @@ void CDriverLevelTextures::LoadPermanentTPagesD1Demo(IVirtualStream* pFile)
 		pFile->Read(&detailCount, 1, sizeof(detailCount));
 
 		tp.m_id = i;
-		tp.m_tp = permlist[i];
+		tp.m_tp = tpage_position[i];
 		tp.m_owner = this;
 		tp.m_details = new TexDetailInfo_t[detailCount];
 		tp.m_numDetails = detailCount;
@@ -396,12 +396,9 @@ void CDriverLevelTextures::LoadPermanentTPagesD1Demo(IVirtualStream* pFile)
 	// load permanent pages
 	for (int i = 0; i < numTpages; i++)
 	{
-		pFile->Seek(lumpOffset + permlist[i].offset, VS_SEEK_SET);
-		//if ((permlist[i].flags & 1) != 0)
-		{
-			// permanents are also compressed
-			m_texPages[i].LoadTPageAndCluts(pFile, false);
-		}
+		pFile->Seek(lumpOffset + tpage_position[i].offset, VS_SEEK_SET);
+		// permanents are also compressed
+		m_texPages[i].LoadTPageAndCluts(pFile, false);
 	}
 }
 
@@ -420,7 +417,7 @@ void CDriverLevelTextures::LoadTextureInfoLump(IVirtualStream* pFile)
 	DevMsg(SPEW_NORM, "Texture amount: %d\n", numTextures);
 
 	// read array of texutre page info
-	TEXPAGE_POS* tpage_position = new TEXPAGE_POS[numPages + 1];
+	TEXPAGE_POS tpage_position[128];
 	pFile->Read(tpage_position, numPages+1, sizeof(TEXPAGE_POS));
 
 	// read page details
@@ -445,9 +442,6 @@ void CDriverLevelTextures::LoadTextureInfoLump(IVirtualStream* pFile)
 	pFile->Read(m_specList, 16, sizeof(XYPAIR));
 
 	DevMsg(SPEW_NORM,"Special/Car TPages = %d\n", m_numSpecPages);
-
-	// not needed
-	delete tpage_position;
 }
 
 //-------------------------------------------------------------
