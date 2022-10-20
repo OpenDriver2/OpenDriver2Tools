@@ -6,6 +6,8 @@
 // DRIVER 1
 //----------------------------------------------------------------------------------
 
+#define ROAD_MAP_REGION_CELLS	3600
+
 class CDriver1LevelRegion;
 class CDriver1LevelMap;
 
@@ -32,9 +34,11 @@ public:
 
 protected:
 	void					LoadRoadHeightMapData(IVirtualStream* pFile);
+	void					LoadRoadCellsData(IVirtualStream* pFile);
 
 	CELL_DATA_D1*			m_cells{ nullptr };				// cell data that holding information about cell pointers. 3D world seeks cells first here
 	uint*					m_roadMap{ nullptr };
+	ushort*					m_surfaceRoads{ nullptr };
 };
 
 

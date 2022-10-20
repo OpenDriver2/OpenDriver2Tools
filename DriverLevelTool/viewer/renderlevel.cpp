@@ -1,6 +1,8 @@
 #include "debug_overlay.h"
 #include "gl_renderer.h"
 
+#include <string.h>
+
 #include "core/VirtualStream.h"
 #include "driver_routines/models.h"
 #include "driver_routines/regions_d1.h"
@@ -10,8 +12,9 @@
 #include "math/isin.h"
 #include "rendermodel.h"
 #include "core/cmdlib.h"
-#include <string.h>
+
 #include "convert.h"
+#include "camera.h"
 
 // extern some vars
 extern String					g_levname;
@@ -444,11 +447,27 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 			int numLanes = ROAD_WIDTH_IN_LANES(straight);
 			for (int j = 0; j < numLanes; j++)
 			{
-				VECTOR_NOPAD offset{ ((straight->length / 2) * sn) / ONE, 0, ((straight->length / 2) * cs) / ONE };
-				VECTOR_NOPAD lane_offset{ ((512 * j - numLanes * 256 + 256) * -cs) / ONE, 0, ((512 * j - numLanes * 256 + 256) * sn) / ONE };
+				VECTOR_NOPAD offset{ 
+					((straight->length / 2) * sn) / ONE, 
+					0, 
+					((straight->length / 2) * cs) / ONE 
+				};
+				VECTOR_NOPAD lane_offset{ 
+					((512 * j - numLanes * 256 + 256) * -cs) / ONE,
+					0, 
+					((512 * j - numLanes * 256 + 256) * sn) / ONE
+				};
 
-				VECTOR_NOPAD positionA{ straight->Midx - offset.vx + lane_offset.vx, 0, straight->Midz - offset.vz + lane_offset.vz };
-				VECTOR_NOPAD positionB{ straight->Midx + offset.vx + lane_offset.vx, 0, straight->Midz + offset.vz + lane_offset.vz };
+				VECTOR_NOPAD positionA{ 
+					straight->Midx - offset.vx + lane_offset.vx, 
+					0, 
+					straight->Midz - offset.vz + lane_offset.vz 
+				};
+				VECTOR_NOPAD positionB{
+					straight->Midx + offset.vx + lane_offset.vx, 
+					0, 
+					straight->Midz + offset.vz + lane_offset.vz 
+				};
 
 				ColorRGBA color(0.0f, 1.0f, 0.0f, 1.0f);
 
@@ -507,7 +526,11 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 
 				for (int k = 0; k < 8; k++)
 				{
-					positionB = VECTOR_NOPAD{ curve->Midx + (radius * isin(distAlongPath)) / ONE, 0, curve->Midz + (radius * icos(distAlongPath)) / ONE };
+					positionB = VECTOR_NOPAD{ 
+						curve->Midx + (radius * isin(distAlongPath)) / ONE, 
+						0, 
+						curve->Midz + (radius * icos(distAlongPath)) / ONE
+					};
 
 					distAlongPath += curveLength / 7; // 8 - 1
 
@@ -639,32 +662,39 @@ void DrawLevelDriver1(const Vector3D& cameraPos, float cameraAngleY, const Volum
 
 	if (g_displayRoads)
 	{
+		ROUTE_DATA route;
+		VECTOR_NOPAD cameraPosition = ToFixedVector(g_cameraPosition);
+		levMapDriver1->GetRoadInfo(route, cameraPosition);
+
 		const ROAD_MAP_LUMP_DATA& lumpData = levMapDriver1->GetRoadMapLumpData();
 
-		int px = -(lumpData.width / 2) * 1500;
-		int py = -(lumpData.height / 2) * 1500;
+		const int px = lumpData.width / 2 * 1500;
+		const int py = lumpData.height / 2 * 1500;
 
 		int xoff = lumpData.unitXMid * 2;
 		int yoff = lumpData.unitZMid * 2;
-		xoff += px - 750;
-		yoff += py - 750;
-		
-		for (int i = 0; i < levMapDriver1->GetNumRoads(); i++)
+		xoff -= px + 750;
+		yoff -= py + 750;
+
+		const int numRoads = levMapDriver1->GetNumRoads();
+		for (int i = 0; i < numRoads; i++)
 		{
 			DRIVER1_ROAD* road = levMapDriver1->GetRoad(i);
 			DRIVER1_ROADBOUNDS* roadBounds = levMapDriver1->GetRoadBounds(i);
+
+			const int length = road->length * 1500;
 
 			int sn, cs;
 			sn = isin(roadBounds->dir * 1024);
 			cs = icos(roadBounds->dir * 1024);
 
-			int numLanes = road->NumLanes * 2;
+			const int numLanes = road->NumLanes * 2;
 			for (int j = 0; j < numLanes; j++)
 			{
 				VECTOR_NOPAD offset{
-					(road->length * 1500 * sn) / ONE,
+					(length * sn) / ONE,
 					0, 
-					(road->length * 1500 * cs) / ONE
+					(length * cs) / ONE
 				};
 				VECTOR_NOPAD lane_offset{ 
 					(750 * cs) / ONE / 2 + (j * 750 * cs) / ONE,
@@ -677,13 +707,30 @@ void DrawLevelDriver1(const Vector3D& cameraPos, float cameraAngleY, const Volum
 					(lumpData.height - road->z) * 1500 - yoff
 				};
 
-				VECTOR_NOPAD positionA{ road_pos.vx + lane_offset.vx, 0, road_pos.vz + lane_offset.vz };
-				VECTOR_NOPAD positionB{ road_pos.vx + offset.vx + lane_offset.vx, 0, road_pos.vz - offset.vz + lane_offset.vz };
+				VECTOR_NOPAD positionA{ 
+					road_pos.vx + lane_offset.vx, 
+					0,
+					road_pos.vz + lane_offset.vz 
+				};
+				VECTOR_NOPAD positionB{ 
+					road_pos.vx + offset.vx + lane_offset.vx, 
+					0,
+					road_pos.vz - offset.vz + lane_offset.vz 
+				};
 
 				ColorRGBA color(0.0f, 1.0f, 0.0f, 1.0f);
 
+				if (route.roadIndex == i)
+					color.x = 1.0f;
+
 				if (ROAD_LANE_DIR(road, j))
 					color.z = 1.0f;
+
+				if ((road->flags & ROAD_FLAG_PARKING) && (j == 0 || j == numLanes-1))
+				{
+					color.x = 1.0f;
+					color.y = 1.0f;
+				}
 
 				DebugOverlay_Line(FromFixedVector(positionA), FromFixedVector(positionB), color);
 			}

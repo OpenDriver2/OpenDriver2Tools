@@ -420,6 +420,7 @@ struct ROUTE_DATA
 	int type;
 	int height;
 	int objectAngle;
+	int roadIndex;
 	uint value;
 };
 
