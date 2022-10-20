@@ -202,6 +202,18 @@ void CDriver1LevelMap::FreeAll()
 	Memory::free(m_surfaceData);
 	m_surfaceData = nullptr;
 
+	delete[] m_roads;
+	m_roads = nullptr;
+
+	delete[] m_roadBounds;
+	m_roadBounds = nullptr;
+
+	delete[] m_junctions;
+	m_junctions = nullptr;
+
+	delete[] m_junctionBounds;
+	m_junctionBounds = nullptr;
+
 	CBaseLevelMap::FreeAll();
 }
 
@@ -272,12 +284,6 @@ void CDriver1LevelMap::LoadRoadBoundsLump(IVirtualStream* pFile)
 	pFile->Read(&numRoadBounds, 1, sizeof(int));
 	m_roadBounds = new DRIVER1_ROADBOUNDS[numRoadBounds];
 	pFile->Read(m_roadBounds, numRoadBounds, sizeof(DRIVER1_ROADBOUNDS));
-
-	// TODO: put road bounds onto spatial lookup map
-	for (int i = 0; i < numRoadBounds; ++i)
-	{
-		Msg("Road %d bound - x %d y %d x %d y %d\n", i, m_roadBounds[i].x1, m_roadBounds[i].y1, m_roadBounds[i].x2, m_roadBounds[i].y2);
-	}
 }
 
 void CDriver1LevelMap::LoadJuncBoundsLump(IVirtualStream* pFile)
@@ -286,9 +292,6 @@ void CDriver1LevelMap::LoadJuncBoundsLump(IVirtualStream* pFile)
 	pFile->Read(&numJuncBounds, 1, sizeof(int));
 	m_junctionBounds = new XYPAIR[numJuncBounds];
 	pFile->Read(m_junctionBounds, numJuncBounds, sizeof(XYPAIR));
-
-	// TODO: put junction bounds onto spatial lookup map
-
 }
 
 void CDriver1LevelMap::LoadRoadSurfaceLump(IVirtualStream* pFile, int size)
