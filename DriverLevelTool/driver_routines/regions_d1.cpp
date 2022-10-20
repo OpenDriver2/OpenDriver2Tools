@@ -224,6 +224,41 @@ void CDriver1LevelMap::LoadRoadMapLump(IVirtualStream* pFile)
 	//m_roadMapLumpData.unitXMid = 1500 * width / 2;
 	//m_roadMapLumpData.unitZMid = 1500 * height / 2;
 }
+#pragma optimize("", off)
+
+void CDriver1LevelMap::LoadRoadsLump(IVirtualStream* pFile)
+{
+	pFile->Read(&m_numRoads, 1, sizeof(int));
+	m_roads = new DRIVER1_ROAD[m_numRoads];
+	pFile->Read(m_roads, m_numRoads, sizeof(DRIVER1_ROAD));
+}
+
+void CDriver1LevelMap::LoadJunctionsLump(IVirtualStream* pFile)
+{
+	pFile->Read(&m_numJunctions, 1, sizeof(int));
+	m_junctions = new DRIVER1_JUNCTION[m_numJunctions];
+	pFile->Read(m_junctions, m_numJunctions, sizeof(DRIVER1_JUNCTION));
+}
+
+void CDriver1LevelMap::LoadRoadBoundsLump(IVirtualStream* pFile)
+{
+	int numRoadBounds;
+	pFile->Read(&numRoadBounds, 1, sizeof(int));
+	m_roadBounds = new DRIVER1_ROADBOUNDS[numRoadBounds];
+	pFile->Read(m_roadBounds, numRoadBounds, sizeof(DRIVER1_ROADBOUNDS));
+
+	// TODO: put road bounds onto spatial lookup map
+}
+
+void CDriver1LevelMap::LoadJuncBoundsLump(IVirtualStream* pFile)
+{
+	int numJuncBounds;
+	pFile->Read(&numJuncBounds, 1, sizeof(int));
+	m_junctionBounds = new XYPAIR[numJuncBounds];
+	pFile->Read(m_junctionBounds, numJuncBounds, sizeof(XYPAIR));
+
+	// TODO: put junction bounds onto spatial lookup map
+}
 
 void CDriver1LevelMap::LoadRoadSurfaceLump(IVirtualStream* pFile, int size)
 {
@@ -251,6 +286,12 @@ CBaseLevelRegion* CDriver1LevelMap::GetRegion(const XZPAIR& cell) const
 	// lookup region
 	const int region_x = cell.x / m_mapInfo.region_size;
 	const int region_z = cell.z / m_mapInfo.region_size;
+
+	if (region_x < 0 ||
+		region_z < 0 ||
+		region_x >= m_regions_across ||
+		region_z >= m_regions_down)
+		return nullptr;
 
 	return GetRegion(region_x + region_z * m_regions_across);
 }
@@ -335,7 +376,7 @@ int PointInQuad2d(int tx, int ty, const XYPAIR* verts)
 
 	return 1;
 }
-
+#pragma optimize("", off)
 bool CDriver1LevelMap::GetRoadInfo(ROUTE_DATA& outData, const VECTOR_NOPAD& position) const
 {
 	const int road_region_size = m_mapInfo.cell_size / 1500 * m_mapInfo.region_size;
@@ -374,7 +415,7 @@ bool CDriver1LevelMap::GetRoadInfo(ROUTE_DATA& outData, const VECTOR_NOPAD& posi
 										 (cpos.z % road_region_size) * road_region_size];
 
 	outData.height = *(short*)&value;
-	outData.type = value >> 16 & 0x3ff;
+	outData.type = value >> 16 & 1023;
 	outData.objectAngle = (value >> 30) * 1024;
 	outData.value = value;
 

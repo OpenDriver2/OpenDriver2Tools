@@ -636,4 +636,57 @@ void DrawLevelDriver1(const Vector3D& cameraPos, float cameraAngleY, const Volum
 	{
 		DrawCellObject(*drawObjects[i], cameraPos, cameraAngleY, frustrumVolume, true);
 	}
+
+	if (g_displayRoads)
+	{
+		const ROAD_MAP_LUMP_DATA& lumpData = levMapDriver1->GetRoadMapLumpData();
+
+		int px = -(lumpData.width / 2) * 1500;
+		int py = -(lumpData.height / 2) * 1500;
+
+		int xoff = lumpData.unitXMid * 2;
+		int yoff = lumpData.unitZMid * 2;
+		xoff += px - 750;
+		yoff += py - 750;
+		
+		for (int i = 0; i < levMapDriver1->GetNumRoads(); i++)
+		{
+			DRIVER1_ROAD* road = levMapDriver1->GetRoad(i);
+			DRIVER1_ROADBOUNDS* roadBounds = levMapDriver1->GetRoadBounds(i);
+
+			int sn, cs;
+			sn = isin(roadBounds->dir * 1024);
+			cs = icos(roadBounds->dir * 1024);
+
+			int numLanes = road->NumLanes * 2;
+			for (int j = 0; j < numLanes; j++)
+			{
+				VECTOR_NOPAD offset{
+					(road->length * 1500 * sn) / ONE,
+					0, 
+					(road->length * 1500 * cs) / ONE
+				};
+				VECTOR_NOPAD lane_offset{ 
+					(750 * cs) / ONE / 2 + (j * 750 * cs) / ONE,
+					0, 
+					(750 * -sn) / ONE / 2 + (j * 750 * -sn) / ONE
+				};
+				VECTOR_NOPAD road_pos{
+					road->x * 1500 - xoff,
+					0,
+					(lumpData.height - road->z) * 1500 - yoff
+				};
+
+				VECTOR_NOPAD positionA{ road_pos.vx + lane_offset.vx, 0, road_pos.vz + lane_offset.vz };
+				VECTOR_NOPAD positionB{ road_pos.vx + offset.vx + lane_offset.vx, 0, road_pos.vz - offset.vz + lane_offset.vz };
+
+				ColorRGBA color(0.0f, 1.0f, 0.0f, 1.0f);
+
+				if (ROAD_LANE_DIR(road, j))
+					color.z = 1.0f;
+
+				DebugOverlay_Line(FromFixedVector(positionA), FromFixedVector(positionB), color);
+			}
+		}
+	}
 }
