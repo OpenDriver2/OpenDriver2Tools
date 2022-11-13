@@ -93,6 +93,32 @@ void ConvertIndexedSkyImage(uint* color_data, ubyte* src_indexed, int x_idx, int
 	}
 }
 
+#pragma pack(push, 1)
+struct BMP_INFO_HEADER
+{
+	int size;
+	int width;
+	int height;
+	short planes;
+	short bitcount;
+	int compression;
+	int sizeimage;
+	int xpelsPerMeter;
+	int ypelsPerMeter;
+	int clrused;
+	int clrimportant;
+};
+
+struct BMP_FILE_HEADER
+{
+	char type[2];
+	int size;
+	short _reserved[2];
+	int offbits;
+	BMP_INFO_HEADER info;
+};
+#pragma pack(pop)
+
 // this function just unpacks sky data
 void ConvertSkyD1(const char* skyFileName)
 {
@@ -107,7 +133,7 @@ void ConvertSkyD1(const char* skyFileName)
 	{
 		fseek(fp, skyNum * 48, SEEK_SET);
 
-		int offsetInfo[13];
+		int offsetInfo[16];
 		fread(offsetInfo, 1, sizeof(offsetInfo), fp);
 
 		// 12 BMPs for each sky
@@ -121,9 +147,13 @@ void ConvertSkyD1(const char* skyFileName)
 			}
 
 			// get the BMP data
-			int bmpSize = offsetInfo[i + 1] - offsetInfo[i];
-			char* data = new char[bmpSize];
+			fseek(fp, offsetInfo[i], SEEK_SET);
 
+			BMP_FILE_HEADER hdr;
+			fread(&hdr, 1, sizeof(BMP_FILE_HEADER), fp);
+
+			int bmpSize = hdr.size;
+			char* data = new char[bmpSize];
 			fseek(fp, offsetInfo[i], SEEK_SET);
 			fread(data, 1, bmpSize, fp);
 
