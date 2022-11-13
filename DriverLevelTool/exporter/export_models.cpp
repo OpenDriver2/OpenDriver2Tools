@@ -92,8 +92,6 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 			sfNorm.z);
 	}
 
-	int face_ofs = 0;
-
 	if (debugInfo)
 	{
 		pStream->Print("#poly ofs %d\r\n", model->poly_block);
@@ -114,17 +112,19 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 
 	bool prevSmooth = false;
 	int prev_tpage = -1;
+
+	int face_ofs = 0;
 	dpoly_t dec_face;
 
-	// go throught all polygons
+	// go through all polygons
 	for (int i = 0; i < model->num_polys; i++)
 	{
 		char* facedata = model->pPolyAt(face_ofs);
 
 		// check offset
-		if((ubyte*)facedata >= (ubyte*)model+modelSize)
+		if ((ubyte*)facedata >= (ubyte*)model + modelSize)
 		{
-			MsgError("poly id=%d type=%d ofs=%d bad offset!\n", i, *facedata & 31, model->poly_block + face_ofs);
+			MsgError("MDL %d poly id=%d type=%d ofs=%d bad offset!\n", model_index, i, *facedata & 31, model->poly_block + face_ofs);
 			break;
 		}
 		
@@ -133,41 +133,43 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 		// check poly size
 		if (poly_size == 0)
 		{
-			MsgError("poly id=%d type=%d ofs=%d zero size!\n", i, *facedata & 31, model->poly_block + face_ofs);
+			MsgError("MDL %d poly id=%d type=%d ofs=%d zero size!\n", model_index, i, *facedata & 31, model->poly_block + face_ofs);
 			break;
 		}
+
+		face_ofs += poly_size;
 		
 		if (debugInfo)
 			pStream->Print("# ft=%d ofs=%d size=%d\r\n", *facedata & 31, model->poly_block + face_ofs, poly_size);
 
-		const int numPolyVerts = (dec_face.flags & FACE_IS_QUAD) ? 4 : 3;
+		int numPolyVerts = (dec_face.flags & FACE_IS_QUAD) ? 4 : 3;
 		bool bad_face = false;
+		bool bad_normals = false;
 
 		// perform vertex checks
-		for(int v = 0; v < numPolyVerts; v++)
+		for (int v = 0; v < numPolyVerts; v++)
 		{
-			if(dec_face.vindices[v] >= vertex_ref->num_vertices)
+			if (dec_face.vindices[v] >= vertex_ref->num_vertices)
 			{
-				
 				bad_face = true;
 				break;
 			}
 
 			// also check normals
-			if(dec_face.flags & FACE_VERT_NORMAL)
+			if (dec_face.flags & FACE_VERT_NORMAL)
 			{
-				if(dec_face.nindices[v] >= vertex_ref->num_point_normals)
+				if (dec_face.nindices[v] >= vertex_ref->num_point_normals)
 				{
-					bad_face = true;
+					bad_normals = true;
 					break;
 				}
 			}
 		}
 
-		if(bad_face)
+		if (bad_face)
 		{
-			MsgError("poly id=%d type=%d ofs=%d has invalid indices (or format is unknown)\n", i, *facedata & 31, model->poly_block + face_ofs);
-			face_ofs += poly_size;
+			MsgError("MDL %d poly id=%d type=%d ofs=%d has invalid indices (or format is unknown)\n", model_index, i, *facedata & 31, model->poly_block + face_ofs);
+
 			continue;
 		}
 
@@ -255,8 +257,6 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 
 		// end the vertex
 		pStream->Print("%s\r\n", formatted_vertex);
-
-		face_ofs += poly_size;
 	}
 
 	if (first_t)
