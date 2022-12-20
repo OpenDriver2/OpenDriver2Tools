@@ -583,9 +583,18 @@ void DisplayExportUI()
 			ImGui::Checkbox("Extract as TIM files for REDRIVER2", &g_explode_tpages);
 
 			static int texturePageIdx = 0;
-			ImGui::InputInt("Page number", &texturePageIdx);
+			ImGui::InputInt("Preview TPage", &texturePageIdx);
 			texturePageIdx = clamp(texturePageIdx, 0, g_levTextures.GetTPageCount()-1);
+
+			int tpageFlags = g_levTextures.GetTPage(texturePageIdx)->GetFlags();
 			ImGui::Image((void*)g_hwTexturePages[texturePageIdx][0], ImVec2(256, 256));
+
+			ImGui::CheckboxFlags("Permanent", &tpageFlags, TEX_PERMANENT);
+			ImGui::CheckboxFlags("Swapable", &tpageFlags, TEX_SWAPABLE);
+			ImGui::CheckboxFlags("Special", &tpageFlags, TEX_SPECIAL);
+			ImGui::CheckboxFlags("Damaged", &tpageFlags, TEX_DAMAGED);
+			ImGui::CheckboxFlags("8bit", &tpageFlags, TEX_8BIT);
+			ImGui::CheckboxFlags("Parent", &tpageFlags, TEX_PARENT);
 
 			if (ImGui::Button("Export all textures"))
 			{
@@ -1131,7 +1140,7 @@ void ViewerMainLoop()
 			GR_ClearColor(128 / 255.0f, 158 / 255.0f, 182 / 255.0f);
 
 		// Render stuff
-		if (g_viewerMode == 0 && g_levMap->GetFormat() != LEV_FORMAT_DRIVER1_OLD)
+		if (g_viewerMode == 0)
 		{
 			float cameraSpeedModifier = g_holdShift ? 4.0f : 1.0f;
 			
