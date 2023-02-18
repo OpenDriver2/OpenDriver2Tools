@@ -31,7 +31,7 @@ struct Denting_t
 //--------------------------------------------------------------------------
 // Converts ambigous to side zone types to proper ones using vertex position
 //--------------------------------------------------------------------------
-int GetSideDamageZoneByVerts(smdmodel_t& model, const smdpoly_t& poly, int internalZoneType)
+static int GetSideDamageZoneByVerts(smdmodel_t& model, const smdpoly_t& poly, int internalZoneType)
 {
 	float poly_side = 0;
 	
@@ -39,7 +39,7 @@ int GetSideDamageZoneByVerts(smdmodel_t& model, const smdpoly_t& poly, int inter
 	{
 		Vector3D& vert = model.verts[poly.vindices[i]];
 
-		// TODO: input actual DMODEL, this is an overkill
+		// TODO: input actual MDL, this is an overkill
 		SVECTOR temp;
 		ConvertVertexToDriver(&temp, &vert);
 		
@@ -85,7 +85,7 @@ int GetSideDamageZoneByVerts(smdmodel_t& model, const smdpoly_t& poly, int inter
 //		2 = if zone polygon count exceeded
 //		3 = if zone vertices count exceeded
 //--------------------------------------------------------------------------
-int CheckDentingLimits(const Denting_t& denting)
+static int CheckDentingLimits(const Denting_t& denting)
 {
 	if (denting.polygonCount > MAX_FILE_DAMAGE_LEVELS)
 	{
@@ -111,7 +111,7 @@ int CheckDentingLimits(const Denting_t& denting)
 //--------------------------------------------------------------------------
 // Adding vertices to zones with checking to be unique
 //--------------------------------------------------------------------------
-void AddDentingVerts(Denting_t& outDenting, int zone, const smdpoly_t& poly)
+static void AddDentingVerts(Denting_t& outDenting, int zone, const smdpoly_t& poly)
 {
 	for (int i = 0; i < poly.vcount; i++)
 	{
@@ -135,7 +135,7 @@ void AddDentingVerts(Denting_t& outDenting, int zone, const smdpoly_t& poly)
 //--------------------------------------------------------------------------
 // Writes denting to stream for single group
 //--------------------------------------------------------------------------
-bool ProcessDentingForGroup(Denting_t& outDenting, smdmodel_t& model, smdgroup_t* group)
+static bool ProcessDentingForGroup(Denting_t& outDenting, smdmodel_t& model, smdgroup_t* group)
 {
 	// select polygons and add vertices to denting
 	int numPolys = group->polygons.size();

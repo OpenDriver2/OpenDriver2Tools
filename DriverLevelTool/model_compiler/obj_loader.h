@@ -26,9 +26,9 @@ struct smdgroup_t
 		texture[0] = '\0';
 	}
 
-	char					name[256];
-	char					texture[256];
-	Array<smdpoly_t>		polygons;
+	char				name[256];
+	char				texture[256];
+	Array<smdpoly_t>	polygons;
 };
 
 // simple polygon model
@@ -40,9 +40,9 @@ struct smdmodel_t
 	Array<Vector3D>		normals;
 	Array<Vector2D>		texcoords;
 	
-	Array<smdgroup_t*>		groups;
+	Array<smdgroup_t*>	groups;
 
-	smdgroup_t*				FindGroupByName(const char* pszGroupname);
+	smdgroup_t*			FindGroupByName(const char* pszGroupname);
 };
 
 // Loads OBJ model, as DSM

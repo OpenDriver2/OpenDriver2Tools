@@ -22,8 +22,8 @@ extern CBaseLevelMap*			g_levMap;
 
 //----------------------------------------------------------
 
-void	ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, int modelSize);
-void	WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize, int model_index, const char* name_prefix,
+void	ExportMDLToOBJ(MODEL* model, const char* model_name, int model_index, int modelSize);
+void	WriteMDLToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize, int model_index, const char* name_prefix,
 			bool debugInfo = true,
 			const Matrix4x4& translation = identity4(),
 			int* first_v = nullptr,

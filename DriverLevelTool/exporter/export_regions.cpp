@@ -85,7 +85,7 @@ int ExportRegionDriver1(CDriver1LevelRegion* region, IVirtualStream* levelFileSt
 					Matrix4x4 transform = translate(absCellPosition);
 					transform = transform * rotateY4(cellRotationRad) * scale4(1.0f, 1.0f, 1.0f);
 
-					WriteMODELToObjStream(levelFileStream, model, ref->size, co->type,
+					WriteMDLToObjStream(levelFileStream, model, ref->size, co->type,
 						String::fromPrintf("reg%d", region->GetNumber()),
 						false, transform, &lobj_first_v, &lobj_first_t);
 				}
@@ -154,7 +154,7 @@ int ExportRegionDriver2(CDriver2LevelRegion* region, IVirtualStream* levelFileSt
 					Matrix4x4 transform = translate(absCellPosition);
 					transform = transform * rotateY4(cellRotationRad) * scale4(1.0f, 1.0f, 1.0f);
 
-					WriteMODELToObjStream(levelFileStream, model, ref->size, co.type,
+					WriteMDLToObjStream(levelFileStream, model, ref->size, co.type,
 						String::fromPrintf("reg%d", region->GetNumber()),
 						false, transform, &lobj_first_v, &lobj_first_t);
 				}

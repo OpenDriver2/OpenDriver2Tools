@@ -10,7 +10,7 @@
 #include <string.h>
 #include <nstd/File.hpp>
 
-extern bool		g_extract_dmodels;
+extern bool		g_extract_mdls;
 extern bool		g_export_worldUnityScript;
 
 extern String	g_levname_moddir;
@@ -19,7 +19,7 @@ extern String	g_levname_texdir;
 //-------------------------------------------------------------
 // writes Wavefront OBJ into stream
 //-------------------------------------------------------------
-void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize, int model_index, const char* name_prefix,
+void WriteMDLToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize, int model_index, const char* name_prefix,
 	bool debugInfo,
 	const Matrix4x4& translation,
 	int* first_v,
@@ -271,9 +271,9 @@ void WriteMODELToObjStream(IVirtualStream* pStream, MODEL* model, int modelSize,
 //-------------------------------------------------------------
 // Saves raw MODEL to file
 //-------------------------------------------------------------
-void ExtractDMODEL(MODEL* model, const char* model_name, int modelSize)
+void ExtractMDL(MODEL* model, const char* model_name, int modelSize)
 {
-	FILE* mdlFile = fopen(String::fromPrintf("%s.dmodel", model_name), "wb");
+	FILE* mdlFile = fopen(String::fromPrintf("%s.MDL", model_name), "wb");
 
 	if (mdlFile)
 	{
@@ -291,14 +291,14 @@ void ExtractDMODEL(MODEL* model, const char* model_name, int modelSize)
 //-------------------------------------------------------------
 // exports model to single file
 //-------------------------------------------------------------
-void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, int modelSize)
+void ExportMDLToOBJ(MODEL* model, const char* model_name, int model_index, int modelSize)
 {
 	if (!model)
 		return;
 
-	if (g_extract_dmodels)
+	if (g_extract_mdls)
 	{
-		ExtractDMODEL(model, model_name, modelSize);
+		ExtractMDL(model, model_name, modelSize);
 		return;
 	}
 
@@ -323,7 +323,7 @@ void ExportDMODELToOBJ(MODEL* model, const char* model_name, int model_index, in
 		bool debugInfo = false;
 #endif
 		
-		WriteMODELToObjStream(&fstr, model, modelSize, model_index, File::basename(String::fromCString(model_name)), debugInfo);
+		WriteMDLToObjStream(&fstr, model, modelSize, model_index, File::basename(String::fromCString(model_name)), debugInfo);
 
 		// success
 		fclose(mdlFile);
@@ -338,7 +338,7 @@ void ExportCarModel(MODEL* model, int size, int index, const char* name_suffix)
 	String model_name(String::fromPrintf("%s/CARMODEL_%d_%s", (char*)g_levname_moddir, index, name_suffix));
 
 	// export model
-	ExportDMODELToOBJ(model, model_name, index, size);
+	ExportMDLToOBJ(model, model_name, index, size);
 }
 
 //-------------------------------------------------------------
@@ -381,7 +381,7 @@ void ExportAllModels()
 		String modelPath = String::fromPrintf("%s/%s", (char*)g_levname_moddir, (char*)modelName);
 
 		// export model
-		ExportDMODELToOBJ(ref->model, modelPath, i, ref->size);
+		ExportMDLToOBJ(ref->model, modelPath, i, ref->size);
 	}
 }
 

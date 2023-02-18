@@ -50,6 +50,6 @@ void GenerateDenting(smdmodel_t& model, const char* outputName);
 
 //----------------------------------------------------------
 
-void CompileOBJModelToDMODEL(const char* filename, const char* outputName, bool generate_denting);
+void CompileOBJModelToMDL(const char* filename, const char* outputName, bool generate_denting);
 
 #endif

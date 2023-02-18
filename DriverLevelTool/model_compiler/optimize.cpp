@@ -4,7 +4,7 @@
 
 #define VERTEX_LINK_TOLERANCE 0.0001f
 
-int FindVertexInRefList(const Vector3D& vert, const Array<Vector3D>& newVerts, float tolerance)
+static int FindVertexInRefList(const Vector3D& vert, const Array<Vector3D>& newVerts, float tolerance)
 {
 	for (int i = 0; i < newVerts.size(); i++)
 	{
@@ -17,7 +17,7 @@ int FindVertexInRefList(const Vector3D& vert, const Array<Vector3D>& newVerts, f
 	return -1;
 }
 
-void OptimizeVectorArray(Array<Vector3D>& targetArray, Array<int>& index_remap)
+static void OptimizeVectorArray(Array<Vector3D>& targetArray, Array<int>& index_remap)
 {
 	Array<Vector3D> newVectors;
 

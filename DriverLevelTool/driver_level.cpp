@@ -18,7 +18,7 @@
 
 bool g_export_carmodels = false;
 bool g_export_models = false;
-bool g_extract_dmodels = false;
+bool g_extract_mdls = false;
 
 bool g_export_world = false;
 bool g_export_worldUnityScript = false;
@@ -133,7 +133,7 @@ void ExportLevelFile()
 }
 
 // 
-void ConvertDModelFileToOBJ(const char* filename, const char* outputFilename)
+void ConvertMDLToOBJ(const char* filename, const char* outputFilename)
 {
 	MODEL* model;
 	int modelSize;
@@ -162,7 +162,7 @@ void ConvertDModelFileToOBJ(const char* filename, const char* outputFilename)
 		return;
 	}
 
-	ExportDMODELToOBJ(model, outputFilename, 0, modelSize);
+	ExportMDLToOBJ(model, outputFilename, 0, modelSize);
 }
 
 //----------------------------------------------------------------------------------------
@@ -178,11 +178,11 @@ void PrintCommandLineArguments()
 		"  -carmodels <1/0> \t: Export car models (OBJ)\n\n"
 		"  -world <1/0> \t\t: Export whole world regions (OBJ)\n\n"
 		"  -unity \t: Creates JavaScript file for Unity Engine\n\n"
-		"  -extractmodels \t: Extracts DMODEL files instead of exporting to OBJ\n\n"
+		"  -extractmodels \t: Extracts MDLs instead of exporting to OBJ\n\n"
 		"  -overmap <width> \t: Extract overlay map with specified width\n\n"
 		"  -explodetpages \t: Extracts textures as separate TIM files instead of whole texture page exporting as TGA\n\n"
-		"  -dmodel2obj <filename.DMODEL> <output.OBJ> \t: converts DMODEL to OBJ file\n\n";
-		"  -compiledmodel <filename.OBJ> <output.DMODEL> \t: compiles OBJ to DMODEL file\n\n";
+		"  -mdl2obj <filename.MDL> <output.OBJ> \t: converts MDL to OBJ file\n\n";
+		"  -compilemdl <filename.OBJ> <output.MDL> \t: compiles OBJ to MDL file\n\n";
 		"  -denting \t: enables car denting file generation for next -compilemodel key\n\n";
 	MsgInfo(argumentsMessage);
 }
@@ -236,7 +236,7 @@ int main(int argc, char* argv[])
 		}
 		else if (!stricmp(argv[i], "-extractmodels"))
 		{
-			g_extract_dmodels = true;
+			g_extract_mdls = true;
 		}
 		else if (!stricmp(argv[i], "-explodetpages"))
 		{
@@ -249,9 +249,9 @@ int main(int argc, char* argv[])
 			main_routine = 1;
 			i++;
 		}
-		else if (!stricmp(argv[i], "-dmodel2obj"))
+		else if (!stricmp(argv[i], "-mdl2obj"))
 		{
-			ConvertDModelFileToOBJ(argv[i + 1], argv[i + 2]);
+			ConvertMDLToOBJ(argv[i + 1], argv[i + 2]);
 			main_routine = 0;
 			i += 2;
 		}
@@ -259,9 +259,9 @@ int main(int argc, char* argv[])
 		{
 			generate_denting = true;
 		}
-		else if (!stricmp(argv[i], "-compiledmodel"))
+		else if (!stricmp(argv[i], "-compilemdl"))
 		{
-			CompileOBJModelToDMODEL(argv[i + 1], argv[i + 2], generate_denting);
+			CompileOBJModelToMDL(argv[i + 1], argv[i + 2], generate_denting);
 			main_routine = 0;
 			generate_denting = false; // disable denting compiler after it's job done
 			i += 2;

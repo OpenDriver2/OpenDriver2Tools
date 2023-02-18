@@ -30,7 +30,7 @@ int						g_numCompilerTPages = 0;
 
 //--------------------------------------------------------------------------
 
-inline int GetDamageZoneId(const char* zoneName)
+static int GetDamageZoneId(const char* zoneName)
 {
 	if (zoneName == nullptr)
 		return 0xFFFF;
@@ -56,7 +56,7 @@ void ConvertVertexToDriver(SVECTOR* dest, Vector3D* src)
 //--------------------------------------------------------------------------
 // Free work memory
 //--------------------------------------------------------------------------
-void FreeTextureDetails()
+static void FreeTextureDetails()
 {
 	for(int i = 0; i < g_numCompilerTPages; i++)
 	{
@@ -71,7 +71,7 @@ void FreeTextureDetails()
 //--------------------------------------------------------------------------
 // Loads INI files to get a clue of texture details
 //--------------------------------------------------------------------------
-void InitTextureDetailsForModel(smdmodel_t* model)
+static void InitTextureDetailsForModel(smdmodel_t* model)
 {
 	// get texture pages from source model
 	Array<int> tpage_ids;
@@ -162,7 +162,7 @@ void InitTextureDetailsForModel(smdmodel_t* model)
 // searches for texture detail by checking UV coordinates ownership to each
 // texture detail rectangle
 //--------------------------------------------------------------------------
-int FindTextureDetailByUV(int tpage, UV_INFO* uvs, int num_uv, TEXINF** detail)
+static int FindTextureDetailByUV(int tpage, UV_INFO* uvs, int num_uv, TEXINF** detail)
 {
 	// first find tpage
 	CompilerTPage* tpinfo = nullptr;
@@ -227,7 +227,7 @@ int FindTextureDetailByUV(int tpage, UV_INFO* uvs, int num_uv, TEXINF** detail)
 //--------------------------------------------------------------------------
 // Converts polygons to Driver PSX coordinate system
 //--------------------------------------------------------------------------
-void ConvertPolyUVs(UV_INFO* dest, Vector2D* src, const smdpoly_t& poly)
+static void ConvertPolyUVs(UV_INFO* dest, Vector2D* src, const smdpoly_t& poly)
 {
 	for(int i = 0; i < poly.vcount; i++)
 	{
@@ -240,9 +240,9 @@ void ConvertPolyUVs(UV_INFO* dest, Vector2D* src, const smdpoly_t& poly)
 }
 
 //--------------------------------------------------------------------------
-// Writes DMODEL polygons
+// Writes MDL polygons
 //--------------------------------------------------------------------------
-int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* group)
+static int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* group)
 {
 	int tpage_number = -1;
 
@@ -398,7 +398,7 @@ int WriteGroupPolygons(IVirtualStream* dest, smdmodel_t* model, smdgroup_t* grou
 //--------------------------------------------------------------------------
 // Writes polygon normals
 //--------------------------------------------------------------------------
-void WritePolygonNormals(IVirtualStream* stream, MODEL* model, smdgroup_t* group)
+static void WritePolygonNormals(IVirtualStream* stream, MODEL* model, smdgroup_t* group)
 {
 	int numPolys = group->polygons.size();
 	for (int i = 0; i < numPolys; i++)
@@ -431,7 +431,7 @@ void WritePolygonNormals(IVirtualStream* stream, MODEL* model, smdgroup_t* group
 //--------------------------------------------------------------------------
 // Computes bounding sphere, primarily takes MAX vertex coordinate values
 //--------------------------------------------------------------------------
-int CalculateBoundingSphere(SVECTOR* verts, int count)
+static int CalculateBoundingSphere(SVECTOR* verts, int count)
 {
 	int radii = 0;
 	for(int i = 0; i < count; i++)
@@ -454,9 +454,9 @@ int CalculateBoundingSphere(SVECTOR* verts, int count)
 }
 
 //--------------------------------------------------------------------------
-// Compiles DMODEL from source model (primarily OBJ)
+// Compiles MDL from source model (primarily OBJ)
 //--------------------------------------------------------------------------
-MODEL* CompileDMODEL(CMemoryStream* stream, smdmodel_t* model, int& resultSize)
+static MODEL* CompileMDL(CMemoryStream* stream, smdmodel_t* model, int& resultSize)
 {
 	MODEL* modelData = (MODEL*)stream->GetCurrentPointer();
 
@@ -541,7 +541,7 @@ MODEL* CompileDMODEL(CMemoryStream* stream, smdmodel_t* model, int& resultSize)
 //--------------------------------------------------------------------------
 // Compiler function
 //--------------------------------------------------------------------------
-void CompileOBJModelToDMODEL(const char* filename, const char* outputName, bool generate_denting)
+void CompileOBJModelToMDL(const char* filename, const char* outputName, bool generate_denting)
 {
 	smdmodel_t model;
 
@@ -576,7 +576,7 @@ void CompileOBJModelToDMODEL(const char* filename, const char* outputName, bool 
 	stream.Open(nullptr, VS_OPEN_WRITE, 512 * 1024);
 	
 	int resultSize = 0;
-	MODEL* resultModel = CompileDMODEL(&stream, &model, resultSize);
+	MODEL* resultModel = CompileMDL(&stream, &model, resultSize);
 
 	if(resultModel)
 	{

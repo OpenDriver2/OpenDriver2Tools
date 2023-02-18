@@ -460,7 +460,7 @@ void UpdateOverlayMapPreview()
 //-------------------------------------------------------------
 void DisplayExportUI()
 {
-	extern bool g_extract_dmodels;
+	extern bool g_extract_mdls;
 	extern bool g_export_worldUnityScript;
 	extern bool g_explode_tpages;
 	extern int g_overlaymap_width;
@@ -536,7 +536,7 @@ void DisplayExportUI()
 				// export model files as well
 				if (g_export_worldUnityScript)
 				{
-					g_extract_dmodels = false;
+					g_extract_mdls = false;
 					g_explode_tpages = false;
 					
 					Directory::create(g_levname_moddir);
@@ -554,7 +554,7 @@ void DisplayExportUI()
 		}
 		else if(g_exportMode == 1)
 		{
-			ImGui::Checkbox("Only extract as DMODEL", &g_extract_dmodels);
+			ImGui::Checkbox("Only extract as MDL", &g_extract_mdls);
 
 			if (ImGui::Button("Export models"))
 			{
@@ -567,7 +567,7 @@ void DisplayExportUI()
 		}
 		else if (g_exportMode == 2)
 		{
-			ImGui::Checkbox("Only extract as DMODEL", &g_extract_dmodels);
+			ImGui::Checkbox("Only extract as MDL", &g_extract_mdls);
 
 			if (ImGui::Button("Export car models"))
 			{
