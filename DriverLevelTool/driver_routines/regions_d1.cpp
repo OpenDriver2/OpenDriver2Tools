@@ -240,6 +240,9 @@ void CDriver1LevelMap::LoadSpoolInfoLump(IVirtualStream* pFile)
 	// Init regions
 	const int total_regions = m_regions_across * m_regions_down;
 
+	if (total_regions == 0)
+		return;
+
 	m_regions = new CDriver1LevelRegion[total_regions];
 
 	for (int i = 0; i < total_regions; i++)
