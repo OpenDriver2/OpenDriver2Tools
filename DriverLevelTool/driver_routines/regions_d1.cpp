@@ -338,6 +338,9 @@ CBaseLevelRegion* CDriver1LevelMap::GetRegion(int regionIdx) const
 	if (regionIdx < 0 && regionIdx >= total_regions)
 		return nullptr;
 #endif
+	if (!m_regions)
+		return nullptr;
+
 	return &m_regions[regionIdx];
 }
 
@@ -345,7 +348,7 @@ bool CDriver1LevelMap::SpoolRegion(const SPOOL_CONTEXT& ctx, const XZPAIR& cell)
 {
 	CDriver1LevelRegion* region = (CDriver1LevelRegion*)GetRegion(cell);
 
-	if (!region->m_loaded)
+	if (region && !region->m_loaded)
 	{
 		if (m_regionSpoolInfoOffsets[region->m_regionNumber] != REGION_EMPTY)
 		{
@@ -607,7 +610,7 @@ CELL_OBJECT* CDriver1LevelMap::GetFirstCop(CELL_ITERATOR_D1* iterator, const XZP
 	iterator->region = region;
 
 	// don't do anything on empty or non-spooled regions
-	if (!region->m_cells)
+	if (!region || !region->m_cells)
 		return nullptr;
 
 	// get cell index on the region
