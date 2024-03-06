@@ -13,86 +13,6 @@
 
 #include "math/Vector.h"
 
-const int SKY_CLUT_START_Y = 252;
-const int SKY_SIZE_W = 256 / 4;
-const int SKY_SIZE_H = 84;
-
-const int BG_SPLICE_W = 64;
-const int BG_SPLICE_H = 256;
-const int BG_SPLICE_SIZE = BG_SPLICE_W * 2 * BG_SPLICE_H;
-
-void CopyTpageImage(ushort* tp_src, ushort* dst, int x, int y, int dst_w, int dst_h)
-{
-	ushort* src = tp_src + x + 128 * y;
-
-	for (int i = 0; i < dst_h; i++) 
-	{
-		memcpy(dst, src, dst_w * sizeof(short));
-		dst += dst_w;
-		src += 128;
-	}
-}
-
-void ExportSkyImage(const char* skyFileName, ubyte* data, int x_idx, int y_idx, int sky_id, int n)
-{
-	ubyte imageCopy[SKY_SIZE_W * SKY_SIZE_H];
-	ushort imageClut[16];
-
-	int clut_x = x_idx * 16; // FIXME: is that correct?
-	int clut_y = SKY_CLUT_START_Y + y_idx;
-
-	CopyTpageImage((ushort*)data, (ushort*)imageCopy, x_idx * SKY_SIZE_W / 2, y_idx * SKY_SIZE_H, SKY_SIZE_W / 2, SKY_SIZE_H);
-	CopyTpageImage((ushort*)data, (ushort*)imageClut, clut_x, clut_y, 16, 1);
-
-	SaveTIM_4bit(varargs("%s_%d_%d.TIM", skyFileName, sky_id, n),
-		imageCopy, 64 * SKY_SIZE_H, 0, 0, SKY_SIZE_W*2, SKY_SIZE_H, (ubyte*)imageClut, 1);
-}
-
-void ConvertIndexedSkyImage(uint* color_data, ubyte* src_indexed, int x_idx, int y_idx, bool outputBGR, bool originalTransparencyKey)
-{
-	ushort imageClut[16];
-
-	int clut_x = x_idx * 16;
-	int clut_y = SKY_CLUT_START_Y + y_idx;
-
-	CopyTpageImage((ushort*)src_indexed, (ushort*)imageClut, clut_x, clut_y, 16, 1);
-	
-	int ox = x_idx * SKY_SIZE_W * 2;
-	int oy = y_idx * SKY_SIZE_H;
-	int w = SKY_SIZE_W * 2;
-	int h = SKY_SIZE_H;
-
-	int tp_wx = ox + w;
-	int tp_hy = oy + h;
-	
-	for (int y = oy; y < tp_hy; y++)
-	{
-		for (int x = ox; x < tp_wx; x++)
-		{
-			ubyte clindex = src_indexed[y * 256 + x / 2];
-
-			if (0 != (x & 1))
-				clindex >>= 4;
-
-			clindex &= 0xF;
-
-			// flip texture by Y
-			int ypos = (256 - y - 1) * 512;
-
-			if (outputBGR)
-			{
-				TVec4D<ubyte> color = rgb5a1_ToBGRA8(imageClut[clindex], originalTransparencyKey);
-				color_data[ypos + x] = *(uint*)(&color);
-			}
-			else
-			{
-				TVec4D<ubyte> color = rgb5a1_ToRGBA8(imageClut[clindex], originalTransparencyKey);
-				color_data[ypos + x] = *(uint*)(&color);
-			}
-		}
-	}
-}
-
 #pragma pack(push, 1)
 struct BMP_INFO_HEADER
 {
@@ -118,6 +38,86 @@ struct BMP_FILE_HEADER
 	BMP_INFO_HEADER info;
 };
 #pragma pack(pop)
+
+const int SKY_CLUT_START_Y = 252;
+const int SKY_SIZE_W = 256 / 4;
+const int SKY_SIZE_H = 84;
+
+const int BG_SPLICE_W = 64;
+const int BG_SPLICE_H = 256;
+const int BG_SPLICE_SIZE = BG_SPLICE_W * 2 * BG_SPLICE_H;
+
+void CopyTpageImage(const ushort* tp_src, ushort* dst, int x, int y, int dst_w, int dst_h)
+{
+	const ushort* src = tp_src + x + 128 * y;
+
+	for (int i = 0; i < dst_h; i++) 
+	{
+		memcpy(dst, src, dst_w * sizeof(short));
+		dst += dst_w;
+		src += 128;
+	}
+}
+
+void ExportSkyImage(const char* skyFileName, const ubyte* data, int x_idx, int y_idx, int sky_id, int n)
+{
+	ubyte imageCopy[SKY_SIZE_W * SKY_SIZE_H];
+	ushort imageClut[16];
+
+	int clut_x = x_idx * 16; // FIXME: is that correct?
+	int clut_y = SKY_CLUT_START_Y + y_idx;
+
+	CopyTpageImage((ushort*)data, (ushort*)imageCopy, x_idx * SKY_SIZE_W / 2, y_idx * SKY_SIZE_H, SKY_SIZE_W / 2, SKY_SIZE_H);
+	CopyTpageImage((ushort*)data, (ushort*)imageClut, clut_x, clut_y, 16, 1);
+
+	SaveTIM_4bit(varargs("%s_%d_%d.TIM", skyFileName, sky_id, n),
+		imageCopy, 64 * SKY_SIZE_H, 0, 0, SKY_SIZE_W*2, SKY_SIZE_H, (ubyte*)imageClut, 1);
+}
+
+void ConvertIndexedSkyImage(uint* colorData, const ubyte* srcIndexed, int x_idx, int y_idx, bool outputBGR, bool originalTransparencyKey)
+{
+	ushort imageClut[16];
+
+	int clut_x = x_idx * 16;
+	int clut_y = SKY_CLUT_START_Y + y_idx;
+
+	CopyTpageImage((ushort*)srcIndexed, (ushort*)imageClut, clut_x, clut_y, 16, 1);
+	
+	int ox = x_idx * SKY_SIZE_W * 2;
+	int oy = y_idx * SKY_SIZE_H;
+	int w = SKY_SIZE_W * 2;
+	int h = SKY_SIZE_H;
+
+	int tp_wx = ox + w;
+	int tp_hy = oy + h;
+	
+	for (int y = oy; y < tp_hy; y++)
+	{
+		for (int x = ox; x < tp_wx; x++)
+		{
+			ubyte clindex = srcIndexed[y * 256 + x / 2];
+
+			if (0 != (x & 1))
+				clindex >>= 4;
+
+			clindex &= 0xF;
+
+			// flip texture by Y
+			int ypos = (256 - y - 1) * 512;
+
+			if (outputBGR)
+			{
+				TVec4D<ubyte> color = rgb5a1_ToBGRA8(imageClut[clindex], originalTransparencyKey);
+				colorData[ypos + x] = *(uint*)(&color);
+			}
+			else
+			{
+				TVec4D<ubyte> color = rgb5a1_ToRGBA8(imageClut[clindex], originalTransparencyKey);
+				colorData[ypos + x] = *(uint*)(&color);
+			}
+		}
+	}
+}
 
 // this function just unpacks sky data
 void ConvertSkyD1(const char* skyFileName)
@@ -304,7 +304,7 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 			return;
 		}
 
-		ubyte timData[64 * 6 * 512];
+		ubyte* timData = (ubyte*)malloc(64 * 6 * 512);
 		int rect_w = 64;
 		int rect_h = 256;
 
@@ -371,6 +371,8 @@ void ConvertBackgroundRaw(const char* filename, const char* extraFilename)
 			SaveTIM_4bit(varargs("%s_REST.TIM", filename),
 				timData, 64 * 6 * 512, 0, 0, 384 * 2, 512, (ubyte*)imageClut, 1);
 		}
+
+		free(timData);
 	}
 
 	// load extra file if specified
@@ -522,6 +524,173 @@ bool BuildBackgroundRaw(char* out, const Array<char*>& timFileNames)
 
 //-----------------------------------------------------
 
+struct PalEntry
+{
+	ubyte peRed;
+	ubyte peGreen;
+	ubyte peBlue;
+	ubyte peFlags;
+};
+
+void ConvertIndexedTexImage8(uint* colorData, const ubyte* srcIndexed, const PalEntry* palette)
+{
+	for (int y = 0; y < 256; y++)
+	{
+		for (int x = 0; x < 256; x++)
+		{
+			ubyte clindex = srcIndexed[y * 256 + x];
+
+			// flip texture by Y
+			const int ypos = (256 - y - 1) * 256;
+
+			TVec4D<ubyte> color;
+			color.x = palette[clindex].peRed;
+			color.y = palette[clindex].peGreen;
+			color.z = palette[clindex].peBlue;
+			color.w = 0;
+
+			colorData[ypos + x] = *(uint*)(&color);
+		}
+	}
+}
+
+void ConvertIndexedTexImage16(uint* colorData, const ushort* srcIndexed)
+{
+	for (int y = 0; y < 256; y++)
+	{
+		for (int x = 0; x < 256; x++)
+		{
+			ushort clindex = srcIndexed[y * 256 + x];
+
+			// flip texture by Y
+			const int ypos = (256 - y - 1) * 256;
+
+			TVec4D<ubyte> color = rgb5a1_ToRGBA8(clindex, false);
+			colorData[ypos + x] = *(uint*)(&color);
+		}
+	}
+}
+
+void ConvertTex(const char* fileName)
+{
+	FILE* fp = fopen(fileName, "rb");
+
+	if (!fp)
+	{
+		MsgError("Unable to open '%s' file\n", fileName);
+		return;
+	}
+
+	const int TPAGE_SIZE_8_BIT = (256 * 256);
+	const int TPAGE_SIZE_16_BIT = (256 * 256 * sizeof(short));
+
+	ubyte* parentTextureMem = (ubyte*)malloc(TPAGE_SIZE_16_BIT);
+	ubyte* childTextureMem = (ubyte*)malloc(TPAGE_SIZE_16_BIT);
+
+	const int TEX_8BIT = 0x10;
+
+	const short MAX_PALETTES = 50;
+
+	ubyte palette[MAX_PALETTES][1024];
+	bool palettePresent[MAX_PALETTES]{ false };
+
+	short numPalettes = 0;
+	fread(&numPalettes, sizeof(short), 1, fp);
+
+	Msg("Processing %d palettes\n", numPalettes);
+
+	short paletteLoop = numPalettes;
+	while (paletteLoop--)
+	{
+		short slotNo = 0;
+		fread(&slotNo, sizeof(short), 1, fp);
+
+		if (slotNo < 0 || slotNo >= MAX_PALETTES)
+		{
+			// skip
+			fseek(fp, 1024, SEEK_CUR);
+		}
+		else
+		{
+			fread(palette[slotNo], 1024, 1, fp);
+			palettePresent[slotNo] = true;
+		}
+	}
+
+	int numTSets = 0;
+	fread(&numTSets, sizeof(int), 1, fp);
+
+	Msg("Processing %d texture sets\n", numTSets);
+
+	uint* colorData = (uint*)malloc(TPAGE_SIZE_8_BIT * 4);
+
+	for (int i = 0; i < numTSets; ++i)
+	{
+		short parentFlags;
+		short parentData;
+		fread(&parentFlags, sizeof(short), 1, fp);
+		fread(&parentData, sizeof(short), 1, fp);
+
+		int parent = i;
+		int child = -1;
+
+		if (parentFlags & TEX_8BIT)
+		{
+			MsgInfo("Got 8 bit image\n");
+
+			fread(parentTextureMem, TPAGE_SIZE_8_BIT, 1, fp);
+
+			// SaveTGA(varargs("%s_%d.TGA", skyFileName, i), (ubyte*)colorData, 512, 256, SKY_TEX_CHANNELS);
+
+			// child
+			short childFlags;
+			short childData;
+			fread(&childFlags, sizeof(short), 1, fp);
+			fread(&childData, sizeof(short), 1, fp);
+			fread(childTextureMem, TPAGE_SIZE_8_BIT, 1, fp);
+
+			if(!palettePresent[parentData])
+				MsgInfo("wut\n");
+
+			ConvertIndexedTexImage8(colorData, parentTextureMem, (PalEntry*)palette[parentData]);
+			SaveTGA(varargs("%s_par_%d.TGA", fileName, i), (ubyte*)colorData, 256, 256, 4);
+
+			if (!palettePresent[childData])
+				MsgInfo("wut\n");
+
+			ConvertIndexedTexImage8(colorData, childTextureMem, (PalEntry*)palette[childData]);
+			SaveTGA(varargs("%s_chi_%d.TGA", fileName, i), (ubyte*)colorData, 256, 256, 4);
+
+			child = parent + 1;
+
+			++i;
+		}
+		else
+		{
+			MsgInfo("Got 16 bit image\n");
+
+			fread(parentTextureMem, TPAGE_SIZE_16_BIT, 1, fp);
+
+			if (!palettePresent[parentData])
+				MsgInfo("wut\n");
+
+			ConvertIndexedTexImage16(colorData, (ushort*)parentTextureMem);
+			SaveTGA(varargs("%s_%d.TGA", fileName, i), (ubyte*)colorData, 256, 256, SKY_TEX_CHANNELS);
+		}
+	}
+
+	free(colorData);
+	free(parentTextureMem);
+	free(childTextureMem);
+}
+
+void ConvertTsd(const char* fileName)
+{
+
+}
+
+//-----------------------------------------------------
+
 void PrintCommandLineArguments()
 {
 	MsgInfo("Example usage:\n");
@@ -530,6 +699,7 @@ void PrintCommandLineArguments()
 	MsgInfo("\tDriverImageTool -skybin2bmp SKY.BIN\n");
 	MsgInfo("\tDriverImageTool -bg2tim CARBACK.RAW <CCARS.RAW>\n");
 	MsgInfo("\tDriverImageTool -tim2raw GFX.RAW BG.tim <FontAndSelection.tim Image3.tim ..>\n");
+	MsgInfo("\tDriverImageTool -tex2tga frontend.tex\n");
 }
 
 int main(int argc, char** argv)
@@ -600,6 +770,20 @@ int main(int argc, char** argv)
 			}
 			else
 				MsgWarning("-tim2raw must have at least two arguments!");
+		}
+		else if (!stricmp(argv[i], "-tex2tga"))
+		{
+			if (i + 1 <= argc)
+				ConvertTex(argv[i + 1]);
+			else
+				MsgWarning("-tex2tga must have an argument!");
+		}
+		else if (!stricmp(argv[i], "-tsd2tga"))
+		{
+			if (i + 1 <= argc)
+				ConvertTsd(argv[i + 1]);
+			else
+				MsgWarning("-tsd2tga must have an argument!");
 		}
 	}
 
