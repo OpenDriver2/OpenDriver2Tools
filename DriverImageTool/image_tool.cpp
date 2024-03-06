@@ -39,6 +39,12 @@ struct BMP_FILE_HEADER
 };
 #pragma pack(pop)
 
+const int TPAGE_SIZE_8_BIT = (256 * 256);
+const int TPAGE_SIZE_16_BIT = (256 * 256 * sizeof(short));
+
+// TSD flags
+const int TEX_8BIT = 0x10;
+
 const int SKY_CLUT_START_Y = 252;
 const int SKY_SIZE_W = 256 / 4;
 const int SKY_SIZE_H = 84;
@@ -74,7 +80,7 @@ void ExportSkyImage(const char* skyFileName, const ubyte* data, int x_idx, int y
 		imageCopy, 64 * SKY_SIZE_H, 0, 0, SKY_SIZE_W*2, SKY_SIZE_H, (ubyte*)imageClut, 1);
 }
 
-void ConvertIndexedSkyImage(uint* colorData, const ubyte* srcIndexed, int x_idx, int y_idx, bool outputBGR, bool originalTransparencyKey)
+void ConvertSkyIndexedImage8(uint* colorData, const ubyte* srcIndexed, int x_idx, int y_idx, bool outputBGR, bool originalTransparencyKey)
 {
 	ushort imageClut[16];
 
@@ -228,7 +234,7 @@ void ConvertSky(const char* skyFileName, bool saveTGA)
 			{
 				if(saveTGA)
 				{
-					ConvertIndexedSkyImage(color_data, skyImage, x, y, true, true);
+					ConvertSkyIndexedImage8(color_data, skyImage, x, y, true, true);
 				}
 				else
 				{
@@ -581,13 +587,8 @@ void ConvertTex(const char* fileName)
 		return;
 	}
 
-	const int TPAGE_SIZE_8_BIT = (256 * 256);
-	const int TPAGE_SIZE_16_BIT = (256 * 256 * sizeof(short));
-
 	ubyte* parentTextureMem = (ubyte*)malloc(TPAGE_SIZE_16_BIT);
 	ubyte* childTextureMem = (ubyte*)malloc(TPAGE_SIZE_16_BIT);
-
-	const int TEX_8BIT = 0x10;
 
 	const short MAX_PALETTES = 50;
 
@@ -682,11 +683,185 @@ void ConvertTex(const char* fileName)
 	free(colorData);
 	free(parentTextureMem);
 	free(childTextureMem);
+	fclose(fp);
+}
+
+struct TSD_HEADER 
+{
+	uint	length;
+	short	size;
+	short	tsetCount;
+};
+
+struct TSET_INFO
+{
+	int		length;
+	int		uvOffset;
+	int		bitmapOffset;
+	short	numTextures;
+	ushort	flags;
+	ushort	number;
+	short	pad;
+};
+
+struct TSD_UV_INFO 
+{
+	uint	id;
+	ubyte	U, V;
+	short	width, height;
+	short	fileNum;
+};
+
+struct TSD_PALETTE
+{
+	ubyte r,g,b,a;
+};
+
+#pragma optimize("", off)
+
+void ConvertTsdIndexedImage8(uint* colorData, const ubyte* srcIndexed, const TSD_PALETTE* palette)
+{
+	for (int y = 0; y < 256; y++)
+	{
+		for (int x = 0; x < 256; x++)
+		{
+			ubyte clindex = srcIndexed[y * 256 + x];
+
+			// flip texture by Y
+			const int ypos = (256 - y - 1) * 256;
+
+			TVec4D<ubyte> color;
+			color.x = palette[clindex].r;
+			color.y = palette[clindex].g;
+			color.z = palette[clindex].b;
+			color.w = palette[clindex].a;
+			
+			colorData[ypos + x] = *(uint*)(&color);
+		}
+	}
+}
+
+void ConvertTsdImage16(uint* colorData, const ushort* srcIndexed, const TSD_UV_INFO& uv)
+{
+	for (int y = 0; y < 256; y++)
+	{
+		for (int x = 0; x < 256; x++)
+		{
+			ushort clindex = srcIndexed[y * 256 + x];
+
+			// flip texture by Y
+			const int ypos = (256 - y - 1) * 256;
+
+			TVec4D<ubyte> color = rgb5a1_ToRGBA8(clindex, false);
+			colorData[ypos + x] = *(uint*)(&color);
+		}
+	}
 }
 
 void ConvertTsd(const char* fileName)
 {
+	FILE* fp = fopen(fileName, "rb");
 
+	if (!fp)
+	{
+		MsgError("Unable to open '%s' file\n", fileName);
+		return;
+	}
+
+	TSD_HEADER header;
+	TSET_INFO info;
+
+	// Read in ID and make sure its a TSD...
+	char ident[4];
+	fread(ident, 1, sizeof(ident), fp);
+	if ((ident[0] != 'T') || (ident[1] != 'S') || (ident[2] != 'D') || (ident[3] != ' '))
+	{
+		MsgError("%s has invalid TSD identifier\n", fileName);
+		fclose(fp);
+		return;
+	}
+
+	// floating point version, wtf?
+	float version;
+	fread(&version, 1, sizeof(float), fp);
+	fread(&header, 1, sizeof(TSD_HEADER), fp);
+
+	const short MAX_PALETTES = 50; // might be insufficient
+	TSD_PALETTE palettes[MAX_PALETTES][256];
+
+	if (version == 1.0)
+	{
+		fseek(fp, 256 * sizeof(TSD_PALETTE), SEEK_CUR);
+		fseek(fp, 256 * sizeof(TSD_PALETTE), SEEK_CUR);
+
+		// FIXME: HOW TO?
+	}
+	else
+	{
+		short numPalettes;
+		fread(&numPalettes, 1, sizeof(short), fp);
+
+		Msg("Processing %d palettes\n", numPalettes);
+		while (numPalettes--)
+		{
+			short id, slot;
+			fread(&id, sizeof(short), 1, fp);
+			fread(&slot, sizeof(short), 1, fp);
+
+			fread(palettes[slot], sizeof(TSD_PALETTE), 256, fp);
+		}
+	}
+
+	Msg("Processing %d texture sets\n", header.tsetCount);
+
+	ubyte* textureMem = (ubyte*)malloc(TPAGE_SIZE_16_BIT);
+	uint* colorData = (uint*)malloc(TPAGE_SIZE_8_BIT * 4);
+
+	for (int i = 0; i < header.tsetCount; ++i)
+	{
+		// special flag for 16 biut textures
+		short paletteIdx;
+		fread(&paletteIdx, sizeof(short), 1, fp);
+
+		const long tsetStart = ftell(fp);
+
+		TSET_INFO tsetInfo;
+		fread(&tsetInfo, sizeof(tsetInfo), 1, fp);
+
+		Msg("Set %d textures %d flags %d\n", i, tsetInfo.numTextures, tsetInfo.flags);
+
+		// Read indices bitmap
+		fseek(fp, tsetStart + tsetInfo.bitmapOffset, SEEK_SET);
+		fread(textureMem, 1, TPAGE_SIZE_16_BIT, fp);
+
+		// Go through UVs to make sure it's ok
+		fseek(fp, tsetStart + tsetInfo.uvOffset, SEEK_SET);
+		for (int j = 0; j < tsetInfo.numTextures; ++j)
+		{
+			TSD_UV_INFO uvInfo;
+			fread(&uvInfo, sizeof(uvInfo), 1, fp);
+
+			Msg("\tUV %d, id %d\n", j, uvInfo.id);
+
+			if (tsetInfo.flags & TEX_8BIT)
+			{
+				// is that OK? I mean paletteIdx...
+				ConvertTsdIndexedImage8(colorData, textureMem, palettes[paletteIdx]);
+			}
+			else
+			{
+				ConvertTsdImage16(colorData, (ushort*)textureMem, uvInfo);
+			}
+		}
+
+		SaveTGA(varargs("%s_%d.TGA", fileName, i), (ubyte*)colorData, 256, 256, SKY_TEX_CHANNELS);
+
+		fseek(fp, tsetStart + tsetInfo.length, SEEK_SET);
+	}
+
+	fclose(fp);
+	free(colorData);
+	free(textureMem);
 }
 
 //-----------------------------------------------------
@@ -700,6 +875,7 @@ void PrintCommandLineArguments()
 	MsgInfo("\tDriverImageTool -bg2tim CARBACK.RAW <CCARS.RAW>\n");
 	MsgInfo("\tDriverImageTool -tim2raw GFX.RAW BG.tim <FontAndSelection.tim Image3.tim ..>\n");
 	MsgInfo("\tDriverImageTool -tex2tga frontend.tex\n");
+	MsgInfo("\tDriverImageTool -tsd2tga frontend.tsd\n");
 }
 
 int main(int argc, char** argv)
