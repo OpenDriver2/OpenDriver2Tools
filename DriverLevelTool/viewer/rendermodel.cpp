@@ -180,7 +180,7 @@ void CRenderModel::GenerateBuffers()
 
 	genBatch_t* batch = nullptr;
 
-	int modelSize = m_sourceModel->size;
+	const int modelSize = m_sourceModel->size;
 	int face_ofs = 0;
 	dpoly_t dec_face;
 

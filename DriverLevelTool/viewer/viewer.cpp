@@ -29,6 +29,7 @@
 
 #include "backends/imgui_impl_opengl3.h"
 #include "backends/imgui_impl_sdl.h"
+#include "imgui_internal.h"
 
 
 bool g_quit = false;
@@ -580,21 +581,37 @@ void DisplayExportUI()
 		}
 		else if (g_exportMode == 3)
 		{
-			ImGui::Checkbox("Extract as TIM files for REDRIVER2", &g_explode_tpages);
-
 			static int texturePageIdx = 0;
+			ImGui::SetNextItemWidth(128);
 			ImGui::InputInt("Preview TPage", &texturePageIdx);
 			texturePageIdx = clamp(texturePageIdx, 0, g_levTextures.GetTPageCount()-1);
 
-			int tpageFlags = g_levTextures.GetTPage(texturePageIdx)->GetFlags();
-			ImGui::Image((void*)g_hwTexturePages[texturePageIdx][0], ImVec2(256, 256));
+			CTexturePage* tpage = g_levTextures.GetTPage(texturePageIdx);
+			int tpageFlags = tpage->GetFlags();
+			ImGui::Image((void*)g_hwTexturePages[texturePageIdx][0], ImVec2(256, 256), ImVec2(0, 1), ImVec2(1, 0));
+			
+			ImGui::SameLine();
+			if (ImGui::BeginChild("##preview", ImVec2(0, 256)))
+			{
+				ImGui::CheckboxFlags("Permanent", &tpageFlags, TEX_PERMANENT);
+				ImGui::CheckboxFlags("Swapable", &tpageFlags, TEX_SWAPABLE);
+				ImGui::CheckboxFlags("Special", &tpageFlags, TEX_SPECIAL);
+				ImGui::CheckboxFlags("Damaged", &tpageFlags, TEX_DAMAGED);
+				ImGui::CheckboxFlags("8 bit", &tpageFlags, TEX_8BIT);
+				ImGui::CheckboxFlags("Parent", &tpageFlags, TEX_PARENT);
+				ImGui::EndChild();
+			}
 
-			ImGui::CheckboxFlags("Permanent", &tpageFlags, TEX_PERMANENT);
-			ImGui::CheckboxFlags("Swapable", &tpageFlags, TEX_SWAPABLE);
-			ImGui::CheckboxFlags("Special", &tpageFlags, TEX_SPECIAL);
-			ImGui::CheckboxFlags("Damaged", &tpageFlags, TEX_DAMAGED);
-			ImGui::CheckboxFlags("8bit", &tpageFlags, TEX_8BIT);
-			ImGui::CheckboxFlags("Parent", &tpageFlags, TEX_PARENT);
+			ImGui::Text("TPage textures");
+			if (ImGui::BeginListBox("##texlist", ImVec2(-FLT_MIN, 128)))
+			{
+				for (int n = 0; n < tpage->GetDetailCount(); n++)
+				{
+					TexDetailInfo_t* detail = tpage->GetTextureDetail(n);
+					ImGui::Selectable(g_levTextures.GetTextureDetailName(&detail->info));
+				}
+				ImGui::EndListBox();
+			}
 
 			if (ImGui::Button("Export all textures"))
 			{
@@ -603,6 +620,8 @@ void DisplayExportUI()
 				ExportAllTextures();
 				MsgInfo("Job done!\n");
 			}
+			ImGui::SameLine();
+			ImGui::Checkbox("As TIM files (for REDRIVER2)", &g_explode_tpages);
 		}
 		else if (g_exportMode == 4)
 		{
@@ -694,13 +713,13 @@ void DisplayUI(float deltaTime)
 		
 		if (ImGui::BeginMenu("Mode"))
 		{
-			if (ImGui::MenuItem("Level viewer"))
+			if (ImGui::MenuItem("Level viewer", nullptr, g_viewerMode == 0))
 				g_viewerMode = 0;
 			
-			if (ImGui::MenuItem("Model viewer"))
+			if (ImGui::MenuItem("Model viewer", nullptr, g_viewerMode == 1))
 				g_viewerMode = 1;
 
-			if (ImGui::MenuItem("Car model viewer"))
+			if (ImGui::MenuItem("Car model viewer", nullptr, g_viewerMode == 2))
 				g_viewerMode = 2;
 			
 			ImGui::EndMenu();
@@ -785,13 +804,11 @@ void DisplayUI(float deltaTime)
 			if (g_viewerMode == 2)
 				ref = &g_carModelRef;
 
-			MODEL* model = ref->model;
+			ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.5f), "Use arrows to change models");
 
-			if (g_viewerMode == 1)
-				ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.5f), "Use arrows to change models");
-
-			if(model)
+			if(ref && ref->model)
 			{
+				const MODEL* model = ref->model;
 				ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Polygons: %d", model->num_polys);
 				ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Vertices: %d", model->num_vertices);
 				ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "Point normals: %d", model->num_point_normals);
@@ -856,7 +873,10 @@ void DisplayUI(float deltaTime)
 			}
 			else
 			{
-				ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.5f), "MODEL NOT SPOOLED YET");
+				if (g_viewerMode == 1)
+					ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.5f), "MODEL NOT SPOOLED YET");
+				else
+					ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.5f), "EMPTY SLOT (NO MODEL)");
 				ImGui::Text("");
 				ImGui::Text("");
 				ImGui::Text("");
@@ -897,6 +917,8 @@ void DisplayUI(float deltaTime)
 						for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
 						{
 							ModelRef_t* itemRef = modelRefs[i];
+							if (itemRef->index == -1)
+								continue;
 							const bool item_selected = (itemRef->index == g_currentModel);
 
 							String item = String::fromPrintf("%d: %s%s", itemRef->index, itemRef->name ? itemRef->name : "", itemRef->model ? "" : "(empty slot)");
@@ -1068,20 +1090,32 @@ void SDLPollEvent()
 			{
 				if (g_viewerMode == 0)
 					g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? 1.0f : 0.0f;
-				else if (g_viewerMode >= 1 && (event.type == SDL_KEYDOWN))
+				else if (g_viewerMode == 1 && (event.type == SDL_KEYDOWN))
 				{
 					g_currentModel--;
 					g_currentModel = MAX(0, g_currentModel);
+				}
+				else if (g_viewerMode == 2 && (event.type == SDL_KEYDOWN))
+				{
+					g_currentCarResidentModel--;
+					g_currentCarResidentModel = MAX(0, g_currentCarResidentModel);
+					UpdateCarRenderModel();
 				}
 			}
 			else if (nKey == SDL_SCANCODE_DOWN)
 			{
 				if (g_viewerMode == 0)
 					g_cameraMoveDir.z = (event.type == SDL_KEYDOWN) ? -1.0f : 0.0f;
-				else if (g_viewerMode >= 1 && (event.type == SDL_KEYDOWN))
+				else if (g_viewerMode == 1 && (event.type == SDL_KEYDOWN))
 				{
 					g_currentModel++;
-					g_currentModel = MIN(MAX_MODELS, g_currentModel);
+					g_currentModel = MIN(MAX_MODELS-1, g_currentModel);
+				}
+				else if (g_viewerMode == 2 && (event.type == SDL_KEYDOWN))
+				{
+					g_currentCarResidentModel++;
+					g_currentCarResidentModel = MIN(MAX_CAR_MODELS-1, g_currentCarResidentModel); 
+					UpdateCarRenderModel();
 				}
 			}
 			else if (nKey == SDL_SCANCODE_PAGEUP && event.type == SDL_KEYDOWN)
