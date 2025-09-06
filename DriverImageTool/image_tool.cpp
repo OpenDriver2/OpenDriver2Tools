@@ -717,8 +717,6 @@ struct TSD_PALETTE
 	ubyte r,g,b,a;
 };
 
-#pragma optimize("", off)
-
 void ConvertTsdIndexedImage8(uint* colorData, const ubyte* srcIndexed, const TSD_PALETTE* palette)
 {
 	for (int y = 0; y < 256; y++)
@@ -741,7 +739,7 @@ void ConvertTsdIndexedImage8(uint* colorData, const ubyte* srcIndexed, const TSD
 	}
 }
 
-void ConvertTsdImage16(uint* colorData, const ushort* srcIndexed, const TSD_UV_INFO& uv)
+void ConvertTsdImage16(uint* colorData, const ushort* srcIndexed)
 {
 	for (int y = 0; y < 256; y++)
 	{
@@ -791,10 +789,8 @@ void ConvertTsd(const char* fileName)
 
 	if (version == 1.0)
 	{
-		fseek(fp, 256 * sizeof(TSD_PALETTE), SEEK_CUR);
-		fseek(fp, 256 * sizeof(TSD_PALETTE), SEEK_CUR);
-
-		// FIXME: HOW TO?
+		fread(palettes[1], sizeof(TSD_PALETTE), 256, fp);
+		fread(palettes[0], sizeof(TSD_PALETTE), 256, fp);
 	}
 	else
 	{
@@ -819,7 +815,6 @@ void ConvertTsd(const char* fileName)
 
 	for (int i = 0; i < header.tsetCount; ++i)
 	{
-		// special flag for 16 biut textures
 		short paletteIdx;
 		fread(&paletteIdx, sizeof(short), 1, fp);
 
@@ -828,7 +823,9 @@ void ConvertTsd(const char* fileName)
 		TSET_INFO tsetInfo;
 		fread(&tsetInfo, sizeof(tsetInfo), 1, fp);
 
-		Msg("Set %d textures %d flags %d\n", i, tsetInfo.numTextures, tsetInfo.flags);
+		// Read texture names
+		char* textureNames = (char*)malloc(tsetInfo.length);
+		fread(textureNames, 1, tsetInfo.length, fp);
 
 		// Read indices bitmap
 		fseek(fp, tsetStart + tsetInfo.bitmapOffset, SEEK_SET);
@@ -836,27 +833,30 @@ void ConvertTsd(const char* fileName)
 
 		// Go through UVs to make sure it's ok
 		fseek(fp, tsetStart + tsetInfo.uvOffset, SEEK_SET);
+
+		Msg("Set %d textures %d flags %d\n", i, tsetInfo.numTextures, tsetInfo.flags);
 		for (int j = 0; j < tsetInfo.numTextures; ++j)
 		{
 			TSD_UV_INFO uvInfo;
 			fread(&uvInfo, sizeof(uvInfo), 1, fp);
 
-			Msg("\tUV %d, id %d\n", j, uvInfo.id);
+			int fileNum = uvInfo.fileNum;
+			const char* name = textureNames;
+			while (fileNum--)
+				while (*name++);
 
-			if (tsetInfo.flags & TEX_8BIT)
-			{
-				// is that OK? I mean paletteIdx...
-				ConvertTsdIndexedImage8(colorData, textureMem, palettes[paletteIdx]);
-			}
-			else
-			{
-				ConvertTsdImage16(colorData, (ushort*)textureMem, uvInfo);
-			}
+			Msg("\ttexture %d, id %d name %s\n", j, uvInfo.id, name);
 		}
 
-		SaveTGA(varargs("%s_%d.TGA", fileName, i), (ubyte*)colorData, 256, 256, SKY_TEX_CHANNELS);
+		if (tsetInfo.flags & TEX_8BIT)
+			ConvertTsdIndexedImage8(colorData, textureMem, palettes[paletteIdx]);
+		else
+			ConvertTsdImage16(colorData, (ushort*)textureMem);
+
+		SaveTGA(varargs("%s_tset_%d.TGA", fileName, i), (ubyte*)colorData, 256, 256, 4);
 
 		fseek(fp, tsetStart + tsetInfo.length, SEEK_SET);
+		free(textureNames);
 	}
 
 	fclose(fp);
