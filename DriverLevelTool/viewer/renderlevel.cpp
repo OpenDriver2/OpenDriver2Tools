@@ -144,7 +144,24 @@ void DrawCellObject(const CELL_OBJECT& co, const Vector3D& cameraPos, float came
 	else
 		CRenderModel::SetupLightingProperties(ambientScale, lightScale);
 
-	renderModel->Draw();
+	renderModel->SetupModelShader();
+	renderModel->SetDrawBuffer();
+	renderModel->DrawBatchs();
+
+	extern TextureID g_whiteTexture;
+	extern bool g_displayWireframeBackfaces;
+
+	if (g_displayWireframeBackfaces)
+	{
+		GR_SetFillMode(FILL_WIREFRAME);
+		GR_SetCullMode(CULL_BACK);
+
+		GR_SetTexture(g_whiteTexture);
+		renderModel->DrawBatchs(true);
+
+		GR_SetFillMode(FILL_SOLID);
+		GR_SetCullMode(CULL_FRONT);
+	}
 
 	g_drawnModels++;
 	g_drawnPolygons += ref->model->num_polys;

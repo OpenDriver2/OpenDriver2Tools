@@ -44,6 +44,20 @@ enum GR_CullMode
 	CULL_BACK,
 };
 
+enum GR_FrontFace
+{
+	FACE_FRONT_AND_BACK = 0,
+	FACE_FRONT,
+	FACE_BACK,
+};
+
+enum GR_FillMode
+{
+	FILL_SOLID = 0,
+	FILL_WIREFRAME,
+	FILL_POINT,
+};
+
 enum GR_MatrixMode
 {
 	MATRIX_VIEW = 0,
@@ -141,6 +155,7 @@ void		GR_SetMatrix(GR_MatrixMode mode, const Matrix4x4& matrix);
 void		GR_SetPolygonOffset(float ofs);
 void		GR_SetDepth(int enable);
 void		GR_SetCullMode(GR_CullMode cullMode);
+void		GR_SetFillMode(GR_FillMode fillMode, GR_FrontFace frontFace = FACE_FRONT_AND_BACK);
 void		GR_SetBlendMode(GR_BlendMode blendMode);
 
 void		GR_UpdateMatrixUniforms();

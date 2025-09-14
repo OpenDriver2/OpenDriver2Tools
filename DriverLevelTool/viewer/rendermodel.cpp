@@ -418,20 +418,28 @@ void CRenderModel::GenerateBuffers()
 	}
 }
 
-void CRenderModel::Draw()
+void CRenderModel::SetDrawBuffer()
+{
+	GR_SetVAO(m_vao);
+}
+
+void CRenderModel::DrawBatchs(bool skipTextures)
 {
 	extern TextureID GetHWTexture(int tpage, int pal);
 
-	SetupModelShader();
-	GR_SetVAO(m_vao);
-	
-	for(usize i = 0; i < m_batches.size(); i++)
+	for (modelBatch_t& batch : m_batches)
 	{
-		modelBatch_t& batch = m_batches[i];
-		
-		GR_SetTexture(GetHWTexture(batch.tpage, 0));
+		if (!skipTextures)
+			GR_SetTexture(GetHWTexture(batch.tpage, 0));
 		GR_DrawIndexed(PRIM_TRIANGLES, batch.startIndex, batch.numIndices);
 	}
+}
+
+void CRenderModel::Draw(bool skipTextures)
+{
+	SetupModelShader();
+	SetDrawBuffer();
+	DrawBatchs(skipTextures);
 }
 
 void CRenderModel::GetExtents(Vector3D& outMin, Vector3D& outMax) const

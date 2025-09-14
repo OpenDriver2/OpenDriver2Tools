@@ -28,6 +28,7 @@ int			g_swapInterval = 1;
 int			g_CurrentBlendMode = BM_NONE;
 int			g_CurrentDepthMode = 0;
 int			g_CurrentCullMode = CULL_NONE;
+int			g_CurrentFillMode[3] = { FILL_SOLID };
 GrVAO*		g_CurrentVAO = nullptr;
 TextureID	g_lastBoundTexture = 0;
 ShaderID	g_CurrentShader = 0;
@@ -594,6 +595,32 @@ void GR_SetCullMode(GR_CullMode cullMode)
 	}
 	
 	g_CurrentCullMode = cullMode;
+}
+
+void GR_SetFillMode(GR_FillMode fillMode, GR_FrontFace frontFace)
+{
+	if (g_CurrentFillMode[frontFace] == fillMode)
+		return;
+
+	GLuint frontFaceMode[] = {
+		GL_FRONT_AND_BACK,
+		GL_FRONT,
+		GL_BACK
+	};
+
+	switch (fillMode)
+	{
+	case FILL_SOLID:
+		glPolygonMode(frontFaceMode[frontFace], GL_FILL);
+		break;
+	case FILL_WIREFRAME:
+		glPolygonMode(frontFaceMode[frontFace], GL_LINE);
+		break;
+	case FILL_POINT:
+		glPolygonMode(frontFaceMode[frontFace], GL_POINT);
+		break;
+	}
+	g_CurrentFillMode[frontFace] = fillMode;
 }
 
 //--------------------------------------------------------------------------

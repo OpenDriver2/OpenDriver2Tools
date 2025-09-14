@@ -35,6 +35,7 @@
 bool g_quit = false;
 
 bool g_nightMode = false;
+bool g_displayWireframeBackfaces = false;
 bool g_displayCollisionBoxes = false;
 bool g_displayHeightMap = false;
 bool g_displayAllCellLevels = true;
@@ -56,7 +57,7 @@ bool g_holdShift = false;
 
 //-----------------------------------------------------------------
 
-TextureID g_hwTexturePages[128][32];
+TextureID g_hwTexturePages[128][16];
 extern TextureID g_whiteTexture;
 
 // Creates hardware texture
@@ -273,6 +274,18 @@ void RenderModelView()
 		CRenderModel* renderModel = (CRenderModel*)ref->userData;
 
 		renderModel->Draw();
+
+		if (g_displayWireframeBackfaces)
+		{
+			GR_SetFillMode(FILL_WIREFRAME);
+			GR_SetCullMode(CULL_BACK);
+
+			GR_SetTexture(g_whiteTexture);
+			renderModel->Draw(true);
+
+			GR_SetFillMode(FILL_SOLID);
+			GR_SetCullMode(CULL_FRONT);
+		}
 
 		if (g_displayCollisionBoxes)
 			CRenderModel::DrawModelCollisionBox(ref, {0,0,0}, 0.0f);
@@ -742,6 +755,9 @@ void DisplayUI(float deltaTime)
 				g_noLod ^= 1;
 
 			ImGui::Separator();
+
+			if (ImGui::MenuItem("Display backfaces as wireframe", nullptr, g_displayWireframeBackfaces))
+				g_displayWireframeBackfaces ^= 1;
 
 			if (ImGui::MenuItem("Display collision boxes", nullptr, g_displayCollisionBoxes))
 				g_displayCollisionBoxes ^= 1;

@@ -24,7 +24,9 @@ public:
 	bool				Initialize(ModelRef_t* model);
 	void				Destroy();
 
-	void				Draw();
+	void				SetDrawBuffer();
+	void				DrawBatchs(bool skipTextures = false);
+	void				Draw(bool skipTextures = false);
 
 	void				GetExtents(Vector3D& outMin, Vector3D& outMax) const;
 
