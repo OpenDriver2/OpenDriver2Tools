@@ -2,6 +2,7 @@
 #include <SDL_events.h>
 
 #include <nstd/Array.hpp>
+#include <nstd/Map.hpp>
 #include <nstd/Directory.hpp>
 #include <nstd/String.hpp>
 #include <nstd/Time.hpp>
@@ -30,7 +31,11 @@
 #include "backends/imgui_impl_opengl3.h"
 #include "backends/imgui_impl_sdl.h"
 #include "imgui_internal.h"
+#include <util/util.h>
 
+struct _EMPTY{};
+template<typename KEY>
+using Set = Map<KEY, _EMPTY>;
 
 bool g_quit = false;
 
@@ -483,7 +488,7 @@ void DisplayExportUI()
 	const int dim_x = g_levMap->GetRegionsAcross();
 	const int dim_y = g_levMap->GetRegionsDown();
 
-	ImGui::SetNextWindowSize(ImVec2(dim_x * 24, Math::max(dim_y * 20, 600)), ImGuiCond_Appearing);
+	ImGui::SetNextWindowSize(ImVec2(Math::max(dim_x * 24, 600), Math::max(dim_y * 20, 600)), ImGuiCond_Appearing);
 
 	if (ImGui::Begin("Export options", &g_exportWidget))
 	{
@@ -602,9 +607,12 @@ void DisplayExportUI()
 			CTexturePage* tpage = g_levTextures.GetTPage(texturePageIdx);
 			int tpageFlags = tpage->GetFlags();
 			ImGui::Image((void*)g_hwTexturePages[texturePageIdx][0], ImVec2(256, 256), ImVec2(0, 1), ImVec2(1, 0));
+
+			const ImVec2 imageRectMin = ImGui::GetItemRectMin();
+			const ImVec2 imageRectMax = ImGui::GetItemRectMax();
 			
 			ImGui::SameLine();
-			if (ImGui::BeginChild("##preview", ImVec2(0, 256)))
+			if (ImGui::BeginChild("##flags", ImVec2(100, 256)))
 			{
 				ImGui::CheckboxFlags("Permanent", &tpageFlags, TEX_PERMANENT);
 				ImGui::CheckboxFlags("Swapable", &tpageFlags, TEX_SWAPABLE);
@@ -615,15 +623,105 @@ void DisplayExportUI()
 				ImGui::EndChild();
 			}
 
-			ImGui::Text("TPage textures");
-			if (ImGui::BeginListBox("##texlist", ImVec2(-FLT_MIN, 128)))
+			static Map<uint, Set<MODEL*>> modelUsedPageDetails;
+			modelUsedPageDetails.clear();
+
+			if(g_viewerMode >= 1)
 			{
-				for (int n = 0; n < tpage->GetDetailCount(); n++)
+				ModelRef_t* ref = (g_viewerMode == 2) ? &g_carModelRef : g_levModels.GetModelByIndex(g_currentModel);
+				if (ref && ref->model)
 				{
-					TexDetailInfo_t* detail = tpage->GetTextureDetail(n);
-					ImGui::Selectable(g_levTextures.GetTextureDetailName(&detail->info));
+					MODEL* model = ref->model;
+					int face_ofs = 0;
+					dpoly_t dec_face;
+
+					// go through all polygons
+					for (int i = 0; i < model->num_polys; i++)
+					{
+						const char* facedata = model->pPolyAt(face_ofs);
+
+						dpoly_t dec_face;
+						const int poly_size = decode_poly(facedata, &dec_face);
+
+						const uint key = (uint)dec_face.page | ((uint)dec_face.detail << 16);
+
+						auto it = modelUsedPageDetails.find(key);
+						if (it == modelUsedPageDetails.end())
+							it = modelUsedPageDetails.insert(key, {});
+						(*it).insert(model, {});
+
+						face_ofs += poly_size;
+					}
 				}
-				ImGui::EndListBox();
+			}
+			else
+			{
+				for (int i = 0; i < MAX_MODELS; i++)
+				{
+					ModelRef_t* ref = g_levModels.GetModelByIndex(i);
+
+					if (ref && ref->model)
+					{
+						MODEL* model = ref->model;
+						int face_ofs = 0;
+						dpoly_t dec_face;
+
+						// go through all polygons
+						for (int i = 0; i < model->num_polys; i++)
+						{
+							const char* facedata = model->pPolyAt(face_ofs);
+
+							dpoly_t dec_face;
+							const int poly_size = decode_poly(facedata, &dec_face);
+
+							const uint key = (uint)dec_face.page | ((uint)dec_face.detail << 16);
+
+							auto it = modelUsedPageDetails.find(key);
+							if (it == modelUsedPageDetails.end())
+								it = modelUsedPageDetails.insert(key, {});
+							(*it).insert(model, {});
+
+							face_ofs += poly_size;
+						}
+					}
+				}
+			}
+
+			ImGui::SameLine();
+			if (ImGui::BeginChild("##details", ImVec2(0, 256)))
+			{
+				ImGui::Text("Details");
+				if (ImGui::BeginListBox("##texlist", ImVec2(-FLT_MIN, 512)))
+				{
+					for (int n = 0; n < tpage->GetDetailCount(); n++)
+					{
+						auto it = modelUsedPageDetails.find((uint)texturePageIdx | ((uint)n << 16));
+
+						TexDetailInfo_t* detail = tpage->GetTextureDetail(n);
+						ImGui::Selectable(varargs("%s (%d uses)", g_levTextures.GetTextureDetailName(&detail->info), it == modelUsedPageDetails.end() ? 0 : (*it).size()), (it != modelUsedPageDetails.end()));
+
+						if (ImGui::IsItemHovered())
+						{
+							ImVec2 detMin = imageRectMin;
+							detMin.x += (float)detail->info.x;
+							detMin.y += (float)detail->info.y;
+							ImVec2 detMax = detMin;
+							if (detail->info.width == 0)
+								detMax.x += 256;
+							else
+								detMax.x += (float)detail->info.width;
+
+							if (detail->info.height == 0)
+								detMax.y += 256;
+							else
+								detMax.y += (float)detail->info.height;
+							ImGui::GetForegroundDrawList()->AddRect(detMin, detMax, ImColor(255, 255, 0, 255));
+							ImGui::GetForegroundDrawList()->AddRectFilled(detMin, detMax, ImColor(0, 255, 0, 32));
+						}
+					}
+					ImGui::EndListBox();
+				}
+				ImGui::EndChild();
 			}
 
 			if (ImGui::Button("Export all textures"))
