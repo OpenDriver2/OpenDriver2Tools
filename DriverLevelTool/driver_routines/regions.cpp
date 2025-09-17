@@ -160,14 +160,12 @@ int CBaseLevelRegion::UnpackCellPointers(ushort* dest_ptrs, char* src_data, int 
 	return numCellPointers;
 }
 
-
 void CBaseLevelRegion::LoadAreaData(const SPOOL_CONTEXT& ctx)
 {
 	if (!m_spoolInfo || m_spoolInfo && m_spoolInfo->super_region == 0xFF)
 		return;
 
-	int areaDataNum = m_spoolInfo->super_region;
-
+	const int areaDataNum = m_spoolInfo->super_region;
 	if (m_owner->m_areaDataStates[areaDataNum])
 		return;
 
@@ -177,6 +175,13 @@ void CBaseLevelRegion::LoadAreaData(const SPOOL_CONTEXT& ctx)
 	m_owner->m_areaDataStates[areaDataNum] = true;
 }
 
+int	CBaseLevelRegion::GetAreaDataIdx() const
+{
+	if (!m_spoolInfo || m_spoolInfo && m_spoolInfo->super_region == 0xFF)
+		return -1;
+
+	return m_spoolInfo->super_region;
+}
 
 //-------------------------------------------------------------------------------------------
 

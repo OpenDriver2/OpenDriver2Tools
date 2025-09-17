@@ -41,6 +41,7 @@ public:
 	virtual void			FreeAll();
 	virtual void			LoadRegionData(const SPOOL_CONTEXT& ctx) = 0;
 	void					LoadAreaData(const SPOOL_CONTEXT& ctx);
+	int						GetAreaDataIdx() const;
 
 	bool					IsEmpty() const;
 	int						GetNumber() const;
@@ -93,6 +94,9 @@ public:
 	virtual int					GetAreaDataCount() const;
 	virtual void				LoadInAreaTPages(const SPOOL_CONTEXT& ctx, int areaDataNum) const;
 	virtual void				LoadInAreaModels(const SPOOL_CONTEXT& ctx, int areaDataNum) const;
+
+	AreaDataStr&				GetAreaData(int idx) const { return m_areaData[idx]; }
+	AreaTpageList&				GetAreaTpageList(int idx) const { return m_areaTPages[idx]; }
 
 	virtual bool				SpoolRegion(const SPOOL_CONTEXT& ctx, const XZPAIR& cell) = 0;
 	virtual bool				SpoolRegion(const SPOOL_CONTEXT& ctx, int regionIdx) = 0;
