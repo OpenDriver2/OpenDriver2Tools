@@ -33,7 +33,7 @@ ELevelFormat CDriverLevelLoader::DetectLevelFormat(IVirtualStream* pFile)
 
 		switch (lump.type)
 		{
-			case LUMP_PERMANENTPAGES:
+			case LUMP_TEXTURES:
 				MsgInfo("Detected old 'Driver 1 DEMO' LEV file\n");
 				pFile->Seek(curPos, VS_SEEK_SET);
 				return LEV_FORMAT_DRIVER1_OLD;
@@ -138,13 +138,15 @@ void CDriverLevelLoader::ProcessLumps(IVirtualStream* pFile)
 
 		int l_ofs = pFile->Tell();
 
+		DevMsg(SPEW_WARNING, "Lump %d ", lump.type);
 		switch (lump.type)
 		{
 			// Lumps shared between formats
 			// almost identical
-			case LUMP_PERMANENTPAGES:
+			case LUMP_TEXTURES:
+				DevMsg(SPEW_WARNING, "LUMP_TEXTURES ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				if (m_textures)
-					m_textures->LoadPermanentTPagesD1Demo(pFile);
+					m_textures->LoadTextureLumpD1Demo(pFile);
 				break;
 			case LUMP_MODELS:
 				DevMsg(SPEW_WARNING, "LUMP_MODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
@@ -156,6 +158,12 @@ void CDriverLevelLoader::ProcessLumps(IVirtualStream* pFile)
 				if(m_map)
 					m_map->LoadMapLump(pFile);
 				break;
+			case LUMP_UNUSED:
+				DevMsg(SPEW_WARNING, "LUMP_UNUSED ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				break;
+			case LUMP_MOVEABLE:
+				DevMsg(SPEW_WARNING, "LUMP_MOVEABLE ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				break;
 			case LUMP_TEXTURENAMES:
 				DevMsg(SPEW_WARNING, "LUMP_TEXTURENAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				if(m_textures)
@@ -165,6 +173,21 @@ void CDriverLevelLoader::ProcessLumps(IVirtualStream* pFile)
 				DevMsg(SPEW_WARNING, "LUMP_MODELNAMES ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				if(m_models)
 					m_models->LoadModelNamesLump(pFile, lump.size);
+				break;
+			case LUMP_EVENTMODELS:
+				DevMsg(SPEW_WARNING, "LUMP_EVENTMODELS ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				break;
+			case LUMP_PVS:
+				DevMsg(SPEW_WARNING, "LUMP_PVS ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				break;
+			case LUMP_REGIONTSETS:
+				DevMsg(SPEW_WARNING, "LUMP_REGIONTSETS ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				break;
+			case LUMP_CAMERAPATHS:
+				DevMsg(SPEW_WARNING, "LUMP_CAMERAPATHS ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				break;
+			case LUMP_LAMPS:
+				DevMsg(SPEW_WARNING, "LUMP_LAMPS ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
 			case LUMP_LOWDETAILTABLE:
 				if(m_models)
@@ -258,8 +281,11 @@ void CDriverLevelLoader::ProcessLumps(IVirtualStream* pFile)
 			case LUMP_SUBDIVISION:
 				DevMsg(SPEW_WARNING, "LUMP_SUBDIVISION ofs=%d size=%d\n", pFile->Tell(), lump.size);
 				break;
+			case LUMP_TEXT:
+				DevMsg(SPEW_WARNING, "LUMP_TEXT ofs=%d size=%d\n", pFile->Tell(), lump.size);
+				break;
 			default:
-				DevMsg(SPEW_WARNING, "LUMP type: %d (0x%X) ofs=%d size=%d\n", lump.type, lump.type, pFile->Tell(), lump.size);
+				DevMsg(SPEW_WARNING, "UNKNOWN (0x%X) ofs=%d size=%d\n", lump.type, pFile->Tell(), lump.size);
 		}
 
 		// seek back to initial position

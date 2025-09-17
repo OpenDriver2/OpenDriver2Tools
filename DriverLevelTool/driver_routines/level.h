@@ -13,25 +13,30 @@
 enum LevLumpType
 {
 	// known lumps indexes
-	LUMP_PERMANENTPAGES		= 0,		// Driver 1 old format of texture pages
+	LUMP_TEXTURES			= 0,		// OLD Driver 1 lump / PC Lump
 	LUMP_MODELS				= 1,		// level models
 	LUMP_MAP				= 2,		// map info
-
+	LUMP_UNUSED				= 3,		// OLD Driver 1 lump / PC Lump
+	LUMP_MOVEABLE			= 4,		// OLD Driver 1 lump / PC Lump
 	LUMP_TEXTURENAMES		= 5,		// texture name strings
-
+	LUMP_ROADINFO			= 6,		// OLD Driver 1 lump / PC Lump
 	LUMP_ROADMAP			= 7,		// Driver 1 road map indexes?
 	LUMP_ROADS				= 8,		// Driver 1 straight roads
 	LUMP_JUNCTIONS			= 9,		// Driver 1 junctions
 	LUMP_ROADSURF			= 10,		// Driver 1 road map height information
-
+	LUMP_ROADHEIGHT			= 11,		// OLD Driver 1 lump
 	LUMP_MODELNAMES			= 12,		// model name strings
-
+	LUMP_EVENTMODELS		= 13,		// OLD Driver 1 lump / PC Lump
+	LUMP_PVS				= 14,		// OLD Driver 1 lump / PC Lump
+	LUMP_REGIONTSETS		= 15,		// OLD Driver 1 lump / PC Lump
 	LUMP_ROADBOUNDS			= 16,		// Driver 1 road bounds
 	LUMP_JUNCBOUNDS			= 17,		// Driver 1 junction bounds
+	LUMP_CAMERAPATHS		= 18,		// OLD Driver 1 lump / PC Lump
+	LUMP_LAMPS				= 19,		// OLD Driver 1 lump / PC Lump
 	LUMP_SUBDIVISION		= 20,		// Driver 1 subdivisions (of roads?)
-
 	LUMP_LOWDETAILTABLE		= 21,		// LOD tables for models
 	LUMP_MOTIONCAPTURE		= 22,		// motion capture data for pedestrians and Tanner in Driver 2
+	LUMP_TEXT				= 23,		// OLD Driver 1 lump
 	LUMP_OVERLAYMAP			= 24,		// overhead map palette and chunks packed with RNC2
 	LUMP_PALLET				= 25,		// car palettes
 	LUMP_SPOOLINFO			= 26,		// region spooling information

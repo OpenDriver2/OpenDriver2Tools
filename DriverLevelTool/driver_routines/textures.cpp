@@ -337,7 +337,7 @@ void CDriverLevelTextures::LoadPermanentTPages(IVirtualStream* pFile)
 	}
 }
 
-void CDriverLevelTextures::LoadPermanentTPagesD1Demo(IVirtualStream* pFile)
+void CDriverLevelTextures::LoadTextureLumpD1Demo(IVirtualStream* pFile)
 {
 	long lumpOffset = pFile->Tell() + 8;
 
