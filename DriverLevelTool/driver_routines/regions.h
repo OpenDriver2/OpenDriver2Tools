@@ -98,8 +98,8 @@ public:
 	AreaDataStr&				GetAreaData(int idx) const { return m_areaData[idx]; }
 	AreaTpageList&				GetAreaTpageList(int idx) const { return m_areaTPages[idx]; }
 
-	virtual bool				SpoolRegion(const SPOOL_CONTEXT& ctx, const XZPAIR& cell) = 0;
-	virtual bool				SpoolRegion(const SPOOL_CONTEXT& ctx, int regionIdx) = 0;
+	bool						SpoolRegion(const SPOOL_CONTEXT& ctx, const XZPAIR& cell);
+	bool						SpoolRegion(const SPOOL_CONTEXT& ctx, int regionIdx);
 
 	int							GetRegionIndex(const XZPAIR& cell) const;
 

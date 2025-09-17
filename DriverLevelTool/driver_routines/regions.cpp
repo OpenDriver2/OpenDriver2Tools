@@ -524,6 +524,42 @@ void CBaseLevelMap::InitRegion(CBaseLevelRegion* region, int index) const
 	region->m_regionBarrelNumber = (region_x & 1) + (region_z & 1) * 2;
 }
 
+bool CBaseLevelMap::SpoolRegion(const SPOOL_CONTEXT& ctx, const XZPAIR& cell)
+{
+	CBaseLevelRegion* region = GetRegion(cell);
+
+	if (region && !region->m_loaded)
+	{
+		if (m_regionSpoolInfoOffsets[region->m_regionNumber] != REGION_EMPTY)
+		{
+			region->LoadRegionData(ctx);
+			region->LoadAreaData(ctx);
+			return true;
+		}
+		else
+			region->m_loaded = true;
+	}
+	return false;
+}
+
+bool CBaseLevelMap::SpoolRegion(const SPOOL_CONTEXT& ctx, int regionIdx)
+{
+	CBaseLevelRegion* region = GetRegion(regionIdx);
+
+	if (region && !region->m_loaded)
+	{
+		if (m_regionSpoolInfoOffsets[region->m_regionNumber] != REGION_EMPTY)
+		{
+			region->LoadRegionData(ctx);
+			region->LoadAreaData(ctx);
+			return true;
+		}
+		else
+			region->m_loaded = true;
+	}
+	return false;
+}
+
 void CBaseLevelMap::SetLoadingCallbacks(OnRegionLoaded_t onLoaded, OnRegionFreed_t onFreed)
 {
 	m_onRegionLoaded = onLoaded;

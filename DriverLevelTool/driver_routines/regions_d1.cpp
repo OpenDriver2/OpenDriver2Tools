@@ -347,42 +347,6 @@ CBaseLevelRegion* CDriver1LevelMap::GetRegion(int regionIdx) const
 	return &m_regions[regionIdx];
 }
 
-bool CDriver1LevelMap::SpoolRegion(const SPOOL_CONTEXT& ctx, const XZPAIR& cell)
-{
-	CDriver1LevelRegion* region = (CDriver1LevelRegion*)GetRegion(cell);
-
-	if (region && !region->m_loaded)
-	{
-		if (m_regionSpoolInfoOffsets[region->m_regionNumber] != REGION_EMPTY)
-		{
-			region->LoadRegionData(ctx);
-			region->LoadAreaData(ctx);
-			return true;
-		}
-		else
-			region->m_loaded = true;
-	}
-	return false;
-}
-
-bool CDriver1LevelMap::SpoolRegion(const SPOOL_CONTEXT& ctx, int regionIdx)
-{
-	CDriver1LevelRegion* region = (CDriver1LevelRegion*)GetRegion(regionIdx);
-
-	if (region && !region->m_loaded)
-	{
-		if (m_regionSpoolInfoOffsets[region->m_regionNumber] != REGION_EMPTY)
-		{
-			region->LoadRegionData(ctx);
-			region->LoadAreaData(ctx);
-			return true;
-		}
-		else
-			region->m_loaded = true;
-	}
-	return false;
-}
-
 int PointInTri2d(int tx, int ty, const XYPAIR* verts)
 {
 	// from PC reversing

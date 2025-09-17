@@ -690,42 +690,6 @@ CBaseLevelRegion* CDriver2LevelMap::GetRegion(int regionIdx) const
 	return &m_regions[regionIdx];
 }
 
-bool CDriver2LevelMap::SpoolRegion(const SPOOL_CONTEXT& ctx, const XZPAIR& cell)
-{
-	CDriver2LevelRegion* region = (CDriver2LevelRegion*)GetRegion(cell);
-
-	if (region && !region->m_loaded)
-	{
-		if (m_regionSpoolInfoOffsets[region->m_regionNumber] != REGION_EMPTY)
-		{
-			region->LoadRegionData(ctx);
-			region->LoadAreaData(ctx);
-			return true;
-		}
-		else
-			region->m_loaded = true;
-	}
-	return false;
-}
-
-bool CDriver2LevelMap::SpoolRegion(const SPOOL_CONTEXT& ctx, int regionIdx)
-{
-	CDriver2LevelRegion* region = (CDriver2LevelRegion*)GetRegion(regionIdx);
-
-	if (region && !region->m_loaded)
-	{
-		if (m_regionSpoolInfoOffsets[region->m_regionNumber] != REGION_EMPTY)
-		{
-			region->LoadRegionData(ctx);
-			region->LoadAreaData(ctx);
-			return true;
-		}
-		else
-			region->m_loaded = true;
-	}
-	return false;
-}
-
 void CDriver2LevelMap::FindSurface(const VECTOR_NOPAD& position, VECTOR_NOPAD& outPoint, sdPlane& outPlane) const
 {
 	VECTOR_NOPAD cellPos;
