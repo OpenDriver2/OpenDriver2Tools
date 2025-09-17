@@ -55,6 +55,7 @@ int g_currentCarResidentModel = 0;
 int g_currentCarModel = 0;
 
 int g_viewerMode = 0;
+bool g_areaDataViewer = false;
 
 bool g_holdLeft = false;
 bool g_holdRight = false;
@@ -768,9 +769,114 @@ void DisplayExportUI()
 			const int overmapWidth = g_overlaymap_width * 32;
 			const int overmapHeight = (numValid / g_overlaymap_width) * 32;
 
-			ImGui::Image((void*)g_overheadMapTexture, ImVec2(overmapWidth, overmapHeight));
+			ImGui::Image((void*)g_overheadMapTexture, ImVec2(overmapWidth, overmapHeight), ImVec2(0, 1), ImVec2(1, 0));
 		}
 
+		ImGui::End();
+	}
+}
+
+void DisplayAreaDataViewer()
+{
+	const int dim_x = g_levMap->GetRegionsAcross();
+	const int dim_y = g_levMap->GetRegionsDown();
+
+	ImGui::SetNextWindowSize(ImVec2(Math::max(dim_x * 24, 600), Math::max(dim_y * 20 + 200, 600)), ImGuiCond_Appearing);
+
+	if (ImGui::Begin("Area Data Viewer", &g_areaDataViewer))
+	{
+		static int selAreaData = 0;
+		ImGui::Text("Area data %d", selAreaData);
+		if (ImGui::BeginTabBar("AreaDataTabs"))
+		{
+			if (ImGui::BeginTabItem("Region Map"))
+			{
+				if (ImGui::BeginTable("regions", dim_x))
+				{
+					for (int y = 0; y < dim_y; y++)
+					{
+						ImGui::TableNextRow();
+						for (int x = 0; x < dim_x; x++)
+						{
+							const int regIndex = y * dim_x + x;
+							CBaseLevelRegion* region = g_levMap->GetRegion(regIndex);
+
+							ImGui::TableSetColumnIndex(x);
+							if (region->GetAreaDataIdx() != -1)
+							{
+								bool selected = selAreaData == region->GetAreaDataIdx();
+								if (ImGui::Checkbox((char*)String::fromPrintf("##reg%d", regIndex), &selected))
+									selAreaData = region->GetAreaDataIdx();
+							}
+							else if (!region->IsEmpty())
+							{
+								bool _none = false;
+								ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.2, 0.0, 0.0, 0.5f));
+								ImGui::Checkbox((char*)String::fromPrintf("##reg%d", regIndex), &_none);
+								ImGui::PopStyleColor();
+							}
+						}
+					}
+					ImGui::EndTable();
+				}
+				ImGui::EndTabItem();
+			}
+			if (ImGui::BeginTabItem("Area List"))
+			{
+				if (ImGui::BeginListBox("##areaDataList", ImVec2(256, dim_y * 15)))
+				{
+					const int totalRegions = g_levMap->GetRegionsAcross() * g_levMap->GetRegionsDown();
+					for (int n = 0; n < g_levMap->GetAreaDataCount(); n++)
+					{
+						int refs = 0;
+						for (int i = 0; i < totalRegions; i++)
+						{
+							CBaseLevelRegion* region = g_levMap->GetRegion(i);
+							if (region->GetAreaDataIdx() == n)
+								++refs;
+						}
+
+						if (ImGui::Selectable(varargs("Area %d (%d refs)", n, refs), selAreaData == n))
+							selAreaData = n;
+					}
+					ImGui::EndListBox();
+				}
+				ImGui::EndTabItem();
+			}
+			ImGui::EndTabBar();
+		}
+
+		if(ImGui::BeginChild("AreaDetails"))
+		{
+			AreaDataStr& areaData = g_levMap->GetAreaData(selAreaData);
+			AreaTpageList& areaTpageList = g_levMap->GetAreaTpageList(selAreaData);
+
+			if (ImGui::BeginListBox("##tpageList", ImVec2(100, 180)))
+			{
+				for (int n = 0; n < areaData.num_tpages; n++)
+					ImGui::Selectable(varargs("Tpage %d", areaTpageList.pageIndexes[n]));
+				ImGui::EndListBox();
+			}
+
+			ImGui::SameLine();
+			ImGui::BeginGroup();
+			{
+				ImGui::Text("gfx_offset %u", areaData.gfx_offset);
+				ImGui::Text("model_offset %u", areaData.model_offset);
+				ImGui::TextDisabled("music_offset %u", areaData.music_offset);
+				ImGui::TextDisabled("ambient_offset %u", areaData.ambient_offset);
+				ImGui::Text("model_size %u", areaData.model_size);
+				ImGui::Text("num_tpages %u", areaData.num_tpages);
+				ImGui::TextDisabled("ambient_size %u", areaData.ambient_size);
+				ImGui::TextDisabled("music_size %u", areaData.music_size);
+				ImGui::TextDisabled("music_samples_size %u", areaData.music_samples_size);
+				ImGui::TextDisabled("music_id %u", areaData.music_id);
+				ImGui::TextDisabled("ambient_id %u", areaData.ambient_id);
+			}
+			ImGui::EndGroup();
+
+			ImGui::EndChild();
+		}
 		ImGui::End();
 	}
 }
@@ -840,6 +946,8 @@ void DisplayUI(float deltaTime)
 		{
 			if (ImGui::MenuItem("Spool all Area Data"))
 				SpoolAllAreaDatas();
+
+			ImGui::MenuItem("View Area datas", nullptr, &g_areaDataViewer);
 
 			ImGui::EndMenu();
 		}
@@ -1107,6 +1215,9 @@ void DisplayUI(float deltaTime)
 		}
 		ImGui::End();
 	}
+
+	if (g_areaDataViewer)
+		DisplayAreaDataViewer();
 
 	if(g_exportWidget)
 		DisplayExportUI();
