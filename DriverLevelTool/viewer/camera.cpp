@@ -59,13 +59,13 @@ void UpdateCameraMovement(float deltaTime, float speedModifier)
 	g_levMap->FindSurface(cameraPosition, outCameraPos, outPlane);
 
 	// debug display
-	if (g_displayHeightMap)
+	/*if (g_displayHeightMap)
 	{
 		// draw the cell
 		VECTOR_NOPAD cameraCell = cameraPosition;
 		cameraCell.vy = outCameraPos.vy;
-		DebugDrawDriver2HeightmapCell(cameraCell, ColorRGBA(1, 1, 0.25, 1.0f));
-	}
+		DebugDrawDriver2HeightmapCell(cameraCell);
+	}*/
 
 	if (cameraPosition.vy < outCameraPos.vy)
 	{

@@ -11,6 +11,7 @@
 #include "math/Volume.h"
 #include "math/isin.h"
 #include "rendermodel.h"
+#include "renderheightmap.h"
 #include "core/cmdlib.h"
 
 #include "convert.h"
@@ -171,12 +172,6 @@ void DrawCellObject(const CELL_OBJECT& co, const Vector3D& cameraPos, float came
 		CRenderModel::DrawModelCollisionBox(ref, co.pos, co.yang);
 }
 
-struct PCO_PAIR_D2
-{
-	PACKED_CELL_OBJECT* pco;
-	XZPAIR nearCell;
-};
-
 //-------------------------------------------------------
 // Draws Driver 2 level region cells
 // and spools the world if needed
@@ -184,13 +179,6 @@ struct PCO_PAIR_D2
 void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volume& frustrumVolume)
 {
 	CELL_ITERATOR_CACHE iteratorCache;
-	int i = g_cellsDrawDistance;
-	int vloop = 0;
-	int hloop = 0;
-	int dir = 0;
-	XZPAIR cell;
-	XZPAIR icell;
-
 	g_drawnCells = 0;
 	g_drawnModels = 0;
 	g_drawnPolygons = 0;
@@ -204,8 +192,14 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 	spoolContext.dataStream = &spoolStream;
 	spoolContext.lumpInfo = &g_levInfo;
 
+	XZPAIR cell;
 	levMapDriver2->WorldPositionToCellXZ(cell, cameraPosition);
 
+	struct PCO_PAIR_D2
+	{
+		PACKED_CELL_OBJECT* pco;
+		XZPAIR nearCell;
+	};
 	static Array<PCO_PAIR_D2> drawObjects;
 	drawObjects.reserve(g_cellsDrawDistance * 2);
 	drawObjects.clear();
@@ -213,7 +207,7 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 	CBaseLevelRegion* currentRegion = nullptr;
 
 	// walk through all cells
-	while (i >= 0)
+	for (int i = g_cellsDrawDistance, dir = 0, hloop = 0, vloop = 0; i >= 0; --i)
 	{
 		if (abs(hloop) + abs(vloop) < 256)
 		{
@@ -221,11 +215,11 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 			int vis_h = MIN(MAX(hloop, -9), 10);
 			int vis_v = MIN(MAX(vloop, -9), 10);
 
+			XZPAIR icell;
 			icell.x = cell.x + hloop;
 			icell.z = cell.z + vloop;
 
 			CBaseLevelRegion* reg = g_levMap->GetRegion(icell);
-
 			if (currentRegion != reg)
 				memset(&iteratorCache, 0, sizeof(iteratorCache));
 			currentRegion = reg;
@@ -266,50 +260,28 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 
 		if (dir == 0)
 		{
-			//leftPlane += leftcos;
-			//backPlane += backcos;
-			//rightPlane += rightcos;
-
 			hloop++;
-
 			if (hloop + vloop == 1)
 				dir = 1;
 		}
 		else if (dir == 1)
 		{
-			//leftPlane += leftsin;
-			//backPlane += backsin;
-			//rightPlane += rightsin;
-
 			vloop++;
-
 			if (hloop == vloop)
 				dir = 2;
 		}
 		else if (dir == 2)
 		{
-			//leftPlane -= leftcos;
-			//backPlane -= backcos;
-			//rightPlane -= rightcos;
-
 			hloop--;
-
 			if (hloop + vloop == 0)
 				dir = 3;
 		}
 		else
 		{
-			//leftPlane -= leftsin;
-			//backPlane -= backsin;
-			//rightPlane -= rightsin;
-
 			vloop--;
-
 			if (hloop == vloop)
 				dir = 0;
 		}
-
-		i--;
 	}
 
 	// at least once we should do that
@@ -322,6 +294,43 @@ void DrawLevelDriver2(const Vector3D& cameraPos, float cameraAngleY, const Volum
 		CDriver2LevelMap::UnpackCellObject(co, drawObjects[i].pco, drawObjects[i].nearCell);
 
 		DrawCellObject(co, cameraPos, cameraAngleY, frustrumVolume, true);
+	}
+
+	if (g_displayHeightMap)
+	{
+		for (int i = 8192, dir = 0, hloop = 0, vloop = 0; i >= 0; --i)
+		{
+			VECTOR_NOPAD ipos = cameraPosition;
+			ipos.vx += hloop * 1024;
+			ipos.vz += vloop * 1024;
+
+			DebugDrawDriver2HeightmapCell(ipos);
+
+			if (dir == 0)
+			{
+				hloop++;
+				if (hloop + vloop == 1)
+					dir = 1;
+			}
+			else if (dir == 1)
+			{
+				vloop++;
+				if (hloop == vloop)
+					dir = 2;
+			}
+			else if (dir == 2)
+			{
+				hloop--;
+				if (hloop + vloop == 0)
+					dir = 3;
+			}
+			else
+			{
+				vloop--;
+				if (hloop == vloop)
+					dir = 0;
+			}
+		}
 	}
 
 	if (g_displayRoadConnections)

@@ -68,10 +68,27 @@ struct CELL_ITERATOR_D2
 	int						listType;
 };
 
-typedef short* (*sdBspCallback)(sdNode* node, XZPAIR* pos);
+typedef void (*sdBspWalkFunc)(int level, sdNode* parent, sdNode* node, sdPlane* planeData, int depth, int side, void* userData);
+
+/* default walker impl for sdBspWalkFunc
+void BSPWalkNode_R(int level, sdNode* parent, sdNode* node, sdPlane* planeData, int depth, int side)
+{
+	if (*(short*)node == 0x7fff)
+		return;	// end marker
+
+	if (!node->node)
+	{
+		// encountered a plane (leaf)
+		return;
+	}
+
+	BSPWalkNode_R(level, node, node + 1, planeData, depth + 1, 0);
+	BSPWalkNode_R(level, node, node + node->offset, planeData, depth + 1, 1);
+}
+*/
 
 // standard BSP walker
-short* SdGetBSP(sdNode* node, XZPAIR* pos);
+short* SdGetBSP(sdNode* node, const XZPAIR& pos);
 
 // Driver 2 region
 class CDriver2LevelRegion : public CBaseLevelRegion
@@ -87,7 +104,8 @@ public:
 	// cell iterator
 	PACKED_CELL_OBJECT*		StartIterator(CELL_ITERATOR_D2* iterator, int cellNumber) const;
 
-	sdPlane*				SdGetCell(const VECTOR_NOPAD& position, int& sdLevel, sdBspCallback bspWalker) const;
+	sdPlane*				SdGetCell(const VECTOR_NOPAD& position, int& sdLevel) const;
+	void					IterateHeightmapAtCell(const VECTOR_NOPAD& cPosition, sdBspWalkFunc bspWalker, void* userData) const;
 
 	// returns road ID based on the heightmap data. Stores surface height in position.vy
 	int						RoadInCell(VECTOR_NOPAD& position) const;

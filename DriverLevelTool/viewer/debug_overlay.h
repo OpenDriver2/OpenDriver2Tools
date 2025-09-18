@@ -11,6 +11,7 @@ void DebugOverlay_Destroy();
 void DebugOverlay_SetTransform(const Matrix4x4& transform);
 
 void DebugOverlay_Line(const Vector3D& posA, const Vector3D& posB, const ColorRGBA& color);
+void DebugOverlay_Poly(const Vector3D& p0, const Vector3D& p1, const Vector3D& p2, const ColorRGBA& color);
 
 void DebugOverlay_Box(const Vector3D& mins, const Vector3D& maxs, const ColorRGBA& color);
 

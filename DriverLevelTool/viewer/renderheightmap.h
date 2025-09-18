@@ -4,6 +4,6 @@
 #include "math/Vector.h"
 struct VECTOR_NOPAD;
 
-void DebugDrawDriver2HeightmapCell(const VECTOR_NOPAD& cellPos, const ColorRGBA& color);
+void DebugDrawDriver2HeightmapCell(const VECTOR_NOPAD& cellPos);
 
 #endif // RENDERHEIGHTMAP_H

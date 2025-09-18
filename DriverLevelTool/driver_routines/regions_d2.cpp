@@ -17,7 +17,7 @@
 extern sdPlane g_defaultPlane;
 extern sdPlane g_seaPlane;
 
-int SdHeightOnPlane(const VECTOR_NOPAD& position, sdPlane* plane, DRIVER2_CURVE* curves)
+int SdHeightOnPlane(const VECTOR_NOPAD& position, const sdPlane* plane, const DRIVER2_CURVE* curves)
 {
 	int angle;
 	int i, d;
@@ -34,7 +34,7 @@ int SdHeightOnPlane(const VECTOR_NOPAD& position, sdPlane* plane, DRIVER2_CURVE*
 		if ((plane->surfaceType & 0xE000) == 0x4000 && plane->b == 0)
 		{
 			// calculate curve point
-			DRIVER2_CURVE& curve = curves[(plane->surfaceType & 0x1fff) - 32];
+			const DRIVER2_CURVE& curve = curves[(plane->surfaceType & 0x1fff) - 32];
 			angle = ratan2(curve.Midz - position.vz, curve.Midx - position.vx);
 
 			return ((curve.gradient * (angle + 2048 & 4095)) / ONE) - curve.height;
@@ -47,8 +47,6 @@ int SdHeightOnPlane(const VECTOR_NOPAD& position, sdPlane* plane, DRIVER2_CURVE*
 			if (i == 0x4000)
 				return -d;
 
-			//const int half_cell_size = m_mapInfo.cell_size / 2;
-
 			lx = (int)plane->a * ((position.vx - 512 & 0xffff) + 512);
 			ly = (int)plane->c * ((position.vz - 512 & 0xffff) + 512);
 
@@ -60,13 +58,12 @@ int SdHeightOnPlane(const VECTOR_NOPAD& position, sdPlane* plane, DRIVER2_CURVE*
 }
 
 // walk BSP nodes
-short* SdGetBSP(sdNode* node, XZPAIR* pos)
+short* SdGetBSP(sdNode* node, const XZPAIR& pos)
 {
 	while (node->node < 0)
 	{
-		int ang = node->angle;
-		int dot = pos->z * icos(ang) - pos->x * isin(ang);
-
+		const int ang = node->angle;
+		const int dot = pos.z * icos(ang) - pos.x * isin(ang);
 		if (dot < node->dist * 4096)
 			node++;
 		else
@@ -99,36 +96,63 @@ sdPlane* FindRoadInBSP(sdNode* node, sdPlane* base)
 	return plane;
 }
 
-// walk the heightmap to get a cPosition
-sdPlane* CDriver2LevelRegion::SdGetCell(const VECTOR_NOPAD& cPosition, int& sdLevel, sdBspCallback bspWalker) const
+void CDriver2LevelRegion::IterateHeightmapAtCell(const VECTOR_NOPAD& cPosition, sdBspWalkFunc bspWalker, void* userData) const
 {
-	bool nextLevel;
-	sdPlane* plane;
-	short* surface;
-	short* BSPSurface;
-	XZPAIR cell;
+	if (!m_surfaceData)
+		return;
 
-	plane = nullptr;
+	const short* surface = &m_surfaceData[(cPosition.vx >> 10 & 63) + (cPosition.vz >> 10 & 63) * 64];
+	if (*surface == -1)
+		return;
 
+	const short* surfaceStart = surface;
+
+	const bool oldMethod = m_owner->m_format == LEV_FORMAT_DRIVER2_ALPHA16;
+	const bool isMultiLevel = oldMethod ? (*surface & 0x8000) : (*surface & 0x6000) == 0x2000;
+
+	int level = 0;
+	auto WalkCellSurface = [&]() {
+		if (*surface & 0x4000)
+		{
+			sdNode* node = &m_nodeData[*surface & (oldMethod ? 0x1fff : 0x3fff)];
+			bspWalker(level, nullptr, node, m_planeData, 0, 0, userData);
+		}
+	};
+
+	if (isMultiLevel)
+	{
+		surface = &m_bspData[*surface & 0x1fff];
+		do {
+			++surface;	// skip Y height bounds
+
+			WalkCellSurface();
+
+			++surface;
+			++level;
+		} while (*surface != -0x8000); // end flag
+
+		surface += 1;
+	}
+
+	WalkCellSurface();
+}
+
+// walk the heightmap to get a cPosition
+sdPlane* CDriver2LevelRegion::SdGetCell(const VECTOR_NOPAD& cPosition, int& sdLevel) const
+{
 	sdLevel = 0;
 
 	if (!m_surfaceData)
 		return nullptr;
 
-	// FIXME: divide by cell size??
-	surface = &m_surfaceData[(cPosition.vx >> 10 & 63) +
-							 (cPosition.vz >> 10 & 63) * 64];
-
-	// initial surface
+	const short* surface = &m_surfaceData[(cPosition.vx >> 10 & 63) + (cPosition.vz >> 10 & 63) * 64];
 	if (*surface == -1)
 		return &g_defaultPlane;
 
-	const bool simplerMethod = m_owner->m_format == LEV_FORMAT_DRIVER2_ALPHA16;
+	const bool oldMethod = m_owner->m_format == LEV_FORMAT_DRIVER2_ALPHA16;
+	const bool isMultiLevel = oldMethod ? (*surface & 0x8000) : (*surface & 0x6000) == 0x2000;
 
-	// check surface has overlapping planes flag (aka multiple levels)
-	if(simplerMethod ?
-		(*surface & 0x8000) : 
-		(*surface & 0x6000) == 0x2000)
+	if(isMultiLevel)
 	{
 		surface = &m_bspData[*surface & 0x1fff];
 		do {
@@ -144,7 +168,7 @@ sdPlane* CDriver2LevelRegion::SdGetCell(const VECTOR_NOPAD& cPosition, int& sdLe
 		surface += 1;
 	}
 	
-	// iterate surfaces if BSP
+	bool nextLevel;
 	do {
 		nextLevel = false;
 
@@ -152,15 +176,12 @@ sdPlane* CDriver2LevelRegion::SdGetCell(const VECTOR_NOPAD& cPosition, int& sdLe
 		// basically it determines surface bounds
 		if (*surface & 0x4000)
 		{
+			XZPAIR cell;
 			cell.x = cPosition.vx & 1023;
 			cell.z = cPosition.vz & 1023;
 
-			// get closest surface by BSP lookup
-			if(simplerMethod)
-				BSPSurface = bspWalker(&m_nodeData[*surface & 0x1fff], &cell);
-			else
-				BSPSurface = bspWalker(&m_nodeData[*surface & 0x3fff], &cell);
-
+			sdNode* node = &m_nodeData[*surface & (oldMethod ? 0x1fff : 0x3fff)];
+			const short* BSPSurface = SdGetBSP(node, cell);
 			if (*BSPSurface == 0x7fff)
 			{
 				sdLevel++;
@@ -173,8 +194,7 @@ sdPlane* CDriver2LevelRegion::SdGetCell(const VECTOR_NOPAD& cPosition, int& sdLe
 		}
 	} while (nextLevel);
 
-	plane = &m_planeData[*surface];
-
+	sdPlane* plane = &m_planeData[*surface];
 	if (((int)plane & 3) != 0 || *(int*)plane == -1)
 	{
 		return nullptr;
@@ -705,7 +725,7 @@ void CDriver2LevelMap::FindSurface(const VECTOR_NOPAD& position, VECTOR_NOPAD& o
 
 	if (region)
 	{
-		const sdPlane* foundPlane = region->SdGetCell(cellPos, level, SdGetBSP);
+		const sdPlane* foundPlane = region->SdGetCell(cellPos, level);
 
 		if (foundPlane)
 			outPlane = *foundPlane;
