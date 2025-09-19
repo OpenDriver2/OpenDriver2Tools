@@ -33,7 +33,7 @@
 #include "imgui_internal.h"
 #include <util/util.h>
 
-struct _EMPTY{};
+struct _EMPTY {};
 template<typename KEY>
 using Set = Map<KEY, _EMPTY>;
 
@@ -600,9 +600,18 @@ void DisplayExportUI()
 		}
 		else if (g_exportMode == 3)
 		{
+			static int showDetailsUsage = -1;
 			static int texturePageIdx = 0;
 			ImGui::SetNextItemWidth(128);
-			ImGui::InputInt("Preview TPage", &texturePageIdx);
+
+			static Map<uint, Set<int>> s_modelUsedPageDetails;
+			static Set<int> s_selectedTpageUsedModels;
+
+			if (ImGui::InputInt("Preview TPage", &texturePageIdx)) {
+				s_modelUsedPageDetails.clear();
+				s_selectedTpageUsedModels.clear();
+				showDetailsUsage = -1;
+			}
 			texturePageIdx = clamp(texturePageIdx, 0, g_levTextures.GetTPageCount()-1);
 
 			CTexturePage* tpage = g_levTextures.GetTPage(texturePageIdx);
@@ -624,69 +633,62 @@ void DisplayExportUI()
 				ImGui::EndChild();
 			}
 
-			static Map<uint, Set<MODEL*>> modelUsedPageDetails;
-			modelUsedPageDetails.clear();
+			auto countTextureRefs = [](MODEL* model, int id) {
+				if (!model)
+					return;
 
-			if(g_viewerMode >= 1)
-			{
-				ModelRef_t* ref = (g_viewerMode == 2) ? &g_carModelRef : g_levModels.GetModelByIndex(g_currentModel);
-				if (ref && ref->model)
+				int face_ofs = 0;
+				dpoly_t dec_face;
+
+				// go through all polygons
+				for (int i = 0; i < model->num_polys; i++)
 				{
-					MODEL* model = ref->model;
-					int face_ofs = 0;
+					const char* facedata = model->pPolyAt(face_ofs);
+
 					dpoly_t dec_face;
+					const int poly_size = decode_poly(facedata, &dec_face);
 
-					// go through all polygons
-					for (int i = 0; i < model->num_polys; i++)
-					{
-						const char* facedata = model->pPolyAt(face_ofs);
+					const uint key = (uint)dec_face.page | ((uint)dec_face.detail << 16);
 
-						dpoly_t dec_face;
-						const int poly_size = decode_poly(facedata, &dec_face);
+					auto it = s_modelUsedPageDetails.find(key);
+					if (it == s_modelUsedPageDetails.end())
+						it = s_modelUsedPageDetails.insert(key, {});
+					(*it).insert(id, {});
 
-						const uint key = (uint)dec_face.page | ((uint)dec_face.detail << 16);
+					if(dec_face.page == texturePageIdx)
+						s_selectedTpageUsedModels.insert(id, {});
 
-						auto it = modelUsedPageDetails.find(key);
-						if (it == modelUsedPageDetails.end())
-							it = modelUsedPageDetails.insert(key, {});
-						(*it).insert(model, {});
-
-						face_ofs += poly_size;
-					}
+					face_ofs += poly_size;
 				}
-			}
-			else
+			};
+
+			if (s_modelUsedPageDetails.isEmpty())
 			{
-				for (int i = 0; i < MAX_MODELS; i++)
+				if (g_viewerMode >= 1)
 				{
-					ModelRef_t* ref = g_levModels.GetModelByIndex(i);
-
-					if (ref && ref->model)
+					ModelRef_t* ref = (g_viewerMode == 2) ? &g_carModelRef : g_levModels.GetModelByIndex(g_currentModel);
+					if(ref)
+						countTextureRefs(ref->model, 0);
+				}
+				else
+				{
+					for (int i = 0; i < MAX_MODELS; i++)
 					{
-						MODEL* model = ref->model;
-						int face_ofs = 0;
-						dpoly_t dec_face;
+						ModelRef_t* ref = g_levModels.GetModelByIndex(i);
+						if (ref)
+							countTextureRefs(ref->model, i);
+					}
 
-						// go through all polygons
-						for (int i = 0; i < model->num_polys; i++)
-						{
-							const char* facedata = model->pPolyAt(face_ofs);
-
-							dpoly_t dec_face;
-							const int poly_size = decode_poly(facedata, &dec_face);
-
-							const uint key = (uint)dec_face.page | ((uint)dec_face.detail << 16);
-
-							auto it = modelUsedPageDetails.find(key);
-							if (it == modelUsedPageDetails.end())
-								it = modelUsedPageDetails.insert(key, {});
-							(*it).insert(model, {});
-
-							face_ofs += poly_size;
-						}
+					for (int i = 0; i < MAX_CAR_MODELS; i++)
+					{
+						CarModelData_t* cmData = g_levModels.GetCarModel(i);
+						countTextureRefs(cmData->cleanmodel, i | 0x2000);
+						countTextureRefs(cmData->lowmodel, i | 0x1000);
+						// we don't count damage models because vertices only used
 					}
 				}
 			}
+
 
 			ImGui::SameLine();
 			if (ImGui::BeginChild("##details", ImVec2(0, 256)))
@@ -696,12 +698,15 @@ void DisplayExportUI()
 				{
 					for (int n = 0; n < tpage->GetDetailCount(); n++)
 					{
-						auto it = modelUsedPageDetails.find((uint)texturePageIdx | ((uint)n << 16));
+						auto it = s_modelUsedPageDetails.find((uint)texturePageIdx | ((uint)n << 16));
 
 						TexDetailInfo_t* detail = tpage->GetTextureDetail(n);
-						ImGui::Selectable(varargs("%s (%d uses)", g_levTextures.GetTextureDetailName(&detail->info), it == modelUsedPageDetails.end() ? 0 : (*it).size()), (it != modelUsedPageDetails.end()));
+						if (ImGui::Selectable(varargs("%s (%d uses)", g_levTextures.GetTextureDetailName(&detail->info), it == s_modelUsedPageDetails.end() ? 0 : (*it).size()), (it != s_modelUsedPageDetails.end())))
+						{
+							showDetailsUsage = n;
+						}
 
-						if (ImGui::IsItemHovered())
+						if (ImGui::IsItemHovered() || showDetailsUsage == n)
 						{
 							ImVec2 detMin = imageRectMin;
 							detMin.x += (float)detail->info.x;
@@ -723,6 +728,66 @@ void DisplayExportUI()
 					ImGui::EndListBox();
 				}
 				ImGui::EndChild();
+			}
+
+			static bool showModelTpageUsage = false;
+			ImGui::Checkbox("Show models using TPage", &showModelTpageUsage);
+
+			auto showListboxModelSelection = [](Set<int>& modelIds) {
+				if (ImGui::BeginListBox("##mdl_list", ImVec2(-FLT_MIN, -FLT_MIN)))
+				{
+					for (auto it = modelIds.begin(); it != modelIds.end(); ++it)
+					{
+						const int idx = it.key() & 4095;
+						if (it.key() & 0x3000)
+						{
+							String text = String::fromPrintf("Car model %d (%s)", idx, (it.key() & 0x2000) ? "low" : "clean");
+							if (ImGui::Selectable(text, g_currentCarResidentModel == idx))
+							{
+								g_currentCarResidentModel = idx;
+								g_viewerMode = 2;
+								UpdateCarRenderModel();
+							}
+						}
+						else
+						{
+							ModelRef_t* ref = g_levModels.GetModelByIndex(idx);
+							String text = String::fromPrintf("Model %d (%s)", idx, ref->name);
+							if (ImGui::Selectable(text, g_currentModel == idx))
+							{
+								g_currentModel = idx;
+								g_viewerMode = 1;
+							}
+						}
+					}
+					ImGui::EndListBox();
+				}
+			};
+
+			if (!s_selectedTpageUsedModels.isEmpty())
+			{
+				ImGui::SetNextWindowSize(ImVec2(256, 256), ImGuiCond_Appearing);
+				if (showModelTpageUsage && ImGui::Begin("Models using TPage", &showModelTpageUsage))
+				{
+					ImGui::Text("Models using TPage %d", texturePageIdx);
+					showListboxModelSelection(s_selectedTpageUsedModels);
+					ImGui::End();
+				}
+			}
+			{
+				auto detailIt = s_modelUsedPageDetails.find((uint)texturePageIdx | ((uint)showDetailsUsage << 16));
+
+				bool show = showDetailsUsage != -1;
+				if (showDetailsUsage != -1 && ImGui::Begin("Models using Detail", &show))
+				{
+					TexDetailInfo_t* detail = tpage->GetTextureDetail(showDetailsUsage);
+
+					ImGui::Text("Models using TPage %d Detail %s", texturePageIdx, g_levTextures.GetTextureDetailName(&detail->info));
+					showListboxModelSelection(*detailIt);
+					ImGui::End();
+				}
+				if (!show)
+					showDetailsUsage = -1;
 			}
 
 			if (ImGui::Button("Export all textures"))
@@ -1120,14 +1185,15 @@ void DisplayUI(float deltaTime)
 
 				ImGuiTextFilter filter(g_modelSearchNameBuffer);
 
-				Array<ModelRef_t*> modelRefs;
+				static Array<int> modelRefs;
+				modelRefs.clear();
 
 				for (int i = 0; i < MAX_MODELS; i++)
 				{
 					ModelRef_t* itemRef = g_levModels.GetModelByIndex(i);
 
 					if (!filter.IsActive() && !itemRef->name || itemRef->name && filter.PassFilter(itemRef->name))
-						modelRefs.append(itemRef);
+						modelRefs.append(i);
 				}
 
 				if (ImGui::ListBoxHeader("", modelRefs.size(), 30))
@@ -1138,18 +1204,19 @@ void DisplayUI(float deltaTime)
 					{
 						for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
 						{
-							ModelRef_t* itemRef = modelRefs[i];
-							if (itemRef->index == -1)
+							ModelRef_t* ref = g_levModels.GetModelByIndex(modelRefs[i]);
+							if (ref->index == -1)
 								continue;
-							const bool item_selected = (itemRef->index == g_currentModel);
 
-							String item = String::fromPrintf("%d: %s%s", itemRef->index, itemRef->name ? itemRef->name : "", itemRef->model ? "" : "(empty slot)");
+							const bool item_selected = (ref->index == g_currentModel);
+
+							String item = String::fromPrintf("%d: %s%s", ref->index, ref->name ? ref->name : "", ref->model ? "" : "(empty slot)");
 
 							ImGui::PushID(i);
 
 							if (ImGui::Selectable(item, item_selected))
 							{
-								g_currentModel = itemRef->index;
+								g_currentModel = ref->index;
 							}
 
 							ImGui::PopID();
