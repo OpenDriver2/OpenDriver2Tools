@@ -1248,9 +1248,9 @@ void DisplayUI(float deltaTime)
 				}
 
 
-				if (ImGui::ListBoxHeader("", 12, 30))
+				if (ImGui::ListBoxHeader("", MAX_CAR_MODELS, 30))
 				{
-					ImGuiListClipper clipper(12, ImGui::GetTextLineHeightWithSpacing());
+					ImGuiListClipper clipper(MAX_CAR_MODELS, ImGui::GetTextLineHeightWithSpacing());
 
 					while (clipper.Step())
 					{
